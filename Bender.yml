@@ -13,7 +13,13 @@ sources:
     # Level 0
   - lowrisc_ecc/prim_secded_13_8_dec.sv
   - lowrisc_ecc/prim_secded_13_8_enc.sv
+  - lowrisc_ecc/prim_secded_22_16_dec.sv
+  - lowrisc_ecc/prim_secded_22_16_enc.sv
   - lowrisc_ecc/prim_secded_39_32_dec.sv
   - lowrisc_ecc/prim_secded_39_32_enc.sv
     # Level 1
   - ecc_sram_wrap.sv
+  - PE_XBAR_bus_ecc_dec.sv
+  - PE_XBAR_bus_ecc_enc.sv
+  - TCDM_XBAR_bus_ecc_dec.sv
+  - TCDM_XBAR_bus_ecc_enc.sv
