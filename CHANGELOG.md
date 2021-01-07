@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - ECC encoder and decoder for XBAR_bus
+- Added TMR majority voters
 
 ### Changed
 ### Removed
