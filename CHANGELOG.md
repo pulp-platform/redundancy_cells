@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add secded ECC for 64 bit datawidth
 - Add ECC encoder for XBAR_DEMUX_BUS
+- Add ECC encoder for AXI_BUS
 
 ### Changed
 ### Removed
