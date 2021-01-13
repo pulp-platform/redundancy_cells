@@ -6,12 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- ECC encoder and decoder for XBAR_bus
-- Added TMR majority voters
+- Add secded ECC for 64 bit datawidth
 
 ### Changed
 ### Removed
 ### Fixed
+
+## 0.2.0 - 2021-01-12
+### Added
+- ECC encoder and decoder for XBAR_bus (PE, TCDM) and AXI_bus
+- Added TMR majority voters
 
 ## 0.1.0 - 2020-12-30
 ### Added

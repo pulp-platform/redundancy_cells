@@ -17,6 +17,8 @@ sources:
   - lowrisc_ecc/prim_secded_22_16_enc.sv
   - lowrisc_ecc/prim_secded_39_32_dec.sv
   - lowrisc_ecc/prim_secded_39_32_enc.sv
+  - lowrisc_ecc/prim_secded_72_64_dec.sv
+  - lowrisc_ecc/prim_secded_72_64_enc.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
