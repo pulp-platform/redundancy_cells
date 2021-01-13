@@ -27,6 +27,8 @@ sources:
   - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_enc.sv
   - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_dec.sv
   - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
+  - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
+  - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
