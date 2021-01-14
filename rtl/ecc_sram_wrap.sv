@@ -14,8 +14,6 @@ module ecc_sram_wrap #(
   parameter BANK_SIZE     = 256,
   parameter INPUT_ECC     = 0, // 0: no ECC on input
                                // 1: SECDED on input
-  parameter OUTPUT_ECC    = 0, // 0: SECDED on word stores, valid bit
-                               // 1: SECDED on all stores, single cycle return (buffering)
   // Set params
   localparam DATA_IN_WIDTH = 32, // This currently only works for 32bit (39bit ecc)
   localparam BE_IN_WIDTH   = 4
@@ -27,9 +25,9 @@ module ecc_sram_wrap #(
   output logic tcdm_gnt_o
 );
   
-  localparam DATA_OUT_WIDTH = OUTPUT_ECC == 0 ? 40 : 39;
-  localparam BYTE_OUT_WIDTH = OUTPUT_ECC == 0 ? 8 : 39;
-  localparam BE_OUT_WIDTH   = OUTPUT_ECC == 0 ? 5 : 1;
+  localparam DATA_OUT_WIDTH = 39;
+  localparam BYTE_OUT_WIDTH = 39;
+  localparam BE_OUT_WIDTH   = 1;
   
   logic                         bank_req;
   logic                         bank_we;
@@ -38,42 +36,7 @@ module ecc_sram_wrap #(
   logic [BE_OUT_WIDTH-1:0]      bank_be;
   logic [DATA_OUT_WIDTH-1:0]    bank_rdata;
 
-  if ( INPUT_ECC == 0 && OUTPUT_ECC == 0 ) begin : ECC_0_ASSIGN
-    // Adds additional byte for {valid_bit, ECC_bits[6:0]}
-    // Valid bit currently used to differentiate sw (ECC working) from sb and sh (be != 4'b1111)
-    // To be deprecated
-    
-    logic [31:0] ecc_decoded;
-    assign bank_req =  tcdm_slave.req;
-    assign bank_we  = ~tcdm_slave.wen;
-    assign bank_add =  tcdm_slave.add[$clog2(BANK_SIZE)-1:0];
-    assign tcdm_gnt_o   = 1'b1;
-
-    prim_secded_39_32_enc ecc_encode (
-      .in  ( tcdm_slave.wdata ),
-      .out ( bank_wdata[38:0] )
-    );
-
-    assign bank_be = { 1'b1, tcdm_slave.be };
-    
-    prim_secded_39_32_dec ecc_decode (
-      .in         ( bank_rdata[38:0]    ),
-      .d_o        ( ecc_decoded ),
-      .syndrome_o (),
-      .err_o      ()
-    );
-    
-    always_comb begin : proc_rdata_assign
-      case ( bank_rdata[39] )
-        1'b0    : tcdm_slave.rdata = bank_rdata[31:0];
-        1'b1    : tcdm_slave.rdata = ecc_decoded;
-        default : tcdm_slave.rdata = bank_rdata[31:0];
-      endcase
-    end
-
-    assign bank_wdata[39] = tcdm_slave.be == 4'b1111 ? 1'b1 : 1'b0;
-  end // ECC_0_ASSIGN
-  else if ( INPUT_ECC == 0 && OUTPUT_ECC == 1 ) begin : ECC_1_ASSIGN
+  if ( INPUT_ECC == 0 ) begin : ECC_0_ASSIGN
     // Loads  -> loads full data
     // Stores ->
     //   If BE_in == 1111: adds ECC and stores directly
@@ -144,8 +107,8 @@ module ecc_sram_wrap #(
         be_buffer_q    <= be_buffer_d;
       end
     end
-  end // ECC_1_ASSIGN
-  else if (INPUT_ECC == 1 && OUTPUT_ECC == 1) begin : ECC_11_ASSIGN
+  end // ECC_0_ASSIGN
+  else if (INPUT_ECC == 1 ) begin : ECC_1_ASSIGN
     
     typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
     store_state_e store_state_d, store_state_q;
@@ -219,7 +182,7 @@ module ecc_sram_wrap #(
         be_buffer_q    <= be_buffer_d;
       end
     end
-  end // ECC_11_ASSIGN
+  end // ECC_1_ASSIGN
 
   tc_sram #(
     .NumWords  ( BANK_SIZE      ), // Number of Words in data array
