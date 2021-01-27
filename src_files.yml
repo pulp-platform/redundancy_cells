@@ -12,6 +12,7 @@ redundancy_cells:
     rtl/TMR_voter.sv,
     rtl/TMR_word_voter,
     # Level 1
+    rtl/ecc_concat_32_64.sv,
     rtl/ecc_sram_wrap.sv,
     rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv,
     rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv,
