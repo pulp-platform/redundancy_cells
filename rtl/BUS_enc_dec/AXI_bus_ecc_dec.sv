@@ -69,18 +69,18 @@ module AXI_bus_ecc_dec #(
   assign bus_out.ar_valid  = bus_in.ar_valid;
   assign bus_in.ar_ready   = bus_out.ar_ready;
 
-  assign bus_in.r_id       = bus_out.r_id;
-  // assign bus_in.r_data     = bus_out.r_data; // remove ecc below
-  assign bus_in.r_resp     = bus_out.r_resp;
-  assign bus_in.r_last     = bus_out.r_last;
-  assign bus_in.r_user     = bus_out.r_user[AXI_USER_WIDTH-1:0]; // remove ecc below
-  assign bus_in.r_valid    = bus_out.r_valid;
-  assign bus_out.r_ready   = bus_in.r_ready;
+  assign bus_in.r_id                       = bus_out.r_id;
+  // assign bus_in.r_data                     = bus_out.r_data; // add ecc below
+  assign bus_in.r_resp                     = bus_out.r_resp;
+  assign bus_in.r_last                     = bus_out.r_last;
+  assign bus_in.r_user[AXI_USER_WIDTH-1:0] = bus_out.r_user[AXI_USER_WIDTH-1:0]; // add ecc below
+  assign bus_in.r_valid                    = bus_out.r_valid;
+  assign bus_out.r_ready                   = bus_in.r_ready;
 
   if (AXI_DATA_WIDTH == 32) begin
     prim_secded_39_32_enc ecc_encode (
       .in  ( bus_out.r_data ),
-      .out ( {bus_in.r_user[ECC_USER_WIDTH:AXI_USER_WIDTH], bus_in.r_data } )
+      .out ( {bus_in.r_user[ECC_USER_WIDTH-1:AXI_USER_WIDTH], bus_in.r_data } )
     );
 
     prim_secded_39_32_dec ecc_decode (
@@ -92,7 +92,7 @@ module AXI_bus_ecc_dec #(
   end else if (AXI_DATA_WIDTH == 64) begin
     prim_secded_72_64_enc ecc_encode (
       .in  ( bus_out.r_data ),
-      .out ( {bus_in.r_user[ECC_USER_WIDTH:AXI_USER_WIDTH], bus_in.r_data } )
+      .out ( {bus_in.r_user[ECC_USER_WIDTH-1:AXI_USER_WIDTH], bus_in.r_data } )
     );
 
     prim_secded_72_64_dec ecc_decode (

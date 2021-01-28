@@ -4,8 +4,9 @@ package:
     - "Michael Rogenmoser <michaero@student.ethz.ch>"
 
 dependencies:
-  tech_cells_generic: { git: "git@github.com:pulp-platform/tech_cells_generic.git", version: 0.2.2 }
-  axi:                { git: "git@github.com:pulp-platform/axi.git", version: 0.24.1 }
+  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.2 }
+  axi:                { git: "https://github.com/pulp-platform/axi.git", version: 0.24.1 }
+  hci:                { git: "https://github.com/micprog/hci.git", rev: "ecc" }
 
 sources:
     # Source files grouped in levels. Files in level 0 have no dependencies on files in this
@@ -27,6 +28,10 @@ sources:
   - rtl/ecc_sram_wrap.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
+  - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
+  - rtl/BUS_enc_dec/hci_core_intf_ecc_enc.sv
+  - rtl/BUS_enc_dec/hci_mem_intf_ecc_dec.sv
+  - rtl/BUS_enc_dec/hci_mem_intf_ecc_enc.sv
   - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_dec.sv
   - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_enc.sv
   - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_dec.sv
