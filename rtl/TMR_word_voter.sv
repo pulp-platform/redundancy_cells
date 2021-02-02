@@ -19,7 +19,8 @@ module TMR_word_voter #(
   input  logic [DATA_WIDTH-1:0] in_b,
   input  logic [DATA_WIDTH-1:0] in_c,
   output logic [DATA_WIDTH-1:0] out,
-  output logic                  error
+  output logic                  error,
+  output logic [           2:0] error_cba
 );
 
   logic match_ab, match_bc, match_ac;
@@ -30,6 +31,10 @@ module TMR_word_voter #(
   assign error = ~(match_ab | match_bc | match_ac);
 
   assign out = (match_ac&&in_a)|(~match_ac&&in_b);
+
+  assign error_cba[0] = error && match_bc;
+  assign error_cba[1] = error && match_ac;
+  assign error_cba[2] = error && match_ab;
 
 endmodule
 
