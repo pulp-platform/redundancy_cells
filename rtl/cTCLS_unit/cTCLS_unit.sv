@@ -10,6 +10,8 @@
 //
 // configurable Tripli-Core Lock-Step unit
 
+`include "register_interface/typedef.svh"
+
 module cTCLS_unit #(
   parameter int unsigned InstrRdataWidth,
   parameter int unsigned NExtPerfCounters,
@@ -46,15 +48,15 @@ module cTCLS_unit #(
 
   input  logic [2:0]                       intc_debug_req_i,
 
-  output logic [2:0]                       intc_core_bus_req_o,
-  output logic [2:0][                31:0] intc_core_bus_add_o,
-  output logic [2:0]                       intc_core_bus_wen_o,
-  output logic [2:0][       DataWidth-1:0] intc_core_bus_wdata_o,
-  output logic [2:0][         BEWidth-1:0] intc_core_bus_be_o,
-  input  logic [2:0]                       intc_core_bus_gnt_i,
-  input  logic [2:0]                       intc_core_bus_r_opc_i,
-  input  logic [2:0][       DataWidth-1:0] intc_core_bus_r_rdata_i,
-  input  logic [2:0]                       intc_core_bus_r_valid_i,
+  output logic [2:0]                       intc_data_req_o,
+  output logic [2:0][                31:0] intc_data_add_o,
+  output logic [2:0]                       intc_data_wen_o,
+  output logic [2:0][       DataWidth-1:0] intc_data_wdata_o,
+  output logic [2:0][         BEWidth-1:0] intc_data_be_o,
+  input  logic [2:0]                       intc_data_gnt_i,
+  input  logic [2:0]                       intc_data_r_opc_i,
+  input  logic [2:0][       DataWidth-1:0] intc_data_r_rdata_i,
+  input  logic [2:0]                       intc_data_r_valid_i,
 
   input  logic [2:0][NExtPerfCounters-1:0] intc_perf_counters_i,
 
@@ -83,20 +85,26 @@ module cTCLS_unit #(
 
   output logic [2:0]                       core_debug_req_o,
 
-  input  logic [2:0]                       core_core_bus_req_i,
-  input  logic [2:0][                31:0] core_core_bus_add_i,
-  input  logic [2:0]                       core_core_bus_wen_i,
-  input  logic [2:0][       DataWidth-1:0] core_core_bus_wdata_i,
-  input  logic [2:0][         BEWidth-1:0] core_core_bus_be_i,
-  output logic [2:0]                       core_core_bus_gnt_o,
-  output logic [2:0]                       core_core_bus_r_opc_o,
-  output logic [2:0][       DataWidth-1:0] core_core_bus_r_rdata_o,
-  output logic [2:0]                       core_core_bus_r_valid_o,
+  input  logic [2:0]                       core_data_req_i,
+  input  logic [2:0][                31:0] core_data_add_i,
+  input  logic [2:0]                       core_data_wen_i,
+  input  logic [2:0][       DataWidth-1:0] core_data_wdata_i,
+  input  logic [2:0][         BEWidth-1:0] core_data_be_i,
+  output logic [2:0]                       core_data_gnt_o,
+  output logic [2:0]                       core_data_r_opc_o,
+  output logic [2:0][       DataWidth-1:0] core_data_r_rdata_o,
+  output logic [2:0]                       core_data_r_valid_o,
 
   output logic [2:0][NExtPerfCounters-1:0] core_perf_counters_o
 
   // APU/SHARED_FPU not implemented
 );
+  
+  import ctcls_manager_reg_pkg::* ;
+  `REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
+
+  tcls_req_t speriph_request;
+  tcls_rsp_t speriph_response;
 
   typedef enum logic {NORMAL, TMR} redundancy_mode_e;
 
@@ -107,7 +115,7 @@ module cTCLS_unit #(
   logic TMR_error_detect;
 
   localparam TOTAL_DATA_WIDTH = 5+5+32+32+DataWidth+BEWidth;
-  logic [TOTAL_DATA_WIDTH-1:0] TMR_data_out;
+  logic      [TOTAL_DATA_WIDTH-1:0] TMR_data_out;
   logic [2:0][TOTAL_DATA_WIDTH-1:0] TMR_data_in;
 
   logic                 core_busy;
@@ -124,6 +132,40 @@ module cTCLS_unit #(
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
 
+  // Slave Peripheral communication 
+  assign speriph_request.addr = speriph_slave.add;
+  assign speriph_request.write = ~speriph_slave.wen;
+  assign speriph_request.wdata = speriph_slave.wdata;
+  assign speriph_request.wstrb = speriph_slave.be;
+  assign speriph_request.valid = speriph_slave.req;
+
+  assign speriph_slave.r_rdata = speriph_response.rdata;
+  assign speriph_slave.r_opc = speriph_response.error;
+  assign speriph_slave.gnt = speriph_response.ready; // This likely needs fixing...
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_speriph
+    if(~rst_ni) begin
+      speriph_slave.r_id <= '0;
+      speriph_slave.r_valid <= '0;
+    end else begin
+      speriph_slave.r_id <= speriph_slave.id;
+      speriph_slave.r_valid <= speriph_slave.gnt; // This likely needs fixing...
+    end
+  end
+
+  ctcls_manager_reg_top #(
+    .reg_req_t ( tcls_req_t ),
+    .reg_rsp_t ( tcls_rsp_t )
+  ) registers (
+    .clk_i     ( clk_i            ),
+    .rst_ni    ( rst_ni           ),
+    .reg_req_i ( speriph_request  ),
+    .reg_rsp_o ( speriph_response ),
+    .reg2hw    (                  ),
+    .hw2reg    (                  ),
+    .devmode_i ( '0               )
+  );
+
   // TMR Voter
   assign { core_busy,
     irq_ack, irq_ack_id,
@@ -137,23 +179,23 @@ module cTCLS_unit #(
     core_core_busy_i[0],
     core_irq_ack_i[0], core_irq_ack_id_i[0],
     core_instr_req_i[0], core_instr_addr_i[0],
-    core_core_bus_req_i[0], core_core_bus_add_i[0],
-    core_core_bus_wen_i[0], core_core_bus_wdata_i[0],
-    core_core_bus_be_i[0] };
+    core_data_req_i[0], core_data_add_i[0],
+    core_data_wen_i[0], core_data_wdata_i[0],
+    core_data_be_i[0] };
   assign TMR_data_in[1] = {
     core_core_busy_i[1],
     core_irq_ack_i[1], core_irq_ack_id_i[1],
     core_instr_req_i[1], core_instr_addr_i[1],
-    core_core_bus_req_i[1], core_core_bus_add_i[1],
-    core_core_bus_wen_i[1], core_core_bus_wdata_i[1],
-    core_core_bus_be_i[1] };
+    core_data_req_i[1], core_data_add_i[1],
+    core_data_wen_i[1], core_data_wdata_i[1],
+    core_data_be_i[1] };
   assign TMR_data_in[2] = {
     core_core_busy_i[2],
     core_irq_ack_i[2], core_irq_ack_id_i[2],
     core_instr_req_i[2], core_instr_addr_i[2],
-    core_core_bus_req_i[2], core_core_bus_add_i[2],
-    core_core_bus_wen_i[2], core_core_bus_wdata_i[2],
-    core_core_bus_be_i[2] };
+    core_data_req_i[2], core_data_add_i[2],
+    core_data_wen_i[2], core_data_wdata_i[2],
+    core_data_be_i[2] };
 
   TMR_word_voter #(
     .DATA_WIDTH ( TOTAL_DATA_WIDTH )
@@ -165,8 +207,6 @@ module cTCLS_unit #(
     .error     ( TMR_error        ),
     .error_cba ( TMR_error_detect )
   );
-
-  // TODO: implement speriph port for communication
 
   always_comb begin : proc_fsm
     red_mode_d = red_mode_q;  // TODO: Implement FSM logic
@@ -223,41 +263,41 @@ module cTCLS_unit #(
   always_comb begin : proc_data_assign
     if (red_mode_q == NORMAL) begin
       for (int i = 0; i < 3; i++) begin
-        intc_core_bus_req_o[i]    = core_core_bus_req_i[i];
-        intc_core_bus_add_o[i]    = core_core_bus_add_i[i];
-        intc_core_bus_wen_o[i]    = core_core_bus_wen_i[i];
-        intc_core_bus_wdata_o[i]  = core_core_bus_wdata_i[i];
-        intc_core_bus_be_o[i]     = core_core_bus_be_i[i];
+        intc_data_req_o[i]    = core_data_req_i[i];
+        intc_data_add_o[i]    = core_data_add_i[i];
+        intc_data_wen_o[i]    = core_data_wen_i[i];
+        intc_data_wdata_o[i]  = core_data_wdata_i[i];
+        intc_data_be_o[i]     = core_data_be_i[i];
 
-        core_core_bus_gnt_o[i]     = intc_core_bus_gnt_i[i];
-        core_core_bus_r_rdata_o[i] = intc_core_bus_r_rdata_i[i];
-        core_core_bus_r_opc_o[i]   = intc_core_bus_r_opc_i[i];
-        core_core_bus_r_valid_o[i] = intc_core_bus_r_valid_i[i];
+        core_data_gnt_o[i]     = intc_data_gnt_i[i];
+        core_data_r_rdata_o[i] = intc_data_r_rdata_i[i];
+        core_data_r_opc_o[i]   = intc_data_r_opc_i[i];
+        core_data_r_valid_o[i] = intc_data_r_valid_i[i];
       end
     end else begin
-      intc_core_bus_req_o[0]    = data_req;
-      intc_core_bus_add_o[0]    = data_add;
-      intc_core_bus_wen_o[0]    = data_wen;
-      intc_core_bus_wdata_o[0]  = data_wdata;
-      intc_core_bus_be_o[0]     = data_be;
+      intc_data_req_o[0]    = data_req;
+      intc_data_add_o[0]    = data_add;
+      intc_data_wen_o[0]    = data_wen;
+      intc_data_wdata_o[0]  = data_wdata;
+      intc_data_be_o[0]     = data_be;
       
-      intc_core_bus_req_o[1]    = '0;
-      intc_core_bus_add_o[1]    = '0;
-      intc_core_bus_wen_o[1]    = '0;
-      intc_core_bus_wdata_o[1]  = '0;
-      intc_core_bus_be_o[1]     = '0;
+      intc_data_req_o[1]    = '0;
+      intc_data_add_o[1]    = '0;
+      intc_data_wen_o[1]    = '0;
+      intc_data_wdata_o[1]  = '0;
+      intc_data_be_o[1]     = '0;
 
-      intc_core_bus_req_o[2]    = '0;
-      intc_core_bus_add_o[2]    = '0;
-      intc_core_bus_wen_o[2]    = '0;
-      intc_core_bus_wdata_o[2]  = '0;
-      intc_core_bus_be_o[2]     = '0;
+      intc_data_req_o[2]    = '0;
+      intc_data_add_o[2]    = '0;
+      intc_data_wen_o[2]    = '0;
+      intc_data_wdata_o[2]  = '0;
+      intc_data_be_o[2]     = '0;
 
       for (int i = 0; i < 3; i++) begin
-        core_core_bus_gnt_o[i]     = intc_core_bus_gnt_i[i];
-        core_core_bus_r_rdata_o[i] = intc_core_bus_r_rdata_i[i];
-        core_core_bus_r_opc_o[i]   = intc_core_bus_r_opc_i[i];
-        core_core_bus_r_valid_o[i] = intc_core_bus_r_valid_i[i];
+        core_data_gnt_o[i]     = intc_data_gnt_i[0];
+        core_data_r_rdata_o[i] = intc_data_r_rdata_i[0];
+        core_data_r_opc_o[i]   = intc_data_r_opc_i[0];
+        core_data_r_valid_o[i] = intc_data_r_valid_i[0];
       end
     end
   

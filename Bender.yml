@@ -8,6 +8,7 @@ dependencies:
   axi:                { git: "https://github.com/pulp-platform/axi.git", version: 0.24.1 }
   hci:                { git: "https://github.com/micprog/hci.git", rev: "ecc" }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.0 }
+  register_interface: { git: "https://github.com/pulp-platform/register_interface.git", version: 0.2.1 }
 
 sources:
     # Source files grouped in levels. Files in level 0 have no dependencies on files in this
@@ -22,10 +23,14 @@ sources:
   - lowrisc_ecc/prim_secded_39_32_enc.sv
   - lowrisc_ecc/prim_secded_72_64_dec.sv
   - lowrisc_ecc/prim_secded_72_64_enc.sv
+  - rtl/cTCLS_unit/ctcls_manager_reg_pkg.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
-  - rtl/cTCLS_unit.sv
+  - include_dirs:
+      - rtl/cTCLS_unit
+    files:
+      - rtl/cTCLS_unit/ctcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_sram_wrap.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
@@ -42,6 +47,7 @@ sources:
   - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
+  - rtl/cTCLS_unit/cTCLS_unit.sv
   - rtl/bitwise_TMR_voter.sv
   - target: test
     files:
