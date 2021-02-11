@@ -20,7 +20,8 @@ module bitwise_TMR_voter #(
   output logic [DATA_WIDTH-1:0] out,
   output logic err_a,
   output logic err_b,
-  output logic err_c
+  output logic err_c,
+  output logic error
 );
   
   logic [DATA_WIDTH-1:0] err_a_all, err_b_all, err_c_all;
@@ -42,6 +43,7 @@ module bitwise_TMR_voter #(
   assign err_a = |err_a_all;
   assign err_b = |err_b_all;
   assign err_c = |err_c_all;
+  assign error = err_a && err_b || err_a && err_c || err_b && err_c;
 
 endmodule
 

@@ -13,28 +13,34 @@
 // based on https://doi.org/10.1109/VTEST.2000.843880
 
 module TMR_word_voter #(
-  parameter DATA_WIDTH = 32
+  parameter DataWidth = 32
 ) (
-  input  logic [DATA_WIDTH-1:0] in_a,
-  input  logic [DATA_WIDTH-1:0] in_b,
-  input  logic [DATA_WIDTH-1:0] in_c,
-  output logic [DATA_WIDTH-1:0] out,
-  output logic                  error,
-  output logic [           2:0] error_cba
+  input  logic [DataWidth-1:0] in_a,
+  input  logic [DataWidth-1:0] in_b,
+  input  logic [DataWidth-1:0] in_c,
+  output logic [DataWidth-1:0] out,
+  output logic                 error,
+  output logic [          2:0] error_cba
 );
 
   logic match_ab, match_bc, match_ac;
+  logic mismatch;
 
   assign match_ab = &(in_a~^in_b);
   assign match_bc = &(in_b~^in_c);
   assign match_ac = &(in_a~^in_c);
   assign error = ~(match_ab | match_bc | match_ac);
+  assign mismatch = ~(match_ab & match_bc & match_ac);
 
-  assign out = (match_ac&&in_a)|(~match_ac&&in_b);
+  for (genvar i = 0; i < DataWidth; i++) begin
+    assign out[i] = (match_ac && in_a[i]) || (~match_ac && in_b[i]);
+  end
 
-  assign error_cba[0] = error && match_bc;
-  assign error_cba[1] = error && match_ac;
-  assign error_cba[2] = error && match_ab;
+  // assign out = (match_ac&&in_a)|(~match_ac&&in_b);
+
+  assign error_cba[0] = mismatch && match_bc;
+  assign error_cba[1] = mismatch && match_ac;
+  assign error_cba[2] = mismatch && match_ab;
 
 endmodule
 

@@ -31,8 +31,8 @@ module TMR_voter_detect #(
     .out
   );
 
-  assign err_a = (in_a != out);
-  assign err_b = (in_b != out);
-  assign err_c = (in_c != out); 
+  assign err_a = (in_a ^ out);
+  assign err_b = (in_b ^ out);
+  assign err_c = (in_c ^ out); 
 
 endmodule
