@@ -11,48 +11,54 @@
 // Adapts bus to sram adding ecc bits
 
 module ecc_sram_wrap #(
-  parameter BANK_SIZE     = 256,
-  parameter INPUT_ECC     = 0, // 0: no ECC on input
-                               // 1: SECDED on input
+  parameter  BankSize         = 256,
+  parameter  InputECC         = 0, // 0: no ECC on input
+                                   // 1: SECDED on input
   // Set params
-  localparam DATA_IN_WIDTH = 32, // This currently only works for 32bit (39bit ecc)
-  localparam BE_IN_WIDTH   = 4
+  parameter  UnprotectedWidth = 32, // This currently only works for 32bit
+  parameter  ProtectedWidth   = 39, // This currently only works for 39bit
+  localparam DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
+  localparam BEInWidth        = UnprotectedWidth/8,
+  localparam BankAddWidth     = $clog2(BankSize)
 ) (
-  input  logic clk_i,
-  input  logic rst_ni,
+  input  logic                   clk_i,
+  input  logic                   rst_ni,
 
-  TCDM_BANK_MEM_BUS.Slave tcdm_slave,
-  output logic tcdm_gnt_o
+  input  logic [DataInWidth-1:0] tcdm_wdata_i,
+  input  logic [           31:0] tcdm_add_i,
+  input  logic                   tcdm_req_i,
+  input  logic                   tcdm_wen_i,
+  input  logic [  BEInWidth-1:0] tcdm_be_i,
+  output logic [DataInWidth-1:0] tcdm_rdata_o,
+  output logic                   tcdm_gnt_o
 );
-  
-  localparam DATA_OUT_WIDTH = 39;
-  localparam BYTE_OUT_WIDTH = 39;
-  localparam BE_OUT_WIDTH   = 1;
-  
-  logic                         bank_req;
-  logic                         bank_we;
-  logic [$clog2(BANK_SIZE)-1:0] bank_add;
-  logic [DATA_OUT_WIDTH-1:0]    bank_wdata;
-  logic [BE_OUT_WIDTH-1:0]      bank_be;
-  logic [DATA_OUT_WIDTH-1:0]    bank_rdata;
+    
+  logic                      bank_req;
+  logic                      bank_we;
+  logic [  BankAddWidth-1:0] bank_add;
+  logic [ProtectedWidth-1:0] bank_wdata;
+  logic                      bank_be;
+  logic [ProtectedWidth-1:0] bank_rdata;
 
-  if ( INPUT_ECC == 0 ) begin : ECC_0_ASSIGN
+  assign bank_be = 1'b1;
+
+  if ( InputECC == 0 ) begin : ECC_0_ASSIGN
     // Loads  -> loads full data
     // Stores ->
     //   If BE_in == 1111: adds ECC and stores directly
     //   If BE_in != 1111: loads stored and buffers input (responds success to store command)
     //                     re-calculates ECC and stores correctly
     
-    logic [DATA_IN_WIDTH-1:0] to_store;
-    logic [DATA_IN_WIDTH-1:0] loaded;
-    logic [DATA_IN_WIDTH-1:0] be_selector;
+    logic [DataInWidth-1:0] to_store;
+    logic [DataInWidth-1:0] loaded;
+    logic [DataInWidth-1:0] be_selector;
 
     typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
     store_state_e store_state_d, store_state_q;
 
-    logic [DATA_IN_WIDTH-1:0] input_buffer_d, input_buffer_q;
-    logic [$clog2(BANK_SIZE)-1:0] add_buffer_d, add_buffer_q;
-    logic [BE_IN_WIDTH-1:0] be_buffer_d, be_buffer_q;
+    logic [ DataInWidth-1:0] input_buffer_d, input_buffer_q;
+    logic [BankAddWidth-1:0] add_buffer_d, add_buffer_q;
+    logic [   BEInWidth-1:0] be_buffer_d, be_buffer_q;
 
     prim_secded_39_32_dec ecc_decode (
       .in         ( bank_rdata ),
@@ -66,22 +72,21 @@ module ecc_sram_wrap #(
       .out ( bank_wdata )
     );
 
-    assign tcdm_slave.rdata = loaded;
-    assign bank_be = 1'b1;
-    assign add_buffer_d = tcdm_slave.add[$clog2(BANK_SIZE)-1:0];
-    assign input_buffer_d = tcdm_slave.wdata;
-    assign be_buffer_d = tcdm_slave.be;
-    assign be_selector = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+    assign tcdm_rdata_o   = loaded;
+    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
+    assign input_buffer_d = tcdm_wdata_i;
+    assign be_buffer_d    = tcdm_be_i;
+    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
     always_comb begin : proc_load_and_store_comb
       store_state_d =  NORMAL;
       tcdm_gnt_o    =  1'b1;
-      to_store      =  tcdm_slave.wdata;
-      bank_we       = ~tcdm_slave.wen;
-      bank_req      =  tcdm_slave.req;
-      bank_add      =  tcdm_slave.add[$clog2(BANK_SIZE)-1:0];
+      to_store      =  tcdm_wdata_i;
+      bank_we       = ~tcdm_wen_i;
+      bank_req      =  tcdm_req_i;
+      bank_add      =  tcdm_add_i[BankAddWidth+2-1:2];
       if (store_state_q == NORMAL) begin
-        if (tcdm_slave.req & (tcdm_slave.be != 4'b1111) & ~tcdm_slave.wen) begin
+        if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
           store_state_d = LOAD_AND_STORE;
           bank_we       = 1'b0;
         end
@@ -108,26 +113,25 @@ module ecc_sram_wrap #(
       end
     end
   end // ECC_0_ASSIGN
-  else if (INPUT_ECC == 1 ) begin : ECC_1_ASSIGN
+  else if (InputECC == 1 ) begin : ECC_1_ASSIGN
     
     typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
     store_state_e store_state_d, store_state_q;
 
-    logic [39-1:0] input_buffer_d, input_buffer_q;
-    logic [$clog2(BANK_SIZE)-1:0] add_buffer_d, add_buffer_q;
-    logic [BE_IN_WIDTH-1:0] be_buffer_d, be_buffer_q;
+    logic [ DataInWidth-1:0] input_buffer_d, input_buffer_q;
+    logic [BankAddWidth-1:0] add_buffer_d, add_buffer_q;
+    logic [   BEInWidth-1:0] be_buffer_d, be_buffer_q;
 
-    logic [DATA_OUT_WIDTH-1:0] lns_wdata;
-    logic [32-1:0]             intermediate_data_ld, intermediate_data_st;
+    logic [  ProtectedWidth-1:0] lns_wdata;
+    logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
 
-    logic [31:0] be_selector;
+    logic [UnprotectedWidth-1:0] be_selector;
 
-    assign bank_be = 1'b1;
-    assign tcdm_slave.rdata = bank_rdata;
-    assign add_buffer_d     = tcdm_slave.add[$clog2(BANK_SIZE)-1:0];
-    assign input_buffer_d   = tcdm_slave.wdata;
-    assign be_buffer_d      = tcdm_slave.be;
-    assign be_selector = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+    assign tcdm_rdata_o   = bank_rdata;
+    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
+    assign input_buffer_d = tcdm_wdata_i;
+    assign be_buffer_d    = tcdm_be_i;
+    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
     prim_secded_39_32_dec ld_decode (
       .in        (bank_rdata),
@@ -151,12 +155,12 @@ module ecc_sram_wrap #(
     always_comb begin
       store_state_d =  NORMAL;
       tcdm_gnt_o    =  1'b1;
-      bank_wdata    =  tcdm_slave.wdata;
-      bank_we       = ~tcdm_slave.wen;
-      bank_req      =  tcdm_slave.req;
-      bank_add      =  tcdm_slave.add[$clog2(BANK_SIZE)-1:0];
+      bank_wdata    =  tcdm_wdata_i;
+      bank_we       = ~tcdm_wen_i;
+      bank_req      =  tcdm_req_i;
+      bank_add      =  tcdm_add_i[BankAddWidth+2-1:2];
       if (store_state_q == NORMAL) begin
-        if (tcdm_slave.req & (tcdm_slave.be != 4'b1111) & ~tcdm_slave.wen) begin
+        if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
           store_state_d = LOAD_AND_STORE;
           bank_we       = 1'b0;
         end
@@ -185,9 +189,9 @@ module ecc_sram_wrap #(
   end // ECC_1_ASSIGN
 
   tc_sram #(
-    .NumWords  ( BANK_SIZE      ), // Number of Words in data array
-    .DataWidth ( DATA_OUT_WIDTH ), // Data signal width
-    .ByteWidth ( BYTE_OUT_WIDTH ), // Width of a data byte
+    .NumWords  ( BankSize      ), // Number of Words in data array
+    .DataWidth ( ProtectedWidth ), // Data signal width
+    .ByteWidth ( ProtectedWidth ), // Width of a data byte
     .NumPorts  ( 1              ), // Number of read and write ports
     .Latency   ( 1              ), // Latency when the read data is available
     .SimInit   ( "zeros"        )
