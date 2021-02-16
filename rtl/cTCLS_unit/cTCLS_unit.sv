@@ -109,12 +109,18 @@ module cTCLS_unit #(
   redundancy_mode_e red_mode_d, red_mode_q;
 
   // TMR signals
-  logic TMR_error;
-  logic [2:0] TMR_error_detect;
+  logic       TMR_error, main_error, data_error;
+  logic [2:0] TMR_error_detect, main_error_cba, data_error_cba;
 
-  localparam TOTAL_DATA_WIDTH = 5+5+32+32+DataWidth+BEWidth;
-  logic      [TOTAL_DATA_WIDTH-1:0] TMR_data_out;
-  logic [2:0][TOTAL_DATA_WIDTH-1:0] TMR_data_in;
+  localparam MAIN_TMR_WIDTH = 1   + 1      + 5         + 1        + 32        + 1;
+  //                          busy  irq_ack  irq_ack_id  instr_req  instr_addr  data_req
+  logic      [MAIN_TMR_WIDTH-1:0] main_tmr_out;
+  logic [2:0][MAIN_TMR_WIDTH-1:0] main_tmr_in;
+
+  localparam DATA_TMR_WIDTH = 32 + 1  + DataWidth + BEWidth;
+  //                          add  wen  wdata       be
+  logic      [DATA_TMR_WIDTH-1:0] data_tmr_out;
+  logic [2:0][DATA_TMR_WIDTH-1:0] data_tmr_in;
 
   logic                 core_busy;
 
@@ -164,51 +170,60 @@ module cTCLS_unit #(
   //   .devmode_i ( '0               )
   // );
 
-  // TMR Voter
-  assign { core_busy,
-    irq_ack, irq_ack_id,
-    instr_req, instr_addr,
-    data_req, data_add,
-    data_wen, data_wdata,
-    data_be
-  } = TMR_data_out;
+  assign main_tmr_in[0] = {core_core_busy_i[0], core_irq_ack_i[0], core_irq_ack_id_i[0],
+    core_instr_req_i[0], core_instr_addr_i[0], core_data_req_i[0]};
+  assign main_tmr_in[1] = {core_core_busy_i[1], core_irq_ack_i[1], core_irq_ack_id_i[1],
+    core_instr_req_i[1], core_instr_addr_i[1], core_data_req_i[1]};
+  assign main_tmr_in[2] = {core_core_busy_i[2], core_irq_ack_i[2], core_irq_ack_id_i[2],
+    core_instr_req_i[2], core_instr_addr_i[2], core_data_req_i[2]};
 
-  assign TMR_data_in[0] = {
-    core_core_busy_i[0],
-    core_irq_ack_i[0], core_irq_ack_id_i[0],
-    core_instr_req_i[0], core_instr_addr_i[0],
-    core_data_req_i[0], core_data_add_i[0],
-    core_data_wen_i[0], core_data_wdata_i[0],
-    core_data_be_i[0] };
-  assign TMR_data_in[1] = {
-    core_core_busy_i[1],
-    core_irq_ack_i[1], core_irq_ack_id_i[1],
-    core_instr_req_i[1], core_instr_addr_i[1],
-    core_data_req_i[1], core_data_add_i[1],
-    core_data_wen_i[1], core_data_wdata_i[1],
-    core_data_be_i[1] };
-  assign TMR_data_in[2] = {
-    core_core_busy_i[2],
-    core_irq_ack_i[2], core_irq_ack_id_i[2],
-    core_instr_req_i[2], core_instr_addr_i[2],
-    core_data_req_i[2], core_data_add_i[2],
-    core_data_wen_i[2], core_data_wdata_i[2],
-    core_data_be_i[2] };
+  assign { core_busy, irq_ack, irq_ack_id,
+    instr_req, instr_addr, data_req } = main_tmr_out;
 
   bitwise_TMR_voter #(
-    .DataWidth ( TOTAL_DATA_WIDTH )
-  ) tcls_voter (
-    .in_a      ( TMR_data_in[0]   ),
-    .in_b      ( TMR_data_in[1]   ),
-    .in_c      ( TMR_data_in[2]   ),
-    .out       ( TMR_data_out     ),
-    .error     ( TMR_error        ),
-    .error_cba ( TMR_error_detect )
+    .DataWidth( MAIN_TMR_WIDTH ),
+    .VoterType( 2              )
+  ) main_voter (
+    .in_a      ( main_tmr_in[0] ),
+    .in_b      ( main_tmr_in[1] ),
+    .in_c      ( main_tmr_in[2] ),
+    .out       ( main_tmr_out   ),
+    .error     ( main_error     ),
+    .error_cba ( main_error_cba )
   );
 
+
+  assign data_tmr_in[0] = {core_data_add_i[0], core_data_wen_i[0], core_data_wdata_i[0], core_data_be_i[0]};
+  assign data_tmr_in[1] = {core_data_add_i[1], core_data_wen_i[1], core_data_wdata_i[1], core_data_be_i[1]};
+  assign data_tmr_in[2] = {core_data_add_i[2], core_data_wen_i[2], core_data_wdata_i[2], core_data_be_i[2]};
+
+  assign {data_add, data_wen, data_wdata, data_be} = data_tmr_out;
+
+  bitwise_TMR_voter #(
+    .DataWidth(DATA_TMR_WIDTH),
+    .VoterType(2)
+  ) data_voter (
+    .in_a      ( data_tmr_in[0] ),
+    .in_b      ( data_tmr_in[1] ),
+    .in_c      ( data_tmr_in[2] ),
+    .out       ( data_tmr_out   ),
+    .error     ( data_error     ),
+    .error_cba ( data_error_cba )
+  );
+
+  always_comb begin : proc_TMR_error
+    TMR_error        = main_error;
+    TMR_error_detect = main_error_cba;
+    if (data_req) begin
+      TMR_error        = main_error | data_error;
+      TMR_error_detect = main_error_cba | data_error_cba;
+    end
+  end
+
 `ifdef TARGET_SIMULATION
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (red_mode_q == TMR && TMR_error) begin
+  // initial force core_instr_req_i = 1'b1;
+  always @(posedge clk_i) begin
+    if (red_mode_q == TMR && TMR_error_detect != 3'b000) begin
       $display("ERROR_cba: 0b%3b\n", TMR_error_detect);
       $finish;
     end
