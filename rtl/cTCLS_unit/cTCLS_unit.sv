@@ -21,7 +21,7 @@ module cTCLS_unit #(
   input  logic                             clk_i,
   input  logic                             rst_ni,
 
-  XBAR_PERIPH_BUS.Slave                    speriph_slave,
+  // XBAR_PERIPH_BUS.Slave                    speriph_slave,
 
 
 
@@ -31,7 +31,6 @@ module cTCLS_unit #(
 
   input  logic [2:0]                       intc_clock_en_i,
   input  logic [2:0]                       intc_fetch_en_i,
-  input  logic [2:0]                       intc_fregfile_disable_i,
   input  logic [2:0][                31:0] intc_boot_addr_i,
   output logic [2:0]                       intc_core_busy_o,
 
@@ -68,7 +67,6 @@ module cTCLS_unit #(
 
   output logic [2:0]                       core_clock_en_o,
   output logic [2:0]                       core_fetch_en_o,
-  output logic [2:0]                       core_fregfile_disable_o,
   output logic [2:0][                31:0] core_boot_addr_o,
   input  logic [2:0]                       core_core_busy_i,
 
@@ -100,11 +98,11 @@ module cTCLS_unit #(
   // APU/SHARED_FPU not implemented
 );
   
-  import ctcls_manager_reg_pkg::* ;
-  `REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
+  // import ctcls_manager_reg_pkg::* ;
+  // `REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
 
-  tcls_req_t speriph_request;
-  tcls_rsp_t speriph_response;
+  // tcls_req_t speriph_request;
+  // tcls_rsp_t speriph_response;
 
   typedef enum logic {NORMAL, TMR} redundancy_mode_e;
 
@@ -112,7 +110,7 @@ module cTCLS_unit #(
 
   // TMR signals
   logic TMR_error;
-  logic TMR_error_detect;
+  logic [2:0] TMR_error_detect;
 
   localparam TOTAL_DATA_WIDTH = 5+5+32+32+DataWidth+BEWidth;
   logic      [TOTAL_DATA_WIDTH-1:0] TMR_data_out;
@@ -132,39 +130,39 @@ module cTCLS_unit #(
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
 
-  // Slave Peripheral communication 
-  assign speriph_request.addr = speriph_slave.add;
-  assign speriph_request.write = ~speriph_slave.wen;
-  assign speriph_request.wdata = speriph_slave.wdata;
-  assign speriph_request.wstrb = speriph_slave.be;
-  assign speriph_request.valid = speriph_slave.req;
+  // // Slave Peripheral communication 
+  // assign speriph_request.addr = speriph_slave.add;
+  // assign speriph_request.write = ~speriph_slave.wen;
+  // assign speriph_request.wdata = speriph_slave.wdata;
+  // assign speriph_request.wstrb = speriph_slave.be;
+  // assign speriph_request.valid = speriph_slave.req;
 
-  assign speriph_slave.r_rdata = speriph_response.rdata;
-  assign speriph_slave.r_opc = speriph_response.error;
-  assign speriph_slave.gnt = speriph_response.ready; // This likely needs fixing...
+  // assign speriph_slave.r_rdata = speriph_response.rdata;
+  // assign speriph_slave.r_opc = speriph_response.error;
+  // assign speriph_slave.gnt = speriph_response.ready; // This likely needs fixing...
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_speriph
-    if(~rst_ni) begin
-      speriph_slave.r_id <= '0;
-      speriph_slave.r_valid <= '0;
-    end else begin
-      speriph_slave.r_id <= speriph_slave.id;
-      speriph_slave.r_valid <= speriph_slave.gnt; // This likely needs fixing...
-    end
-  end
+  // always_ff @(posedge clk_i or negedge rst_ni) begin : proc_speriph
+  //   if(~rst_ni) begin
+  //     speriph_slave.r_id <= '0;
+  //     speriph_slave.r_valid <= '0;
+  //   end else begin
+  //     speriph_slave.r_id <= speriph_slave.id;
+  //     speriph_slave.r_valid <= speriph_slave.gnt; // This likely needs fixing...
+  //   end
+  // end
 
-  ctcls_manager_reg_top #(
-    .reg_req_t ( tcls_req_t ),
-    .reg_rsp_t ( tcls_rsp_t )
-  ) registers (
-    .clk_i     ( clk_i            ),
-    .rst_ni    ( rst_ni           ),
-    .reg_req_i ( speriph_request  ),
-    .reg_rsp_o ( speriph_response ),
-    .reg2hw    (                  ),
-    .hw2reg    (                  ),
-    .devmode_i ( '0               )
-  );
+  // ctcls_manager_reg_top #(
+  //   .reg_req_t ( tcls_req_t ),
+  //   .reg_rsp_t ( tcls_rsp_t )
+  // ) registers (
+  //   .clk_i     ( clk_i            ),
+  //   .rst_ni    ( rst_ni           ),
+  //   .reg_req_i ( speriph_request  ),
+  //   .reg_rsp_o ( speriph_response ),
+  //   .reg2hw    (                  ),
+  //   .hw2reg    (                  ),
+  //   .devmode_i ( '0               )
+  // );
 
   // TMR Voter
   assign { core_busy,
@@ -197,8 +195,8 @@ module cTCLS_unit #(
     core_data_wen_i[2], core_data_wdata_i[2],
     core_data_be_i[2] };
 
-  TMR_word_voter #(
-    .DATA_WIDTH ( TOTAL_DATA_WIDTH )
+  bitwise_TMR_voter #(
+    .DataWidth ( TOTAL_DATA_WIDTH )
   ) tcls_voter (
     .in_a      ( TMR_data_in[0]   ),
     .in_b      ( TMR_data_in[1]   ),
@@ -207,6 +205,15 @@ module cTCLS_unit #(
     .error     ( TMR_error        ),
     .error_cba ( TMR_error_detect )
   );
+
+`ifdef TARGET_SIMULATION
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (red_mode_q == TMR && TMR_error) begin
+      $display("ERROR_cba: 0b%3b\n", TMR_error_detect);
+      $finish;
+    end
+  end
+`endif
 
   always_comb begin : proc_fsm
     red_mode_d = red_mode_q;  // TODO: Implement FSM logic
@@ -232,7 +239,6 @@ module cTCLS_unit #(
 
         core_clock_en_o[i]         = intc_clock_en_i[i];
         core_fetch_en_o[i]         = intc_fetch_en_i[i]; // May need config on state transition
-        core_fregfile_disable_o[i] = intc_fregfile_disable_i[i];
         core_boot_addr_o[i]        = intc_boot_addr_i[i];
         core_debug_req_o[i]        = intc_debug_req_i[i];
 
@@ -251,7 +257,6 @@ module cTCLS_unit #(
 
         core_clock_en_o[i]         = intc_clock_en_i[0];
         core_fetch_en_o[i]         = intc_fetch_en_i[0]; // May need config on state transition
-        core_fregfile_disable_o[i] = intc_fregfile_disable_i[0];
         core_boot_addr_o[i]        = intc_boot_addr_i[0]; // May need special value when restoring from tcls error
         core_debug_req_o[i]        = intc_debug_req_i[0];
 
