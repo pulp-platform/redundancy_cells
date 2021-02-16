@@ -1,0 +1,2 @@
+overrides:
+  cluster_interconnect: { git: "https://github.com/micprog/cluster_interconnect.git", rev: "441a739bec11ec35d0aec0b569977f10ab1ead12" }

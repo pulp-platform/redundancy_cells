@@ -20,21 +20,21 @@ module tb_tmr_voter_test;
   logic       out_kp;
   logic       out_bn;
 
-  TMR_voter #(.VOTER_TYPE(0)) tmr_classic (
+  TMR_voter #(.VoterType(0)) tmr_classic (
     .in_a(in[0]      ),
     .in_b(in[1]      ),
     .in_c(in[2]      ),
     .out (out_classic)
   );
 
-  TMR_voter #(.VOTER_TYPE(1)) tmr_kp (
+  TMR_voter #(.VoterType(1)) tmr_kp (
     .in_a(in[0] ),
     .in_b(in[1] ),
     .in_c(in[2] ),
     .out (out_kp)
   );
 
-  TMR_voter #(.VOTER_TYPE(2)) tmr_bn (
+  TMR_voter #(.VoterType(2)) tmr_bn (
     .in_a(in[0] ),
     .in_b(in[1] ),
     .in_c(in[2] ),

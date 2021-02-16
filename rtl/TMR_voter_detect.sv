@@ -11,19 +11,17 @@
 // Triple Modular Redundancy Majority Voter (MV) for a single bit, with indication of erroneous bit
 
 module TMR_voter_detect #(
-  parameter VOTER_TYPE = 0 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
+  parameter VoterType = 0 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
   input  logic in_a,
   input  logic in_b,
   input  logic in_c,
   output logic out,
-  output logic err_a,
-  output logic err_b,
-  output logic err_c
+  output logic [2:0] error_cba
 );
 
   TMR_voter #(
-    .VOTER_TYPE ( VOTER_TYPE )
+    .VoterType ( VoterType )
   ) voter (
     .in_a,
     .in_b,
@@ -31,8 +29,8 @@ module TMR_voter_detect #(
     .out
   );
 
-  assign err_a = (in_a ^ out);
-  assign err_b = (in_b ^ out);
-  assign err_c = (in_c ^ out); 
+  assign error_cba[0] = (in_a ^ out);
+  assign error_cba[1] = (in_b ^ out);
+  assign error_cba[2] = (in_c ^ out);
 
 endmodule

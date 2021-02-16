@@ -4,8 +4,8 @@ package:
     - "Michael Rogenmoser <michaero@student.ethz.ch>"
 
 dependencies:
-  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.2 }
-  axi:                { git: "https://github.com/pulp-platform/axi.git", version: 0.24.1 }
+  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.3 }
+  axi:                { git: "https://github.com/pulp-platform/axi.git", version: 0.27.0 }
   hci:                { git: "https://github.com/micprog/hci.git", rev: "ecc" }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.0 }
   register_interface: { git: "https://github.com/pulp-platform/register_interface.git", version: 0.2.1 }
@@ -47,7 +47,10 @@ sources:
   - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
-  - rtl/cTCLS_unit/cTCLS_unit.sv
+  - include_dirs:
+      - rtl/cTCLS_unit
+    files:
+      - rtl/cTCLS_unit/cTCLS_unit.sv
   - rtl/bitwise_TMR_voter.sv
   - target: test
     files:

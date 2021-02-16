@@ -11,39 +11,44 @@
 // Triple Modular Redundancy Majority Voter (MV) for a data word
 
 module bitwise_TMR_voter #(
-  parameter DATA_WIDTH = 32,
-  parameter VOTER_TYPE = 0 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
+  parameter DataWidth = 32,
+  parameter VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
-  input  logic [DATA_WIDTH-1:0] in_a,
-  input  logic [DATA_WIDTH-1:0] in_b,
-  input  logic [DATA_WIDTH-1:0] in_c,
-  output logic [DATA_WIDTH-1:0] out,
-  output logic err_a,
-  output logic err_b,
-  output logic err_c,
-  output logic error
+  input  logic [DataWidth-1:0] in_a,
+  input  logic [DataWidth-1:0] in_b,
+  input  logic [DataWidth-1:0] in_c,
+  output logic [DataWidth-1:0] out,
+  output logic error,
+  output logic [2:0] error_cba
 );
   
-  logic [DATA_WIDTH-1:0] err_a_all, err_b_all, err_c_all;
+  logic [DataWidth-1:0] err_a_all, err_b_all, err_c_all;
 
-  for (genvar i = 0; i < DATA_WIDTH; i++) begin
+  for (genvar i = 0; i < DataWidth; i++) begin
     TMR_voter_detect #(
-      .VOTER_TYPE ( VOTER_TYPE )
+      .VoterType ( VoterType )
     ) voter_i (
       .in_a (in_a[i]),
       .in_b (in_b[i]),
       .in_c (in_c[i]),
       .out  (out[i]),
-      .err_a(err_a_all[i]),
-      .err_b(err_b_all[i]),
-      .err_c(err_c_all[i])
+      .error_cba ( { err_c_all[i], err_b_all[i], err_a_all[i] } )
     );
   end
 
-  assign err_a = |err_a_all;
-  assign err_b = |err_b_all;
-  assign err_c = |err_c_all;
-  assign error = err_a && err_b || err_a && err_c || err_b && err_c;
+  assign error_cba[0] = |err_a_all;
+  assign error_cba[1] = |err_b_all;
+  assign error_cba[2] = |err_c_all;
+  // assign error = error_cba[0] && error_cba[1] || error_cba[0] && error_cba[2] || error_cba[1] && error_cba[2];
+
+  TMR_voter #(
+    .VoterType(0)
+  ) triple_mismatch (
+    .in_a(error_cba[0]),
+    .in_b(error_cba[1]),
+    .in_c(error_cba[2]),
+    .out (error)
+  );
 
 endmodule
 

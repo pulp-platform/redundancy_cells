@@ -23,34 +23,28 @@ module tb_tmr_voter_detect_test;
   logic [2:0] error_kp;
   logic [2:0] error_bn;
 
-  TMR_voter_detect #(.VOTER_TYPE(0)) tmr_classic (
+  TMR_voter_detect #(.VoterType(0)) tmr_classic (
     .in_a(in[0]      ),
     .in_b(in[1]      ),
     .in_c(in[2]      ),
     .out (out_classic),
-    .err_a(error_classic[0]),
-    .err_b(error_classic[1]),
-    .err_c(error_classic[2])
+    .error_cba(error_classic)
   );
 
-  TMR_voter_detect #(.VOTER_TYPE(1)) tmr_kp (
+  TMR_voter_detect #(.VoterType(1)) tmr_kp (
     .in_a(in[0] ),
     .in_b(in[1] ),
     .in_c(in[2] ),
     .out (out_kp),
-    .err_a(error_kp[0]),
-    .err_b(error_kp[1]),
-    .err_c(error_kp[2])
+    .error_cba(error_kp)
   );
 
-  TMR_voter_detect #(.VOTER_TYPE(2)) tmr_bn (
+  TMR_voter_detect #(.VoterType(2)) tmr_bn (
     .in_a(in[0] ),
     .in_b(in[1] ),
     .in_c(in[2] ),
     .out (out_bn),
-    .err_a(error_bn[0]),
-    .err_b(error_bn[1]),
-    .err_c(error_bn[2])
+    .error_cba(error_bn)
   );
 
   initial begin

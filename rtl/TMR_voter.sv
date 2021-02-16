@@ -15,7 +15,7 @@
 // BN_MV:        Ban and Naviner MV         [https://doi.org/10.1109/NEWCAS.2010.5603933]
 
 module TMR_voter #(
-  parameter VOTER_TYPE = 0 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
+  parameter VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
   input  logic in_a,
   input  logic in_b,
@@ -23,7 +23,7 @@ module TMR_voter #(
   output logic out
 );
 
-  case (VOTER_TYPE)
+  case (VoterType)
     0: // Classical_MV
       assign out = (in_a & in_b) | (in_a & in_c) | (in_b & in_c);
     1: // KP_MV

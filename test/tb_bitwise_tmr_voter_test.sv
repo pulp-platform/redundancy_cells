@@ -24,17 +24,15 @@ module tb_bitwise_tmr_voter_test;
   logic [2:0]                error_cba;
 
   bitwise_TMR_voter #(
-    .DATA_WIDTH(DataWidth),
-    .VOTER_TYPE(2        )
+    .DataWidth(DataWidth),
+    .VoterType(2        )
   ) tmr_word_voter (
-    .in_a (in[0]       ),
-    .in_b (in[1]       ),
-    .in_c (in[2]       ),
-    .out  (out         ),
-    .err_a(error_cba[0]),
-    .err_b(error_cba[1]),
-    .err_c(error_cba[2]),
-    .error(error)
+    .in_a      ( in[0]     ),
+    .in_b      ( in[1]     ),
+    .in_c      ( in[2]     ),
+    .out       ( out       ),
+    .error     ( error     ),
+    .error_cba ( error_cba )
   );
 
   // assign error = error_cba[0] && error_cba[2] || error_cba[0] && error_cba[1] || error_cba[1] && error_cba[2];
