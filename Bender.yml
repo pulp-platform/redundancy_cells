@@ -56,8 +56,8 @@ sources:
     files:
       - test/tb_ecc_39_32_test.sv
       - test/tb_ecc_72_64_test.sv
-      - test/tb_tmr_voter_test.sv
-      - test/tb_tmr_voter_detect_test.sv
-      - test/tb_tmr_word_voter_test.sv
-      - test/tb_bitwise_tmr_voter_test.sv
+      - test/tb_tmr_voter.sv
+      - test/tb_tmr_voter_detect.sv
+      - test/tb_tmr_word_voter.sv
+      - test/tb_bitwise_tmr_voter.sv
 

@@ -10,7 +10,7 @@
 //
 // Testbench for bitwise TMR Word Voter
 
-module tb_bitwise_tmr_voter_test;
+module tb_bitwise_tmr_voter;
 
   localparam int unsigned RunCycles = 100000;
   localparam int unsigned DataWidth = 32;
@@ -44,15 +44,15 @@ module tb_bitwise_tmr_voter_test;
   typedef logic [DataWidth-1:0] data_t;
 
   class stimuli_t;
-    rand data_t in_a;
-    rand data_t in_b;
-    rand data_t in_c;
+    rand data_t a_i;
+    rand data_t b_i;
+    rand data_t c_i;
 
-    constraint equal_inputs { in_a == in_b; in_a == in_c; }
-    constraint in_a_different { in_a != in_b; in_b == in_c; }
-    constraint in_b_different { in_b != in_a; in_a == in_c; }
-    constraint in_c_different { in_c != in_a; in_a == in_b; }
-    constraint all_different { in_a != in_b; in_a != in_c; in_b != in_c; }
+    constraint equal_inputs { a_i == b_i; a_i == c_i; }
+    constraint a_i_different { a_i != b_i; b_i == c_i; }
+    constraint b_i_different { b_i != a_i; a_i == c_i; }
+    constraint c_i_different { c_i != a_i; a_i == b_i; }
+    constraint all_different { a_i != b_i; a_i != c_i; b_i != c_i; }
   endclass: stimuli_t
 
   // Stimuli
@@ -60,7 +60,7 @@ module tb_bitwise_tmr_voter_test;
 
   // Golden values
   typedef struct packed {
-    data_t out;
+    data_t majority_o;
     logic error;
     logic [2:0] error_cba;
   } result_t;
@@ -74,75 +74,75 @@ module tb_bitwise_tmr_voter_test;
 
         // Activate constraints
         stimuli.equal_inputs.constraint_mode(1);
-        stimuli.in_a_different.constraint_mode(0);
-        stimuli.in_b_different.constraint_mode(0);
-        stimuli.in_c_different.constraint_mode(0);
+        stimuli.a_i_different.constraint_mode(0);
+        stimuli.b_i_different.constraint_mode(0);
+        stimuli.c_i_different.constraint_mode(0);
         stimuli.all_different.constraint_mode(0);
 
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in_a, error: 1'b0, error_cba: 3'b000});
+          golden_queue.push_back('{majority_o: stimuli.a_i, error: 1'b0, error_cba: 3'b000});
         end else
           $error("Could not randomize.");
       end
 
-    // Step 2: in_a is different
+    // Step 2: a_i is different
     repeat (1)
       for (int i = 0; i < RunCycles; i++) begin
         automatic stimuli_t stimuli = new;
 
         // Activate constraints
         stimuli.equal_inputs.constraint_mode(0);
-        stimuli.in_a_different.constraint_mode(1);
-        stimuli.in_b_different.constraint_mode(0);
-        stimuli.in_c_different.constraint_mode(0);
+        stimuli.a_i_different.constraint_mode(1);
+        stimuli.b_i_different.constraint_mode(0);
+        stimuli.c_i_different.constraint_mode(0);
         stimuli.all_different.constraint_mode(0);
 
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in_b, error: 1'b0, error_cba: 3'b001});
+          golden_queue.push_back('{majority_o: stimuli.b_i, error: 1'b0, error_cba: 3'b001});
         end else
           $error("Could not randomize.");
       end
 
-    // Step 3: in_b is different
+    // Step 3: b_i is different
     repeat (1)
       for (int i = 0; i < RunCycles; i++) begin
         automatic stimuli_t stimuli = new;
 
         // Activate constraints
         stimuli.equal_inputs.constraint_mode(0);
-        stimuli.in_a_different.constraint_mode(0);
-        stimuli.in_b_different.constraint_mode(1);
-        stimuli.in_c_different.constraint_mode(0);
+        stimuli.a_i_different.constraint_mode(0);
+        stimuli.b_i_different.constraint_mode(1);
+        stimuli.c_i_different.constraint_mode(0);
         stimuli.all_different.constraint_mode(0);
 
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in_a, error: 1'b0, error_cba: 3'b010});
+          golden_queue.push_back('{majority_o: stimuli.a_i, error: 1'b0, error_cba: 3'b010});
         end else
           $error("Could not randomize.");
       end
 
-    // Step 4: in_c is different
+    // Step 4: c_i is different
     repeat (1)
       for (int i = 0; i < RunCycles; i++) begin
         automatic stimuli_t stimuli = new;
 
         // Activate constraints
         stimuli.equal_inputs.constraint_mode(0);
-        stimuli.in_a_different.constraint_mode(0);
-        stimuli.in_b_different.constraint_mode(0);
-        stimuli.in_c_different.constraint_mode(1);
+        stimuli.a_i_different.constraint_mode(0);
+        stimuli.b_i_different.constraint_mode(0);
+        stimuli.c_i_different.constraint_mode(1);
         stimuli.all_different.constraint_mode(0);
 
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in_a, error: 1'b0, error_cba: 3'b100});
+          golden_queue.push_back('{majority_o: stimuli.a_i, error: 1'b0, error_cba: 3'b100});
         end else
           $error("Could not randomize.");
       end
@@ -154,24 +154,24 @@ module tb_bitwise_tmr_voter_test;
 
         // Activate constraints
         stimuli.equal_inputs.constraint_mode(0);
-        stimuli.in_a_different.constraint_mode(0);
-        stimuli.in_b_different.constraint_mode(0);
-        stimuli.in_c_different.constraint_mode(0);
+        stimuli.a_i_different.constraint_mode(0);
+        stimuli.b_i_different.constraint_mode(0);
+        stimuli.c_i_different.constraint_mode(0);
         stimuli.all_different.constraint_mode(1);
 
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: {DataWidth{1'b?}}, error: 1'b1, error_cba: 3'b???});
+          golden_queue.push_back('{majority_o: {DataWidth{1'b?}}, error: 1'b1, error_cba: 3'b???});
         end else
           $error("Could not randomize.");
       end
   endfunction: generate_stimuli
 
   // Apply stimuli
-  data_t in_a;
-  data_t in_b;
-  data_t in_c;
+  data_t a_i;
+  data_t b_i;
+  data_t c_i;
 
   task automatic apply_stimuli();
     automatic stimuli_t stimuli;
@@ -179,35 +179,35 @@ module tb_bitwise_tmr_voter_test;
     wait (stimuli_queue.size() != '0);
 
     stimuli = stimuli_queue.pop_front();
-    in_a    = stimuli.in_a;
-    in_b    = stimuli.in_b;
-    in_c    = stimuli.in_c;
+    a_i    = stimuli.a_i;
+    b_i    = stimuli.b_i;
+    c_i    = stimuli.c_i;
   endtask: apply_stimuli
 
   initial begin: init_stimuli
-    in_a = '0;
-    in_b = '0;
-    in_c = '0;
+    a_i = '0;
+    b_i = '0;
+    c_i = '0;
   end: init_stimuli
 
   /***********************
    *  Device Under Test  *
    ***********************/
 
-  data_t       out;
+  data_t       majority_o;
   logic        error;
   logic  [2:0] error_cba;
 
   bitwise_TMR_voter #(
     .DataWidth(DataWidth),
     .VoterType(2        )
-  ) dut (
-    .in_a      ( in_a      ),
-    .in_b      ( in_b      ),
-    .in_c      ( in_c      ),
-    .out       ( out       ),
-    .error     ( error     ),
-    .error_cba ( error_cba )
+  ) i_dut (
+    .a_i         ( a_i        ),
+    .b_i         ( b_i        ),
+    .c_i         ( c_i        ),
+    .majority_o  ( majority_o ),
+    .error_o     ( error      ),
+    .error_cba_o ( error_cba  )
   );
 
   /***********************
@@ -219,7 +219,7 @@ module tb_bitwise_tmr_voter_test;
   longint error_cnt;
 
   function automatic void collect_result;
-    result_queue.push_back('{out: out, error: error, error_cba: error_cba});
+    result_queue.push_back('{majority_o: majority_o, error: error, error_cba: error_cba});
   endfunction: collect_result
 
   task automatic check_result;

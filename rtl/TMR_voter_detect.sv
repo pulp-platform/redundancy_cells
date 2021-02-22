@@ -13,24 +13,24 @@
 module TMR_voter_detect #(
   parameter VoterType = 0 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
-  input  logic in_a,
-  input  logic in_b,
-  input  logic in_c,
-  output logic out,
-  output logic [2:0] error_cba
+  input  logic a_i,
+  input  logic b_i,
+  input  logic c_i,
+  output logic majority_o,
+  output logic [2:0] error_cba_o
 );
 
   TMR_voter #(
     .VoterType ( VoterType )
-  ) voter (
-    .in_a,
-    .in_b,
-    .in_c,
-    .out
+  ) i_voter (
+    .a_i,
+    .b_i,
+    .c_i,
+    .majority_o
   );
 
-  assign error_cba[0] = (in_a ^ out);
-  assign error_cba[1] = (in_b ^ out);
-  assign error_cba[2] = (in_c ^ out);
+  assign error_cba_o[0] = (a_i ^ majority_o);
+  assign error_cba_o[1] = (b_i ^ majority_o);
+  assign error_cba_o[2] = (c_i ^ majority_o);
 
 endmodule

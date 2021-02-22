@@ -184,12 +184,12 @@ module cTCLS_unit #(
     .DataWidth( MAIN_TMR_WIDTH ),
     .VoterType( 2              )
   ) main_voter (
-    .in_a      ( main_tmr_in[0] ),
-    .in_b      ( main_tmr_in[1] ),
-    .in_c      ( main_tmr_in[2] ),
-    .out       ( main_tmr_out   ),
-    .error     ( main_error     ),
-    .error_cba ( main_error_cba )
+    .a_i         ( main_tmr_in[0] ),
+    .b_i         ( main_tmr_in[1] ),
+    .c_i         ( main_tmr_in[2] ),
+    .majority_o  ( main_tmr_out   ),
+    .error_o     ( main_error     ),
+    .error_cba_o ( main_error_cba )
   );
 
 
@@ -203,19 +203,19 @@ module cTCLS_unit #(
     .DataWidth(DATA_TMR_WIDTH),
     .VoterType(2)
   ) data_voter (
-    .in_a      ( data_tmr_in[0] ),
-    .in_b      ( data_tmr_in[1] ),
-    .in_c      ( data_tmr_in[2] ),
-    .out       ( data_tmr_out   ),
-    .error     ( data_error     ),
-    .error_cba ( data_error_cba )
+    .a_i         ( data_tmr_in[0] ),
+    .b_i         ( data_tmr_in[1] ),
+    .c_i         ( data_tmr_in[2] ),
+    .majority_o  ( data_tmr_out   ),
+    .error_o     ( data_error     ),
+    .error_cba_o ( data_error_cba )
   );
 
   always_comb begin : proc_TMR_error
     TMR_error        = main_error;
     TMR_error_detect = main_error_cba;
     if (data_req) begin
-      TMR_error        = main_error | data_error;
+      TMR_error        = main_error | data_error; // TODO: check for triple mismatch across both domains
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end

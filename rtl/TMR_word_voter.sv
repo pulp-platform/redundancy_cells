@@ -15,32 +15,32 @@
 module TMR_word_voter #(
   parameter DataWidth = 32
 ) (
-  input  logic [DataWidth-1:0] in_a,
-  input  logic [DataWidth-1:0] in_b,
-  input  logic [DataWidth-1:0] in_c,
-  output logic [DataWidth-1:0] out,
-  output logic                 error,
-  output logic [          2:0] error_cba
+  input  logic [DataWidth-1:0] a_i,
+  input  logic [DataWidth-1:0] b_i,
+  input  logic [DataWidth-1:0] c_i,
+  output logic [DataWidth-1:0] majority_o,
+  output logic                 error_o,
+  output logic [          2:0] error_cba_o
 );
 
   logic match_ab, match_bc, match_ac;
   logic mismatch;
 
-  assign match_ab = &(in_a~^in_b);
-  assign match_bc = &(in_b~^in_c);
-  assign match_ac = &(in_a~^in_c);
-  assign error = ~(match_ab | match_bc | match_ac);
+  assign match_ab = &(a_i~^b_i);
+  assign match_bc = &(b_i~^c_i);
+  assign match_ac = &(a_i~^c_i);
+  assign error_o = ~(match_ab | match_bc | match_ac);
   assign mismatch = ~(match_ab & match_bc & match_ac);
 
   for (genvar i = 0; i < DataWidth; i++) begin
-    assign out[i] = (match_ac && in_a[i]) || (~match_ac && in_b[i]);
+    assign majority_o[i] = (match_ac && a_i[i]) || (~match_ac && b_i[i]);
   end
 
-  // assign out = (match_ac&&in_a)|(~match_ac&&in_b);
+  // assign majority_o = (match_ac&&a_i)|(~match_ac&&b_i);
 
-  assign error_cba[0] = mismatch && match_bc;
-  assign error_cba[1] = mismatch && match_ac;
-  assign error_cba[2] = mismatch && match_ab;
+  assign error_cba_o[0] = mismatch && match_bc;
+  assign error_cba_o[1] = mismatch && match_ac;
+  assign error_cba_o[2] = mismatch && match_ab;
 
 endmodule
 

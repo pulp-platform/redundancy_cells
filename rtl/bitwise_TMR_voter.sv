@@ -14,12 +14,12 @@ module bitwise_TMR_voter #(
   parameter DataWidth = 32,
   parameter VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
-  input  logic [DataWidth-1:0] in_a,
-  input  logic [DataWidth-1:0] in_b,
-  input  logic [DataWidth-1:0] in_c,
-  output logic [DataWidth-1:0] out,
-  output logic error,
-  output logic [2:0] error_cba
+  input  logic [DataWidth-1:0] a_i,
+  input  logic [DataWidth-1:0] b_i,
+  input  logic [DataWidth-1:0] c_i,
+  output logic [DataWidth-1:0] majority_o,
+  output logic error_o,
+  output logic [2:0] error_cba_o
 );
   
   logic [DataWidth-1:0] err_a_all, err_b_all, err_c_all;
@@ -27,27 +27,27 @@ module bitwise_TMR_voter #(
   for (genvar i = 0; i < DataWidth; i++) begin
     TMR_voter_detect #(
       .VoterType ( VoterType )
-    ) voter_i (
-      .in_a (in_a[i]),
-      .in_b (in_b[i]),
-      .in_c (in_c[i]),
-      .out  (out[i]),
-      .error_cba ( { err_c_all[i], err_b_all[i], err_a_all[i] } )
+    ) i_voter (
+      .a_i (a_i[i]),
+      .b_i (b_i[i]),
+      .c_i (c_i[i]),
+      .majority_o ( majority_o[i] ),
+      .error_cba_o( { err_c_all[i], err_b_all[i], err_a_all[i] } )
     );
   end
 
-  assign error_cba[0] = |err_a_all;
-  assign error_cba[1] = |err_b_all;
-  assign error_cba[2] = |err_c_all;
-  // assign error = error_cba[0] && error_cba[1] || error_cba[0] && error_cba[2] || error_cba[1] && error_cba[2];
+  assign error_cba_o[0] = |err_a_all;
+  assign error_cba_o[1] = |err_b_all;
+  assign error_cba_o[2] = |err_c_all;
+  // assign error_o = error_cba_o[0] && error_cba_o[1] || error_cba_o[0] && error_cba_o[2] || error_cba_o[1] && error_cba_o[2];
 
   TMR_voter #(
     .VoterType(0)
-  ) triple_mismatch (
-    .in_a(error_cba[0]),
-    .in_b(error_cba[1]),
-    .in_c(error_cba[2]),
-    .out (error)
+  ) i_triple_mismatch (
+    .a_i(error_cba_o[0]),
+    .b_i(error_cba_o[1]),
+    .c_i(error_cba_o[2]),
+    .majority_o (error_o)
   );
 
 endmodule

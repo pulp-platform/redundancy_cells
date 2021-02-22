@@ -29,8 +29,8 @@ call_vsim tb_ecc_39_32_test
 call_vsim tb_ecc_72_64_test
 # call_vsim tb_shiftable_ecc_39_32_test
 # call_vsim tb_shiftable_ecc_39_32_strb_test # Not functional
-call_vsim tb_tmr_voter_test
-call_vsim tb_tmr_voter_detect_test
-call_vsim tb_tmr_word_voter_test
-call_vsim tb_bitwise_tmr_voter_test
+call_vsim tb_tmr_voter
+call_vsim tb_tmr_voter_detect
+call_vsim tb_tmr_word_voter
+call_vsim tb_bitwise_tmr_voter
 

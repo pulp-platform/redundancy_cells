@@ -17,30 +17,30 @@
 module TMR_voter #(
   parameter VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
-  input  logic in_a,
-  input  logic in_b,
-  input  logic in_c,
-  output logic out
+  input  logic a_i,
+  input  logic b_i,
+  input  logic c_i,
+  output logic majority_o
 );
 
   case (VoterType)
     0: // Classical_MV
-      assign out = (in_a & in_b) | (in_a & in_c) | (in_b & in_c);
+      assign majority_o = (a_i & b_i) | (a_i & c_i) | (b_i & c_i);
     1: // KP_MV
       begin
         logic n_1, n_2, p;
-        assign n_1 = in_a ^ in_b;
-        assign n_2 = in_b ^ in_c;
+        assign n_1 = a_i ^ b_i;
+        assign n_2 = b_i ^ c_i;
         assign p = n_1 & ~n_2;
-        assign out = p ? in_c : in_a;
+        assign majority_o = p ? c_i : a_i;
       end
     2: // BN_MV
       begin
         logic n;
-        assign n = in_a ^ in_b;
-        assign out = n ? in_c : in_b;
+        assign n = a_i ^ b_i;
+        assign majority_o = n ? c_i : b_i;
       end
-    default : assign out = (in_a & in_b) | (in_a & in_c) | (in_b & in_c);
+    default : assign majority_o = (a_i & b_i) | (a_i & c_i) | (b_i & c_i);
   endcase
 
 endmodule

@@ -10,116 +10,111 @@
 // 
 // Testbench for TMR Voter
 
-module tb_tmr_voter_detect_test;
+module tb_tmr_voter;
+
+  /******************
+   *  Helper tasks  *
+   ******************/
 
   localparam time TTest  = 8ns;
   localparam time TApply = 2ns;
+
+  task cycle_start();
+    #TApply;
+  endtask: cycle_start
+
+  task cycle_end();
+    #TTest;
+  endtask: cycle_end
+
+  /**********************
+   *  Helper variables  *
+   **********************/
+
+  longint test_cnt;
 
   logic [2:0] in;
   logic       out_classic;
   logic       out_kp;
   logic       out_bn;
-  logic [2:0] error_classic;
-  logic [2:0] error_kp;
-  logic [2:0] error_bn;
 
-  TMR_voter_detect #(.VoterType(0)) tmr_classic (
-    .in_a(in[0]      ),
-    .in_b(in[1]      ),
-    .in_c(in[2]      ),
-    .out (out_classic),
-    .error_cba(error_classic)
+  TMR_voter #(
+    .VoterType(0)
+  ) i_dut_classic (
+    .a_i        (in[0]      ),
+    .b_i        (in[1]      ),
+    .c_i        (in[2]      ),
+    .majority_o (out_classic)
   );
 
-  TMR_voter_detect #(.VoterType(1)) tmr_kp (
-    .in_a(in[0] ),
-    .in_b(in[1] ),
-    .in_c(in[2] ),
-    .out (out_kp),
-    .error_cba(error_kp)
+  TMR_voter #(
+    .VoterType(1)
+  ) i_dut_kp (
+    .a_i        (in[0] ),
+    .b_i        (in[1] ),
+    .c_i        (in[2] ),
+    .majority_o (out_kp)
   );
 
-  TMR_voter_detect #(.VoterType(2)) tmr_bn (
-    .in_a(in[0] ),
-    .in_b(in[1] ),
-    .in_c(in[2] ),
-    .out (out_bn),
-    .error_cba(error_bn)
+  TMR_voter #(
+    .VoterType(2)
+  ) i_dut_bn (
+    .a_i        (in[0] ),
+    .b_i        (in[1] ),
+    .c_i        (in[2] ),
+    .majority_o (out_bn)
   );
 
   initial begin
+    cycle_start();
     in = 3'b000;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b0);
     assert(out_kp      == 1'b0);
     assert(out_bn      == 1'b0);
-    assert(error_classic == 3'b000);
-    assert(error_kp == 3'b000);
-    assert(error_bn == 3'b000);
-    #TApply
+    cycle_start();
     in = 3'b001;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b0);
     assert(out_kp      == 1'b0);
     assert(out_bn      == 1'b0);
-    assert(error_classic == 3'b001);
-    assert(error_kp == 3'b001);
-    assert(error_bn == 3'b001);
-    #TApply
+    cycle_start();
     in = 3'b010;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b0);
     assert(out_kp      == 1'b0);
     assert(out_bn      == 1'b0);
-    assert(error_classic == 3'b010);
-    assert(error_kp == 3'b010);
-    assert(error_bn == 3'b010);
-    #TApply
+    cycle_start();
     in = 3'b100;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b0);
     assert(out_kp      == 1'b0);
     assert(out_bn      == 1'b0);
-    assert(error_classic == 3'b100);
-    assert(error_kp == 3'b100);
-    assert(error_bn == 3'b100);
-    #TApply
 
+    cycle_start();
     in = 3'b111;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b1);
     assert(out_kp      == 1'b1);
     assert(out_bn      == 1'b1);
-    assert(error_classic == 3'b000);
-    assert(error_kp == 3'b000);
-    assert(error_bn == 3'b000);
-    #TApply
+    cycle_start();
     in = 3'b110;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b1);
     assert(out_kp      == 1'b1);
     assert(out_bn      == 1'b1);
-    assert(error_classic == 3'b001);
-    assert(error_kp == 3'b001);
-    assert(error_bn == 3'b001);
-    #TApply
+    cycle_start();
     in = 3'b101;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b1);
     assert(out_kp      == 1'b1);
     assert(out_bn      == 1'b1);
-    assert(error_classic == 3'b010);
-    assert(error_kp == 3'b010);
-    assert(error_bn == 3'b010);
-    #TApply
+    cycle_start();
     in = 3'b011;
-    #TTest
+    cycle_end();
     assert(out_classic == 1'b1);
     assert(out_kp      == 1'b1);
     assert(out_bn      == 1'b1);
-    assert(error_classic == 3'b100);
-    assert(error_kp == 3'b100);
-    assert(error_bn == 3'b100);
   end
 
 endmodule
