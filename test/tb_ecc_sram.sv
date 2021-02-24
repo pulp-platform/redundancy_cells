@@ -45,6 +45,9 @@ module tb_ecc_sram #(
   longint test_cnt;
   longint error_cnt;
 
+  logic test_halfway;
+  assign test_halfway = test_cnt > NoReq/2;
+
   task random_cycle_delay();
     repeat ($urandom_range(0,5)) @(posedge clk);
   endtask : random_cycle_delay
