@@ -16,7 +16,7 @@ set -e
 
 [ ! -z "$VSIM" ] || VSIM=vsim
 
-bender script vsim -t test > compile.tcl
+bender script vsim -t test -t rtl > compile.tcl
 
 "$VSIM" -c -do 'source compile.tcl; quit'
 
@@ -33,4 +33,4 @@ call_vsim tb_tmr_voter
 call_vsim tb_tmr_voter_detect
 call_vsim tb_tmr_word_voter
 call_vsim tb_bitwise_tmr_voter
-
+call_vsim tb_ecc_sram

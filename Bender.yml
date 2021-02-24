@@ -60,4 +60,5 @@ sources:
       - test/tb_tmr_voter_detect.sv
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
+      - test/tb_ecc_sram.sv
 

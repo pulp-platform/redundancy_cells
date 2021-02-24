@@ -35,6 +35,7 @@ module tb_tmr_word_voter;
    **********************/
 
   longint test_cnt;
+  longint error_cnt;
 
   /************************
    *  Stimuli generation  *
@@ -83,8 +84,9 @@ module tb_tmr_word_voter;
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
           golden_queue.push_back('{majority_o: stimuli.a_i, error: 1'b0, error_cba: 3'b000});
-        end else
+        end else begin
           $error("Could not randomize.");
+        end
       end
 
     // Step 2: a_i is different
@@ -103,8 +105,9 @@ module tb_tmr_word_voter;
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
           golden_queue.push_back('{majority_o: stimuli.b_i, error: 1'b0, error_cba: 3'b001});
-        end else
+        end else begin
           $error("Could not randomize.");
+        end
       end
 
     // Step 3: b_i is different
@@ -214,8 +217,6 @@ module tb_tmr_word_voter;
    ***********************/
 
   result_t result_queue [$];
-
-  longint error_cnt;
 
   function automatic void collect_result;
     result_queue.push_back('{majority_o: majority_o, error: error, error_cba: error_cba});
