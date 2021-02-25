@@ -23,6 +23,8 @@ sources:
   - lowrisc_ecc/prim_secded_39_32_enc.sv
   - lowrisc_ecc/prim_secded_72_64_dec.sv
   - lowrisc_ecc/prim_secded_72_64_enc.sv
+  - lowrisc_ecc/prim_secded_137_128_dec.sv
+  - lowrisc_ecc/prim_secded_137_128_enc.sv
   - rtl/cTCLS_unit/ctcls_manager_reg_pkg.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
@@ -54,11 +56,10 @@ sources:
   - rtl/bitwise_TMR_voter.sv
   - target: test
     files:
-      - test/tb_ecc_39_32_test.sv
-      - test/tb_ecc_72_64_test.sv
       - test/tb_tmr_voter.sv
       - test/tb_tmr_voter_detect.sv
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
       - test/tb_ecc_sram.sv
+      - test/tb_ecc_secded.sv
 
