@@ -13,17 +13,27 @@
 `include "register_interface/typedef.svh"
 
 module cTCLS_unit #(
-  parameter int unsigned InstrRdataWidth,
-  parameter int unsigned NExtPerfCounters,
-  parameter int unsigned DataWidth,
-  parameter int unsigned BEWidth
+  parameter int unsigned InstrRdataWidth  = 32,
+  parameter int unsigned NExtPerfCounters = 5,
+  parameter int unsigned DataWidth        = 32,
+  parameter int unsigned BEWidth          = 4,
+  parameter int unsigned PeriphIDWidth    = 1
 ) (
   input  logic                             clk_i,
   input  logic                             rst_ni,
 
-  // XBAR_PERIPH_BUS.Slave                    speriph_slave,
+  input  logic                             periph_req_i,
+  input  logic      [                31:0] periph_addr_i,
+  input  logic                             periph_wen_i,
+  input  logic      [                31:0] periph_wdata_i,
+  input  logic      [                 3:0] periph_be_i,
+  input  logic      [   PeriphIDWidth-1:0] periph_id_i,
 
-
+  output logic                             periph_gnt_o,
+  output logic                             periph_r_valid_o,
+  output logic                             periph_r_opc_o,
+  output logic      [   PeriphIDWidth-1:0] periph_r_id_o,
+  output logic      [                31:0] periph_rdata_o,
 
   // Ports to connect Interconnect/rest of system
   input  logic [2:0][                 3:0] intc_core_id_i,
@@ -98,13 +108,15 @@ module cTCLS_unit #(
   // APU/SHARED_FPU not implemented
 );
   
-  // import ctcls_manager_reg_pkg::* ;
-  // `REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
+  import ctcls_manager_reg_pkg::* ;
+  `REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
 
-  // tcls_req_t speriph_request;
-  // tcls_rsp_t speriph_response;
+  tcls_req_t speriph_request;
+  tcls_rsp_t speriph_response;
+  ctcls_manager_reg2hw_t reg2hw;
+  ctcls_manager_hw2reg_t hw2reg;
 
-  typedef enum logic {NORMAL, TMR} redundancy_mode_e;
+  typedef enum logic [1:0] {NORMAL, TMR, UNLOAD, RELOAD} redundancy_mode_e;
 
   redundancy_mode_e red_mode_d, red_mode_q;
 
@@ -136,39 +148,48 @@ module cTCLS_unit #(
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
 
-  // // Slave Peripheral communication 
-  // assign speriph_request.addr = speriph_slave.add;
-  // assign speriph_request.write = ~speriph_slave.wen;
-  // assign speriph_request.wdata = speriph_slave.wdata;
-  // assign speriph_request.wstrb = speriph_slave.be;
-  // assign speriph_request.valid = speriph_slave.req;
+  // Slave Peripheral communication 
+  periph_to_reg #(
+    .AW   (32),
+    .DW   (DataWidth),
+    .BW   (8),
+    .IW   (PeriphIDWidth),
+    .req_t(tcls_req_t),
+    .rsp_t(tcls_rsp_t)
+  ) i_periph_translate (
+    .clk_i    (clk_i),
+    .rst_ni   (rst_ni),
+    .req_i    (periph_req_i),
+    .add_i    (periph_addr_i),
+    .wen_i    (periph_wen_i),
+    .wdata_i  (periph_wdata_i),
+    .be_i     (periph_be_i),
+    .id_i     (periph_id_i),
+    .gnt_o    (periph_gnt_o),
+    .r_rdata_o(periph_rdata_o),
+    .r_opc_o  (periph_r_opc_o),
+    .r_id_o   (periph_r_id_o),
+    .r_valid_o(periph_r_valid_o),
+    .reg_req_o(speriph_request),
+    .reg_rsp_i(speriph_response)
+  );
 
-  // assign speriph_slave.r_rdata = speriph_response.rdata;
-  // assign speriph_slave.r_opc = speriph_response.error;
-  // assign speriph_slave.gnt = speriph_response.ready; // This likely needs fixing...
+  ctcls_manager_reg_top #(
+    .reg_req_t ( tcls_req_t ),
+    .reg_rsp_t ( tcls_rsp_t )
+  ) i_registers (
+    .clk_i     ( clk_i            ),
+    .rst_ni    ( rst_ni           ),
+    .reg_req_i ( speriph_request  ),
+    .reg_rsp_o ( speriph_response ),
+    .reg2hw    ( reg2hw           ),
+    .hw2reg    ( hw2reg           ),
+    .devmode_i ( '0               )
+  );
 
-  // always_ff @(posedge clk_i or negedge rst_ni) begin : proc_speriph
-  //   if(~rst_ni) begin
-  //     speriph_slave.r_id <= '0;
-  //     speriph_slave.r_valid <= '0;
-  //   end else begin
-  //     speriph_slave.r_id <= speriph_slave.id;
-  //     speriph_slave.r_valid <= speriph_slave.gnt; // This likely needs fixing...
-  //   end
-  // end
-
-  // ctcls_manager_reg_top #(
-  //   .reg_req_t ( tcls_req_t ),
-  //   .reg_rsp_t ( tcls_rsp_t )
-  // ) registers (
-  //   .clk_i     ( clk_i            ),
-  //   .rst_ni    ( rst_ni           ),
-  //   .reg_req_i ( speriph_request  ),
-  //   .reg_rsp_o ( speriph_response ),
-  //   .reg2hw    (                  ),
-  //   .hw2reg    (                  ),
-  //   .devmode_i ( '0               )
-  // );
+  assign hw2reg.mismatches_0.d = reg2hw.mismatches_0.q + 1;
+  assign hw2reg.mismatches_1.d = reg2hw.mismatches_1.q + 1;
+  assign hw2reg.mismatches_2.d = reg2hw.mismatches_2.q + 1;
 
   assign main_tmr_in[0] = {core_core_busy_i[0], core_irq_ack_i[0], core_irq_ack_id_i[0],
     core_instr_req_i[0], core_instr_addr_i[0], core_data_req_i[0]};
