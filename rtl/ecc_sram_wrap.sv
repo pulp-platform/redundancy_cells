@@ -11,15 +11,15 @@
 // Adapts bus to sram adding ecc bits
 
 module ecc_sram_wrap #(
-  parameter  BankSize         = 256,
-  parameter  InputECC         = 0, // 0: no ECC on input
-                                   // 1: SECDED on input
+  parameter  int unsigned BankSize         = 256,
+  parameter  bit          InputECC         = 0, // 0: no ECC on input
+                                                // 1: SECDED on input
   // Set params
-  parameter  UnprotectedWidth = 32, // This currently only works for 32bit
-  parameter  ProtectedWidth   = 39, // This currently only works for 39bit
-  localparam DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
-  localparam BEInWidth        = UnprotectedWidth/8,
-  localparam BankAddWidth     = $clog2(BankSize)
+  parameter  int unsigned UnprotectedWidth = 32, // This currently only works for 32bit
+  parameter  int unsigned ProtectedWidth   = 39, // This currently only works for 39bit
+  localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
+  localparam int unsigned BEInWidth        = UnprotectedWidth/8,
+  localparam int unsigned BankAddWidth     = $clog2(BankSize)
 ) (
   input  logic                   clk_i,
   input  logic                   rst_ni,
@@ -32,7 +32,9 @@ module ecc_sram_wrap #(
   output logic [DataInWidth-1:0] tcdm_rdata_o,
   output logic                   tcdm_gnt_o
 );
-    
+  // TODO: - log errors from ECC decoding
+  //       - Add memory scrubber
+
   logic                      bank_req;
   logic                      bank_we;
   logic [  BankAddWidth-1:0] bank_add;
@@ -73,7 +75,7 @@ module ecc_sram_wrap #(
     );
 
     assign tcdm_rdata_o   = loaded;
-    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
+    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2]; // Address input differentiates by byte, memory by word, ensure correct access
     assign input_buffer_d = tcdm_wdata_i;
     assign be_buffer_d    = tcdm_be_i;
     assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
@@ -189,23 +191,23 @@ module ecc_sram_wrap #(
   end // ECC_1_ASSIGN
 
   tc_sram #(
-    .NumWords  ( BankSize      ), // Number of Words in data array
+    .NumWords  ( BankSize       ), // Number of Words in data array
     .DataWidth ( ProtectedWidth ), // Data signal width
     .ByteWidth ( ProtectedWidth ), // Width of a data byte
     .NumPorts  ( 1              ), // Number of read and write ports
     .Latency   ( 1              ), // Latency when the read data is available
     .SimInit   ( "zeros"        )
   ) i_bank (
-    .clk_i,                     // Clock
-    .rst_ni,                    // Asynchronous reset active low
+    .clk_i,                  // Clock
+    .rst_ni,                 // Asynchronous reset active low
 
-    .req_i   ( bank_req   ),    // request
-    .we_i    ( bank_we    ),    // write enable
-    .addr_i  ( bank_add   ),    // request address
-    .wdata_i ( bank_wdata ),    // write data
-    .be_i    ( bank_be    ),    // write byte enable
+    .req_i   ( bank_req   ), // request
+    .we_i    ( bank_we    ), // write enable
+    .addr_i  ( bank_add   ), // request address
+    .wdata_i ( bank_wdata ), // write data
+    .be_i    ( bank_be    ), // write byte enable
 
-    .rdata_o ( bank_rdata )     // read data
+    .rdata_o ( bank_rdata )  // read data
   );
 
 endmodule

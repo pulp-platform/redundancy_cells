@@ -162,12 +162,10 @@ module cTCLS_unit #(
    ****************/
   // TMR voters are separated for data, as this only needs to be compared when the core reads or writes data
 
-  assign main_tmr_in[0] = {core_core_busy_i[0], core_irq_ack_i[0], core_irq_ack_id_i[0],
-      core_instr_req_i[0], core_instr_addr_i[0], core_data_req_i[0]};
-  assign main_tmr_in[1] = {core_core_busy_i[1], core_irq_ack_i[1], core_irq_ack_id_i[1],
-      core_instr_req_i[1], core_instr_addr_i[1], core_data_req_i[1]};
-  assign main_tmr_in[2] = {core_core_busy_i[2], core_irq_ack_i[2], core_irq_ack_id_i[2],
-      core_instr_req_i[2], core_instr_addr_i[2], core_data_req_i[2]};
+  for (genvar i = 0; i < 3; i++) begin
+    assign main_tmr_in[i] = {core_core_busy_i[i], core_irq_ack_i[i], core_irq_ack_id_i[i],
+        core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i]};
+  end
 
   assign { core_busy, irq_ack, irq_ack_id,
       instr_req, instr_addr, data_req } = main_tmr_out;
@@ -212,16 +210,6 @@ module cTCLS_unit #(
     end
   end
 
-// `ifdef TARGET_SIMULATION
-//   // This block terminates the simulation if a mismatch is detected
-//   always @(posedge clk_i) begin
-//     if (red_mode_q == TMR && TMR_error_detect != 3'b000) begin
-//       $display("ERROR_cba: 0b%3b\n", TMR_error_detect);
-//       $finish;
-//     end
-//   end
-// `endif
-
   /***********************
    *  FSM for TCLS unit  *
    ***********************/
@@ -252,7 +240,7 @@ module cTCLS_unit #(
       end
     end
 
-    // At core startup: set TMR mode from reg2hw.mode.mode
+    // Before core startup: set TMR mode from reg2hw.mode.mode
     if (intc_fetch_en_i[0] == 0 & core_core_busy_i[0] == 0) begin
       if (reg2hw.mode.mode == 1) begin
         red_mode_d = TMR_RUN;
@@ -269,7 +257,7 @@ module cTCLS_unit #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
-      red_mode_q <= TMR_RUN;
+      red_mode_q <= NON_TMR;
     end else begin
       red_mode_q <= red_mode_d;
     end
@@ -338,7 +326,7 @@ module cTCLS_unit #(
       intc_core_busy_o[2] = '0;
 
       for (int i = 0; i < 3; i++) begin
-        core_core_id_o[i]          = intc_core_id_i[0]; // TODO: implement special logic for core_id?
+        core_core_id_o[i]          = intc_core_id_i[0];
         core_cluster_id_o[i]       = intc_cluster_id_i[0];
 
         core_clock_en_o[i]         = intc_clock_en_i[0];
@@ -356,13 +344,15 @@ module cTCLS_unit #(
    ******************/
 
   always_comb begin : proc_data_assign
+    for (int i = 0; i < 3; i++) begin
+      intc_data_add_o[i]    = core_data_add_i[i];
+      intc_data_wen_o[i]    = core_data_wen_i[i];
+      intc_data_wdata_o[i]  = core_data_wdata_i[i];
+      intc_data_be_o[i]     = core_data_be_i[i];
+    end
     if (red_mode_q == NON_TMR) begin
       for (int i = 0; i < 3; i++) begin
         intc_data_req_o[i]    = core_data_req_i[i];
-        intc_data_add_o[i]    = core_data_add_i[i];
-        intc_data_wen_o[i]    = core_data_wen_i[i];
-        intc_data_wdata_o[i]  = core_data_wdata_i[i];
-        intc_data_be_o[i]     = core_data_be_i[i];
 
         core_data_gnt_o[i]     = intc_data_gnt_i[i];
         core_data_r_rdata_o[i] = intc_data_r_rdata_i[i];
@@ -377,16 +367,7 @@ module cTCLS_unit #(
       intc_data_be_o[0]     = data_be;
       
       intc_data_req_o[1]    = '0;
-      intc_data_add_o[1]    = '0;
-      intc_data_wen_o[1]    = '0;
-      intc_data_wdata_o[1]  = '0;
-      intc_data_be_o[1]     = '0;
-
       intc_data_req_o[2]    = '0;
-      intc_data_add_o[2]    = '0;
-      intc_data_wen_o[2]    = '0;
-      intc_data_wdata_o[2]  = '0;
-      intc_data_be_o[2]     = '0;
 
       for (int i = 0; i < 3; i++) begin
         core_data_gnt_o[i]     = intc_data_gnt_i[0];
@@ -402,10 +383,12 @@ module cTCLS_unit #(
    *******************/
 
   always_comb begin : proc_instr_assign
+    for (int i = 0; i < 3; i++) begin
+      intc_instr_addr_o[i] = core_instr_addr_i[i];
+    end
     if (red_mode_q == NON_TMR) begin
       for (int i = 0; i < 3; i++) begin
         intc_instr_req_o[i]  = core_instr_req_i[i];
-        intc_instr_addr_o[i] = core_instr_addr_i[i];
 
         core_instr_gnt_o[i]     = intc_instr_gnt_i[i];
         core_instr_r_rdata_o[i] = intc_instr_r_rdata_i[i];
@@ -417,8 +400,6 @@ module cTCLS_unit #(
 
       intc_instr_req_o[1]  = '0;
       intc_instr_req_o[2]  = '0;
-      intc_instr_addr_o[1] = '0;
-      intc_instr_addr_o[2] = '0;
       for (int i = 0; i < 3; i++) begin
         core_instr_gnt_o[i]     = intc_instr_gnt_i[0];
         core_instr_r_rdata_o[i] = intc_instr_r_rdata_i[0];
