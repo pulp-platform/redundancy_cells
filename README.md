@@ -16,3 +16,20 @@ The `BUS_enc_dec` encoders and decoders add or remove ECC to the parametrized `X
 
 ## Triple Modular Redundancy majority voters
 The `TMR_voter`s are Triple Modular Redundancy majority voters, based on research indicated in the corresponding files. To detect the failing module, additional signals are implemented in higher-level modules.
+
+## Configurable Triple Core Lock-Step Unit (cTCLS_unit)
+TODO documentation
+
+To re-generate regfile, run following command in the root directory of this repo.
+```bash
+make gen_cTCLS
+```
+This will generate the register file SV-code, its corresponding C-code and documentation using lowrisc's reggen tool via the pulp register-interface repository.
+
+## Testing
+To run tests, execute the following command:
+```bash
+./run_tests.sh
+```
+
+A bender installation >=v0.22 is required.

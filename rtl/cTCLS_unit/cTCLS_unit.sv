@@ -8,32 +8,24 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 //
-// configurable Tripli-Core Lock-Step unit
+// configurable Triple-Core Lock-Step unit
 
 `include "register_interface/typedef.svh"
+// Peripheral communication signals
+import ctcls_manager_reg_pkg::* ;
+`REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
 
 module cTCLS_unit #(
   parameter int unsigned InstrRdataWidth  = 32,
   parameter int unsigned NExtPerfCounters = 5,
   parameter int unsigned DataWidth        = 32,
-  parameter int unsigned BEWidth          = 4,
-  parameter int unsigned PeriphIDWidth    = 1
+  parameter int unsigned BEWidth          = 4
 ) (
   input  logic                             clk_i,
   input  logic                             rst_ni,
 
-  input  logic                             periph_req_i,
-  input  logic      [                31:0] periph_addr_i,
-  input  logic                             periph_wen_i,
-  input  logic      [                31:0] periph_wdata_i,
-  input  logic      [                 3:0] periph_be_i,
-  input  logic      [   PeriphIDWidth-1:0] periph_id_i,
-
-  output logic                             periph_gnt_o,
-  output logic                             periph_r_valid_o,
-  output logic                             periph_r_opc_o,
-  output logic      [   PeriphIDWidth-1:0] periph_r_id_o,
-  output logic      [                31:0] periph_rdata_o,
+  input  tcls_req_t                        speriph_request,
+  output tcls_rsp_t                        speriph_response,
 
   // Ports to connect Interconnect/rest of system
   input  logic [2:0][                 3:0] intc_core_id_i,
@@ -107,16 +99,12 @@ module cTCLS_unit #(
 
   // APU/SHARED_FPU not implemented
 );
-  
-  import ctcls_manager_reg_pkg::* ;
-  `REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
 
-  tcls_req_t speriph_request;
-  tcls_rsp_t speriph_response;
   ctcls_manager_reg2hw_t reg2hw;
   ctcls_manager_hw2reg_t hw2reg;
 
-  typedef enum logic [1:0] {NORMAL, TMR, UNLOAD, RELOAD} redundancy_mode_e;
+  // State signals
+  typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
 
   redundancy_mode_e red_mode_d, red_mode_q;
 
@@ -129,8 +117,8 @@ module cTCLS_unit #(
   logic      [MAIN_TMR_WIDTH-1:0] main_tmr_out;
   logic [2:0][MAIN_TMR_WIDTH-1:0] main_tmr_in;
 
-  localparam DATA_TMR_WIDTH = 32 + 1  + DataWidth + BEWidth;
-  //                          add  wen  wdata       be
+  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth;
+  //                          data_add  data_wen  data_wdata  data_be
   logic      [DATA_TMR_WIDTH-1:0] data_tmr_out;
   logic [2:0][DATA_TMR_WIDTH-1:0] data_tmr_in;
 
@@ -148,31 +136,9 @@ module cTCLS_unit #(
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
 
-  // Slave Peripheral communication 
-  periph_to_reg #(
-    .AW   (32),
-    .DW   (DataWidth),
-    .BW   (8),
-    .IW   (PeriphIDWidth),
-    .req_t(tcls_req_t),
-    .rsp_t(tcls_rsp_t)
-  ) i_periph_translate (
-    .clk_i    (clk_i),
-    .rst_ni   (rst_ni),
-    .req_i    (periph_req_i),
-    .add_i    (periph_addr_i),
-    .wen_i    (periph_wen_i),
-    .wdata_i  (periph_wdata_i),
-    .be_i     (periph_be_i),
-    .id_i     (periph_id_i),
-    .gnt_o    (periph_gnt_o),
-    .r_rdata_o(periph_rdata_o),
-    .r_opc_o  (periph_r_opc_o),
-    .r_id_o   (periph_r_id_o),
-    .r_valid_o(periph_r_valid_o),
-    .reg_req_o(speriph_request),
-    .reg_rsp_i(speriph_response)
-  );
+  /************************************
+   *  Slave Peripheral communication  *
+   ************************************/
 
   ctcls_manager_reg_top #(
     .reg_req_t ( tcls_req_t ),
@@ -191,15 +157,20 @@ module cTCLS_unit #(
   assign hw2reg.mismatches_1.d = reg2hw.mismatches_1.q + 1;
   assign hw2reg.mismatches_2.d = reg2hw.mismatches_2.q + 1;
 
+  /****************
+   *  TMR Voters  *
+   ****************/
+  // TMR voters are separated for data, as this only needs to be compared when the core reads or writes data
+
   assign main_tmr_in[0] = {core_core_busy_i[0], core_irq_ack_i[0], core_irq_ack_id_i[0],
-    core_instr_req_i[0], core_instr_addr_i[0], core_data_req_i[0]};
+      core_instr_req_i[0], core_instr_addr_i[0], core_data_req_i[0]};
   assign main_tmr_in[1] = {core_core_busy_i[1], core_irq_ack_i[1], core_irq_ack_id_i[1],
-    core_instr_req_i[1], core_instr_addr_i[1], core_data_req_i[1]};
+      core_instr_req_i[1], core_instr_addr_i[1], core_data_req_i[1]};
   assign main_tmr_in[2] = {core_core_busy_i[2], core_irq_ack_i[2], core_irq_ack_id_i[2],
-    core_instr_req_i[2], core_instr_addr_i[2], core_data_req_i[2]};
+      core_instr_req_i[2], core_instr_addr_i[2], core_data_req_i[2]};
 
   assign { core_busy, irq_ack, irq_ack_id,
-    instr_req, instr_addr, data_req } = main_tmr_out;
+      instr_req, instr_addr, data_req } = main_tmr_out;
 
   bitwise_TMR_voter #(
     .DataWidth( MAIN_TMR_WIDTH ),
@@ -221,8 +192,8 @@ module cTCLS_unit #(
   assign {data_add, data_wen, data_wdata, data_be} = data_tmr_out;
 
   bitwise_TMR_voter #(
-    .DataWidth(DATA_TMR_WIDTH),
-    .VoterType(2)
+    .DataWidth( DATA_TMR_WIDTH ),
+    .VoterType( 2              )
   ) data_voter (
     .a_i         ( data_tmr_in[0] ),
     .b_i         ( data_tmr_in[1] ),
@@ -241,34 +212,113 @@ module cTCLS_unit #(
     end
   end
 
-`ifdef TARGET_SIMULATION
-  // initial force core_instr_req_i = 1'b1;
-  always @(posedge clk_i) begin
-    if (red_mode_q == TMR && TMR_error_detect != 3'b000) begin
-      $display("ERROR_cba: 0b%3b\n", TMR_error_detect);
-      $finish;
-    end
-  end
-`endif
+// `ifdef TARGET_SIMULATION
+//   // This block terminates the simulation if a mismatch is detected
+//   always @(posedge clk_i) begin
+//     if (red_mode_q == TMR && TMR_error_detect != 3'b000) begin
+//       $display("ERROR_cba: 0b%3b\n", TMR_error_detect);
+//       $finish;
+//     end
+//   end
+// `endif
+
+  /***********************
+   *  FSM for TCLS unit  *
+   ***********************/
 
   always_comb begin : proc_fsm
-    red_mode_d = red_mode_q;  // TODO: Implement FSM logic
+    red_mode_d = red_mode_q;
+    hw2reg.mismatches_0.de = 1'b0;
+    hw2reg.mismatches_1.de = 1'b0;
+    hw2reg.mismatches_2.de = 1'b0;
+    if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
+      $display("[TCLS] mismatch detected");
+      if (TMR_error_detect == 3'b001) hw2reg.mismatches_0.de = 1'b1;
+      if (TMR_error_detect == 3'b010) hw2reg.mismatches_1.de = 1'b1;
+      if (TMR_error_detect == 3'b100) hw2reg.mismatches_2.de = 1'b1;
 
+      if (reg2hw.mode.restore_mode == 0) begin
+        red_mode_d = TMR_UNLOAD;
+      end
+    end
+    if (red_mode_q == TMR_UNLOAD) begin
+      if (reg2hw.sp_store != '0) begin
+        red_mode_d = TMR_RELOAD;
+      end
+    end
+    if (red_mode_q == TMR_RELOAD) begin
+      if (reg2hw.sp_store == '0) begin
+        red_mode_d = TMR_RUN;
+      end
+    end
+
+    // At core startup: set TMR mode from reg2hw.mode.mode
+    if (intc_fetch_en_i[0] == 0 & core_core_busy_i[0] == 0) begin
+      if (reg2hw.mode.mode == 1) begin
+        red_mode_d = TMR_RUN;
+      end else begin
+        red_mode_d = NON_TMR;
+      end
+    end
+
+    // Assign reset signals - If reset should be triggered in during resynchronization, signal synchronization needs to be ensured.
     for (int i = 0; i < 3; i++) begin
       core_rst_no[i] = rst_ni;
     end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
-    if(~rst_ni) begin
-      red_mode_q <= NORMAL;
+    if(!rst_ni) begin
+      red_mode_q <= TMR_RUN;
     end else begin
       red_mode_q <= red_mode_d;
     end
   end
 
+  /***********************************************
+   *  IRQ MUX - with re-synchronization Trigger  *
+   ***********************************************/
+
+  always_comb begin : proc_irq_assign
+    if (red_mode_q == NON_TMR) begin
+      for (int i = 0; i < 3; i++) begin
+        intc_irq_ack_o[i]    = core_irq_ack_i[i];
+        intc_irq_ack_id_o[i] = core_irq_ack_id_i[i];
+
+        core_irq_req_o[i] = intc_irq_req_i[i];
+        core_irq_id_o[i]  = intc_irq_id_i[i];
+      end
+    end else begin
+      intc_irq_ack_o[0]    = irq_ack;
+      intc_irq_ack_id_o[0] = irq_ack_id;
+
+      intc_irq_ack_o[1] = '0;
+      intc_irq_ack_o[2] = '0;
+      intc_irq_ack_id_o[1] = '0;
+      intc_irq_ack_id_o[2] = '0;
+      for (int i = 0; i < 3; i++) begin
+        core_irq_req_o[i] = intc_irq_req_i[0];
+        core_irq_id_o[i]  = intc_irq_req_i[0];
+      end
+
+      // Trigger Re-synchronization
+      if (red_mode_q == TMR_UNLOAD) begin
+        for (int i = 0; i < 3; i++) begin
+          core_irq_req_o[i] = 1'b1;
+          core_irq_id_o[i]  = 5'd31;
+        end
+        intc_irq_ack_o[0] = '0;
+        intc_irq_ack_id_o[0] = '0;
+      end
+    end
+  end
+
+  /*********************
+   *  CTRL signal MUX  *
+   *********************/
+
   always_comb begin : proc_ctrl_assign
-    if (red_mode_q == NORMAL) begin
+    if (red_mode_q == NON_TMR) begin
       for (int i = 0; i < 3; i++) begin
         core_core_id_o[i]          = intc_core_id_i[i];
         core_cluster_id_o[i]       = intc_cluster_id_i[i];
@@ -301,8 +351,12 @@ module cTCLS_unit #(
     end
   end
 
+  /******************
+   *  Data bus MUX  *
+   ******************/
+
   always_comb begin : proc_data_assign
-    if (red_mode_q == NORMAL) begin
+    if (red_mode_q == NON_TMR) begin
       for (int i = 0; i < 3; i++) begin
         intc_data_req_o[i]    = core_data_req_i[i];
         intc_data_add_o[i]    = core_data_add_i[i];
@@ -341,37 +395,14 @@ module cTCLS_unit #(
         core_data_r_valid_o[i] = intc_data_r_valid_i[0];
       end
     end
-  
   end
 
-  always_comb begin : proc_irq_assign
-    if (red_mode_q == NORMAL) begin
-      for (int i = 0; i < 3; i++) begin
-        intc_irq_ack_o[i]    = core_irq_ack_i[i];
-        intc_irq_ack_id_o[i] = core_irq_ack_id_i[i];
-
-        core_irq_req_o[i] = intc_irq_req_i[i];
-        core_irq_id_o[i]  = intc_irq_id_i[i];
-      end
-    end else begin
-      // TODO: Add irq to trigger re-synchronization
-      intc_irq_ack_o[0]    = irq_ack;
-      intc_irq_ack_id_o[0] = irq_ack_id;
-
-      intc_irq_ack_o[1] = '0;
-      intc_irq_ack_o[2] = '0;
-      intc_irq_ack_id_o[1] = '0;
-      intc_irq_ack_id_o[2] = '0;
-      for (int i = 0; i < 3; i++) begin
-        core_irq_req_o[i] = intc_irq_req_i[0];
-        core_irq_id_o[i]  = intc_irq_req_i[0];
-      end
-    end
-
-  end
+  /*******************
+   *  INSTR bus MUX  *
+   *******************/
 
   always_comb begin : proc_instr_assign
-    if (red_mode_q == NORMAL) begin
+    if (red_mode_q == NON_TMR) begin
       for (int i = 0; i < 3; i++) begin
         intc_instr_req_o[i]  = core_instr_req_i[i];
         intc_instr_addr_o[i] = core_instr_addr_i[i];

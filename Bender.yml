@@ -29,10 +29,7 @@ sources:
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
-  - include_dirs:
-      - rtl/cTCLS_unit
-    files:
-      - rtl/cTCLS_unit/ctcls_manager_reg_top.sv
+  - rtl/cTCLS_unit/ctcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_sram_wrap.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv

@@ -26,7 +26,7 @@ module ctcls_manager_reg_top #(
 
   import ctcls_manager_reg_pkg::* ;
 
-  localparam int AW = 4;
+  localparam int AW = 5;
   localparam int DW = 32;
   localparam int DBW = DW/8;                    // Byte Width
 
@@ -64,8 +64,13 @@ module ctcls_manager_reg_top #(
   // Define SW related signals
   // Format: <reg>_<field>_{wd|we|qs}
   //        or <reg>_{wd|we|qs} if field == 1 or 0
+  logic [31:0] sp_store_qs;
+  logic [31:0] sp_store_wd;
+  logic sp_store_we;
+  logic mode_mode_qs;
   logic mode_mode_wd;
   logic mode_mode_we;
+  logic mode_restore_mode_qs;
   logic mode_restore_mode_wd;
   logic mode_restore_mode_we;
   logic [31:0] mismatches_0_qs;
@@ -79,12 +84,39 @@ module ctcls_manager_reg_top #(
   logic mismatches_2_we;
 
   // Register instances
+  // R[sp_store]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_sp_store (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (sp_store_we),
+    .wd     (sp_store_wd),
+
+    // from internal hardware
+    .de     (hw2reg.sp_store.de),
+    .d      (hw2reg.sp_store.d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.sp_store.q ),
+
+    // to register interface (read)
+    .qs     (sp_store_qs)
+  );
+
+
   // R[mode]: V(False)
 
   //   F[mode]: 0:0
   prim_subreg #(
     .DW      (1),
-    .SWACCESS("WO"),
+    .SWACCESS("RW"),
     .RESVAL  (1'h0)
   ) u_mode_mode (
     .clk_i   (clk_i    ),
@@ -102,14 +134,15 @@ module ctcls_manager_reg_top #(
     .qe     (),
     .q      (reg2hw.mode.mode.q ),
 
-    .qs     ()
+    // to register interface (read)
+    .qs     (mode_mode_qs)
   );
 
 
   //   F[restore_mode]: 8:8
   prim_subreg #(
     .DW      (1),
-    .SWACCESS("WO"),
+    .SWACCESS("RW"),
     .RESVAL  (1'h0)
   ) u_mode_restore_mode (
     .clk_i   (clk_i    ),
@@ -127,7 +160,8 @@ module ctcls_manager_reg_top #(
     .qe     (),
     .q      (reg2hw.mode.restore_mode.q ),
 
-    .qs     ()
+    // to register interface (read)
+    .qs     (mode_restore_mode_qs)
   );
 
 
@@ -214,13 +248,14 @@ module ctcls_manager_reg_top #(
 
 
 
-  logic [3:0] addr_hit;
+  logic [4:0] addr_hit;
   always_comb begin
     addr_hit = '0;
-    addr_hit[0] = (reg_addr == CTCLS_MANAGER_MODE_OFFSET);
-    addr_hit[1] = (reg_addr == CTCLS_MANAGER_MISMATCHES_0_OFFSET);
-    addr_hit[2] = (reg_addr == CTCLS_MANAGER_MISMATCHES_1_OFFSET);
-    addr_hit[3] = (reg_addr == CTCLS_MANAGER_MISMATCHES_2_OFFSET);
+    addr_hit[0] = (reg_addr == CTCLS_MANAGER_SP_STORE_OFFSET);
+    addr_hit[1] = (reg_addr == CTCLS_MANAGER_MODE_OFFSET);
+    addr_hit[2] = (reg_addr == CTCLS_MANAGER_MISMATCHES_0_OFFSET);
+    addr_hit[3] = (reg_addr == CTCLS_MANAGER_MISMATCHES_1_OFFSET);
+    addr_hit[4] = (reg_addr == CTCLS_MANAGER_MISMATCHES_2_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -232,21 +267,25 @@ module ctcls_manager_reg_top #(
     if (addr_hit[1] && reg_we && (CTCLS_MANAGER_PERMIT[1] != (CTCLS_MANAGER_PERMIT[1] & reg_be))) wr_err = 1'b1 ;
     if (addr_hit[2] && reg_we && (CTCLS_MANAGER_PERMIT[2] != (CTCLS_MANAGER_PERMIT[2] & reg_be))) wr_err = 1'b1 ;
     if (addr_hit[3] && reg_we && (CTCLS_MANAGER_PERMIT[3] != (CTCLS_MANAGER_PERMIT[3] & reg_be))) wr_err = 1'b1 ;
+    if (addr_hit[4] && reg_we && (CTCLS_MANAGER_PERMIT[4] != (CTCLS_MANAGER_PERMIT[4] & reg_be))) wr_err = 1'b1 ;
   end
 
-  assign mode_mode_we = addr_hit[0] & reg_we & ~wr_err;
+  assign sp_store_we = addr_hit[0] & reg_we & ~wr_err;
+  assign sp_store_wd = reg_wdata[31:0];
+
+  assign mode_mode_we = addr_hit[1] & reg_we & ~wr_err;
   assign mode_mode_wd = reg_wdata[0];
 
-  assign mode_restore_mode_we = addr_hit[0] & reg_we & ~wr_err;
+  assign mode_restore_mode_we = addr_hit[1] & reg_we & ~wr_err;
   assign mode_restore_mode_wd = reg_wdata[8];
 
-  assign mismatches_0_we = addr_hit[1] & reg_we & ~wr_err;
+  assign mismatches_0_we = addr_hit[2] & reg_we & ~wr_err;
   assign mismatches_0_wd = reg_wdata[31:0];
 
-  assign mismatches_1_we = addr_hit[2] & reg_we & ~wr_err;
+  assign mismatches_1_we = addr_hit[3] & reg_we & ~wr_err;
   assign mismatches_1_wd = reg_wdata[31:0];
 
-  assign mismatches_2_we = addr_hit[3] & reg_we & ~wr_err;
+  assign mismatches_2_we = addr_hit[4] & reg_we & ~wr_err;
   assign mismatches_2_wd = reg_wdata[31:0];
 
   // Read data return
@@ -254,19 +293,23 @@ module ctcls_manager_reg_top #(
     reg_rdata_next = '0;
     unique case (1'b1)
       addr_hit[0]: begin
-        reg_rdata_next[0] = '0;
-        reg_rdata_next[8] = '0;
+        reg_rdata_next[31:0] = sp_store_qs;
       end
 
       addr_hit[1]: begin
-        reg_rdata_next[31:0] = mismatches_0_qs;
+        reg_rdata_next[0] = mode_mode_qs;
+        reg_rdata_next[8] = mode_restore_mode_qs;
       end
 
       addr_hit[2]: begin
-        reg_rdata_next[31:0] = mismatches_1_qs;
+        reg_rdata_next[31:0] = mismatches_0_qs;
       end
 
       addr_hit[3]: begin
+        reg_rdata_next[31:0] = mismatches_1_qs;
+      end
+
+      addr_hit[4]: begin
         reg_rdata_next[31:0] = mismatches_2_qs;
       end
 
