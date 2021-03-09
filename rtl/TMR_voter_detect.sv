@@ -17,7 +17,7 @@ module TMR_voter_detect #(
   input  logic b_i,
   input  logic c_i,
   output logic majority_o,
-  output logic [2:0] error_cba_o
+  output logic [2:0] error_cba_o // Indicates whether input is mismatched to majority
 );
 
   TMR_voter #(

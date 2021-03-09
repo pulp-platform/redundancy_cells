@@ -23,24 +23,22 @@ module TMR_voter #(
   output logic majority_o
 );
 
-  case (VoterType)
-    0: // Classical_MV
-      assign majority_o = (a_i & b_i) | (a_i & c_i) | (b_i & c_i);
-    1: // KP_MV
-      begin
-        logic n_1, n_2, p;
-        assign n_1 = a_i ^ b_i;
-        assign n_2 = b_i ^ c_i;
-        assign p = n_1 & ~n_2;
-        assign majority_o = p ? c_i : a_i;
-      end
-    2: // BN_MV
-      begin
-        logic n;
-        assign n = a_i ^ b_i;
-        assign majority_o = n ? c_i : b_i;
-      end
-    default : assign majority_o = (a_i & b_i) | (a_i & c_i) | (b_i & c_i);
-  endcase
+  if (VoterType == 0) begin : gen_classical_mv
+    assign majority_o = (a_i & b_i) | (a_i & c_i) | (b_i & c_i);
+  end else if (VoterType == 1) begin : gen_kp_mv
+    logic n_1, n_2, p;
+    assign n_1 = a_i ^ b_i;
+    assign n_2 = b_i ^ c_i;
+    assign p = n_1 & ~n_2;
+    assign majority_o = p ? c_i : a_i;
+  end else if (VoterType == 2) begin : gen_bn_mv
+    logic n;
+    assign n = a_i ^ b_i;
+    assign majority_o = n ? c_i : b_i;
+  end else begin : gen_unsupported
+`ifndef TARGET_SYNTHESIS
+    $fatal("Please select a valid VoterType.\n");
+`endif
+  end
 
 endmodule

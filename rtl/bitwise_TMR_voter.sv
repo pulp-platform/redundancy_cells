@@ -11,15 +11,15 @@
 // Triple Modular Redundancy Majority Voter (MV) for a data word
 
 module bitwise_TMR_voter #(
-  parameter DataWidth = 32,
+  parameter int unsigned DataWidth = 32,
   parameter VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
   input  logic [DataWidth-1:0] a_i,
   input  logic [DataWidth-1:0] b_i,
   input  logic [DataWidth-1:0] c_i,
   output logic [DataWidth-1:0] majority_o,
-  output logic error_o,
-  output logic [2:0] error_cba_o
+  output logic                 error_o,    // Indicates whether there is a complete mismatch (i.e. all inputs disagree)
+  output logic [          2:0] error_cba_o // Indicates whether input is mismatched to majority
 );
   
   logic [DataWidth-1:0] err_a_all, err_b_all, err_c_all;
@@ -39,7 +39,6 @@ module bitwise_TMR_voter #(
   assign error_cba_o[0] = |err_a_all;
   assign error_cba_o[1] = |err_b_all;
   assign error_cba_o[2] = |err_c_all;
-  // assign error_o = error_cba_o[0] && error_cba_o[1] || error_cba_o[0] && error_cba_o[2] || error_cba_o[1] && error_cba_o[2];
 
   TMR_voter #(
     .VoterType(0)
