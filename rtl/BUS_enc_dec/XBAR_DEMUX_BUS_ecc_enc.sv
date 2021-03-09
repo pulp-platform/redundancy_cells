@@ -19,6 +19,9 @@ module XBAR_DEMUX_BUS_ecc_enc #(
   output logic [   1:0] err_o
 );
 
+  if (bus_in.DATA_WIDTH != 32) $fatal("Ensure bus_in DATA_WIDTH");
+  if (bus_out.DATA_WIDTH != 39) $fatal("Ensure bus_out DATA_WIDTH");
+
   assign bus_out.barrier     = bus_in.barrier;
   assign bus_out.exec_cancel = bus_in.exec_cancel;
   assign bus_out.exec_stall  = bus_in.exec_stall;

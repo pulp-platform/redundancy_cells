@@ -24,6 +24,8 @@ module hci_core_intf_ecc_dec #(
   // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
 
+  if (bus_in.UW != bus_out.UW+NbEccBits) $fatal("Ensure bus_in UW");
+
   localparam EccUserWidth = UW + NbEccBits;
 
   assign bus_out.req           = bus_in.req;

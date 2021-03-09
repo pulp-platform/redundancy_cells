@@ -25,6 +25,8 @@ module AXI_bus_ecc_dec #(
   // ECC is added to the higher bits of USER signals, calculated from dat bits.
   // No management of failed ECC correction is done here.
 
+  if (bus_in.AXI_USER_WIDTH != bus_out.AXI_USER_WIDTH+NbEccBits) $fatal("Ensure bus_in AXI_USER_WIDTH");
+
   localparam EccUserWidth = AxiUserWidth + NbEccBits;
 
   assign bus_out.aw_id     = bus_in.aw_id;

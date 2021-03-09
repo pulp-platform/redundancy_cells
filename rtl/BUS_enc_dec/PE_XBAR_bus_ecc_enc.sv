@@ -19,6 +19,9 @@ module PE_XBAR_bus_ecc_enc #(
   output logic [    1:0] err_o
 );
 
+  if (bus_in.DATA_WIDTH != 32) $fatal("Ensure bus_in DATA_WIDTH");
+  if (bus_out.DATA_WIDTH != 39) $fatal("Ensure bus_out DATA_WIDTH");
+
   assign bus_out.req    = bus_in.req;
   assign bus_out.add    = bus_in.add;
   assign bus_out.wen    = bus_in.wen;
