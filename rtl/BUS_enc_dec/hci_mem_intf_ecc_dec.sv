@@ -11,20 +11,20 @@
 // Removes SECDED ECC from hci_mem_intf
 
 module hci_mem_intf_ecc_dec #(
-  parameter  int unsigned DW          = 32,
-  parameter  int unsigned UW          = 0,
-  localparam int unsigned NB_ECC_BITS = (DW==32) ? 7 : 8   // currently 7bit for DW=32, 8bit for DW=64
+  parameter  int unsigned DW        = 32,
+  parameter  int unsigned UW        = 0,
+  localparam int unsigned NbEccBits = ( DW == 32 ) ? 7 : 8   // currently 7bit for DW=32, 8bit for DW=64
 ) (
-  hci_mem_intf.slave  bus_in,
-  hci_mem_intf.master bus_out,
-  output logic [NB_ECC_BITS-1:0] syndrome_o,
-  output logic [1:0]             err_o
+  hci_mem_intf.slave           bus_in,     // DW=DW, UW+=NbEccBits
+  hci_mem_intf.master          bus_out,    // DW=DW, UW=UW
+  output logic [NbEccBits-1:0] syndrome_o,
+  output logic [          1:0] err_o
 );
 
-  // ECC is added to the higher bits of USER signals, calculated from dat bits.
+  // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
 
-  localparam ECC_USER_WIDTH = UW + NB_ECC_BITS;
+  localparam EccUserWidth = UW + NbEccBits;
 
   assign bus_out.req           = bus_in.req;
   assign bus_in.gnt            = bus_out.gnt;
@@ -41,11 +41,11 @@ module hci_mem_intf_ecc_dec #(
   if (DW == 32) begin
     prim_secded_39_32_enc ecc_encode (
       .in  ( bus_out.r_data ),
-      .out ( {bus_in.r_user[ECC_USER_WIDTH-1:UW], bus_in.r_data } )
+      .out ( {bus_in.r_user[EccUserWidth-1:UW], bus_in.r_data } )
     );
 
     prim_secded_39_32_dec ecc_decode (
-      .in         ( {bus_in.user[ECC_USER_WIDTH-1:UW], bus_in.data } ),
+      .in         ( {bus_in.user[EccUserWidth-1:UW], bus_in.data } ),
       .d_o        ( bus_out.data ),
       .syndrome_o ( syndrome_o     ),
       .err_o      ( err_o          )
@@ -53,11 +53,11 @@ module hci_mem_intf_ecc_dec #(
   end else if (DW == 64) begin
     prim_secded_72_64_enc ecc_encode (
       .in  ( bus_out.r_data ),
-      .out ( {bus_in.r_user[ECC_USER_WIDTH-1:UW], bus_in.r_data } )
+      .out ( {bus_in.r_user[EccUserWidth-1:UW], bus_in.r_data } )
     );
 
     prim_secded_72_64_dec ecc_decode (
-      .in         ( {bus_in.user[ECC_USER_WIDTH-1:UW], bus_in.data } ),
+      .in         ( {bus_in.user[EccUserWidth-1:UW], bus_in.data } ),
       .d_o        ( bus_out.data ),
       .syndrome_o ( syndrome_o     ),
       .err_o      ( err_o          )

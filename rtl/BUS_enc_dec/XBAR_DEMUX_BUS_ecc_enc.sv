@@ -11,12 +11,12 @@
 // Adds SECDED ECC to XBAR_DEMUX_BUS
 
 module XBAR_DEMUX_BUS_ecc_enc #(
-  localparam DATA_WIDTH = 32 // Currently will only work for 32
+  localparam int unsigned DataWidth = 32 // Currently will only work for 32
 ) (
-  XBAR_DEMUX_BUS.Slave  bus_in,  // data_width=32
-  XBAR_DEMUX_BUS.Master bus_out, // data_width=39
-  output logic [6:0]    syndrome_o,
-  output logic [1:0]    err_o
+  XBAR_DEMUX_BUS.Slave  bus_in,     // DATA_WIDTH=32
+  XBAR_DEMUX_BUS.Master bus_out,    // DATA_WIDTH=39
+  output logic [   6:0] syndrome_o,
+  output logic [   1:0] err_o
 );
 
   assign bus_out.barrier     = bus_in.barrier;

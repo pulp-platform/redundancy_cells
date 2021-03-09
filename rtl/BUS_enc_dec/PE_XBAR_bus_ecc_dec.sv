@@ -8,15 +8,15 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 // 
-// Removes SECDED ECC from TCDM_XBAR_BUS
+// Removes SECDED ECC from PE_XBAR_BUS
 
 module PE_XBAR_bus_ecc_dec #(
-  localparam DATA_WIDTH = 32 // Currently will only work for 32
+  localparam int unsigned DataWidth = 32 // Currently will only work for 32
 ) (
-  XBAR_PERIPH_BUS.Slave  bus_in,  // data_width=32
-  XBAR_PERIPH_BUS.Master bus_out, // data_width=39
-  output logic [6:0]   syndrome_o,
-  output logic [1:0]   err_o
+  XBAR_PERIPH_BUS.Slave  bus_in,     // DATA_WIDTH=39
+  XBAR_PERIPH_BUS.Master bus_out,    // DATA_WIDTH=32
+  output logic [    6:0] syndrome_o,
+  output logic [    1:0] err_o
 );
 
   assign bus_out.req    = bus_in.req;
