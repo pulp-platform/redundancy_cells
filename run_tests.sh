@@ -16,17 +16,24 @@ set -e
 
 [ ! -z "$VSIM" ] || VSIM=vsim
 
+VSIM_LOGFILE=vsim.log
+
 bender script vsim -t test -t rtl > compile.tcl
 
-"$VSIM" -c -do 'source compile.tcl; quit'
+"$VSIM" -c -do 'source compile.tcl; quit' > vcom.log
+
+rm -f $VSIM_LOGFILE
 
 call_vsim() {
   if [ $1 == tb_ecc_sram ]; then
-    echo "source test/ecc_sram_fault_injection.tcl; run -all" | "$VSIM" "$@" | tee vsim.log 2>&1
+    echo "source test/ecc_sram_fault_injection.tcl; run -all" | "$VSIM" "$@" >> $VSIM_LOGFILE 2>&1
   else
-    echo "run -all" | "$VSIM" "$@" | tee vsim.log 2>&1
+    echo "run -all" | "$VSIM" "$@" >> $VSIM_LOGFILE 2>&1
   fi
-  grep "Errors: 0," vsim.log
+  echo "  --> $@"
+  tail -3 $VSIM_LOGFILE
+  echo ""
+  # grep "Errors: 0," vsim.log
 }
 
 call_vsim tb_tmr_voter
@@ -38,4 +45,3 @@ call_vsim -GDataWidth=8 tb_ecc_secded
 call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
-call_vsim -GDataWidth=128 tb_ecc_secded

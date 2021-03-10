@@ -26,3 +26,7 @@ gen_cTCLS:
 	python $(REG_TOOL) $(HJSON) -d > $(TARGET_DIR)/doc.html
 	python $(REG_TOOL) $(HJSON) -D > $(TARGET_DIR)/cTCLS.h
 	python $(REG_TOOL) $(HJSON) --doc > $(TARGET_DIR)/doc.md
+
+gen_ECC:
+	./util/vendor.py util/lowrisc_opentitan.vendor.hjson
+	cd util/lowrisc_opentitan && ./util/design/secded_gen.py --no_fpv --outdir ../../rtl/lowrisc_ecc

@@ -3,9 +3,9 @@
 This repository contains various modules used to add redundancy.
 
 ## ECC encoders and decoders
-The `lowrisc_ecc` folder contains the `secded_gen.py` from lowrisc, along with generated SV ECC encoders and decoders for 8, 16, 32, and 64 bit widths. These were generated using the following command in the lowrisc_ecc folder:
+ECC encoders and decoders are imported using lowRISC's `vendor.py` script. To re-import and re-generate the `prim_secded_` modules run
 ```bash
-python secded_gen.py -m 1 -k $WORD_LENGTH --outdir .
+make gen_ECC
 ```
 
 ## ECC wrapper for SRAM

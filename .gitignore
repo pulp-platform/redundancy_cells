@@ -4,3 +4,5 @@ compile.tcl
 modelsim.ini
 /working_dir
 /work
+vsim.log
+vcom.log

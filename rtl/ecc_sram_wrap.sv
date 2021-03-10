@@ -102,7 +102,7 @@ module ecc_sram_wrap #(
     end
 
     always_ff @(posedge clk_i or negedge rst_ni) begin : proc_load_and_store_ff
-      if(~rst_ni) begin
+      if(!rst_ni) begin
         store_state_q  <= NORMAL;
         add_buffer_q   <= '0;
         input_buffer_q <= '0;
@@ -176,7 +176,7 @@ module ecc_sram_wrap #(
     end
 
     always_ff @(posedge clk_i or negedge rst_ni) begin : proc_load_and_store_ff
-      if(~rst_ni) begin
+      if(!rst_ni) begin
         store_state_q  <= NORMAL;
         add_buffer_q   <= '0;
         input_buffer_q <= '0;

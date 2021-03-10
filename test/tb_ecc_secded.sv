@@ -215,18 +215,6 @@ module tb_ecc_secded #(
       .syndrome_o(syndrome),
       .err_o     (error)
     );
-  end else if (DataWidth == 128) begin
-    prim_secded_137_128_enc i_dut_encode (
-      .in (in),
-      .out(prot_out)
-    );
-    assign prot_in = prot_out ^ inject;
-    prim_secded_137_128_dec i_dut_decode (
-      .in        (prot_in),
-      .d_o       (out),
-      .syndrome_o(syndrome),
-      .err_o     (error)
-    );
   end
 
   /***********************
