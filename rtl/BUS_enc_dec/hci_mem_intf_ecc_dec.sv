@@ -23,8 +23,9 @@ module hci_mem_intf_ecc_dec #(
 
   // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
-
+`ifndef TARGET_SYNTHESIS
   if (bus_in.UW != bus_out.UW+NbEccBits) $fatal("Ensure bus_in UW");
+`endif
 
   localparam EccUserWidth = UW + NbEccBits;
 

@@ -236,6 +236,7 @@ module cTCLS_unit #(
     end
     if (red_mode_q == TMR_RELOAD) begin
       if (reg2hw.sp_store == '0) begin
+        $display("[TCLS] mismatch restored");
         red_mode_d = TMR_RUN;
       end
     end
