@@ -11,6 +11,7 @@
 // Adds SECDED ECC to XBAR_DEMUX_BUS
 
 module XBAR_DEMUX_BUS_ecc_dec #(
+  parameter  bit          DropECC   = 0,
   localparam int unsigned DataWidth = 32 // Currently will only work for 32
 ) (
   XBAR_DEMUX_BUS.Slave  bus_in,     // DATA_WIDTH=39
@@ -23,6 +24,8 @@ module XBAR_DEMUX_BUS_ecc_dec #(
   if (bus_out.DATA_WIDTH != 32) $fatal("Ensure bus_out DATA_WIDTH");
 `endif
 
+  logic [DataWidth-1:0] data_corrected;
+
   assign bus_out.barrier     = bus_in.barrier;
   assign bus_out.exec_cancel = bus_in.exec_cancel;
   assign bus_out.exec_stall  = bus_in.exec_stall;
@@ -31,6 +34,11 @@ module XBAR_DEMUX_BUS_ecc_dec #(
   assign bus_out.we          = bus_in.we;
   assign bus_out.be          = bus_in.be;
   assign bus_out.r_gnt       = bus_in.r_gnt;
+  if (DropECC) begin
+    assign bus_out.wdata     = bus_in.wdata[DataWidth-1:0];
+  end else begin
+    assign bus_out.wdata     = data_corrected; // remove ecc below
+  end
 
   assign bus_in.busy         = bus_out.busy;
   assign bus_in.gnt          = bus_out.gnt;
@@ -42,10 +50,10 @@ module XBAR_DEMUX_BUS_ecc_dec #(
   );
 
   prim_secded_39_32_dec ecc_decode (
-    .in         ( bus_in.wdata  ),
-    .d_o        ( bus_out.wdata ),
-    .syndrome_o ( syndrome_o    ),
-    .err_o      ( err_o         )
+    .in         ( bus_in.wdata   ),
+    .d_o        ( data_corrected ),
+    .syndrome_o ( syndrome_o     ),
+    .err_o      ( err_o          )
   );
 
 endmodule

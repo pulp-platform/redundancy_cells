@@ -14,6 +14,8 @@ make gen_ECC
 ## ECC translators for data bus interfaces
 The `BUS_enc_dec` encoders and decoders add or remove ECC to the parametrized `XBAR_TCDM_BUS`, `XBAR_PE_BUS`, and `XBAR_DEMUX_BUS`, defined in [pulp_interfaces.sv](https://github.com/micprog/pulp_soc/blob/ibex_update/rtl/components/pulp_interfaces.sv), as well as [`AXI_BUS`](https://github.com/pulp-platfrom/axi).
 
+The `DropECC` parameter allows for a faster signal along the decode data path, not correcting the errors but still calculating if an error exists.
+
 ## Triple Modular Redundancy majority voters
 The `TMR_voter`s are Triple Modular Redundancy majority voters, based on research indicated in the corresponding files. To detect the failing module, additional signals are implemented in higher-level modules.
 

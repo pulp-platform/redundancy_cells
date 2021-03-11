@@ -11,6 +11,7 @@
 // Adds SECDED ECC to TCDM_XBAR_BUS
 
 module TCDM_XBAR_bus_ecc_enc #(
+  parameter  bit          DropECC   = 0,
   localparam int unsigned DataWidth = 32 // Currently will only work for 32
 ) (
   XBAR_TCDM_BUS.Slave  bus_in,     // DATA_WIDTH=32
@@ -23,14 +24,21 @@ module TCDM_XBAR_bus_ecc_enc #(
   if (bus_out.DATA_WIDTH != 39) $fatal("Ensure bus_out DATA_WIDTH");
 `endif
 
-  assign bus_out.req    = bus_in.req;
-  assign bus_out.add    = bus_in.add;
-  assign bus_out.wen    = bus_in.wen;
-  assign bus_out.be     = bus_in.be;
+  logic [DataWidth-1:0] data_corrected;
 
-  assign bus_in.gnt     = bus_out.gnt;
-  assign bus_in.r_opc   = bus_out.r_opc;
-  assign bus_in.r_valid = bus_out.r_valid;
+  assign bus_out.req      = bus_in.req;
+  assign bus_out.add      = bus_in.add;
+  assign bus_out.wen      = bus_in.wen;
+  assign bus_out.be       = bus_in.be;
+
+  assign bus_in.gnt       = bus_out.gnt;
+  assign bus_in.r_opc     = bus_out.r_opc;
+  assign bus_in.r_valid   = bus_out.r_valid;
+  if (DropECC) begin
+    assign bus_in.r_rdata = bus_out.r_rdata[DataWidth-1:0];
+  end else begin
+    assign bus_in.r_rdata = data_corrected; // remove ecc below
+  end
 
   prim_secded_39_32_enc ecc_encode (
     .in  ( bus_in.wdata  ),
@@ -39,7 +47,7 @@ module TCDM_XBAR_bus_ecc_enc #(
 
   prim_secded_39_32_dec ecc_decode (
     .in         ( bus_out.r_rdata ),
-    .d_o        ( bus_in.r_rdata  ),
+    .d_o        ( data_corrected  ),
     .syndrome_o ( syndrome_o      ),
     .err_o      ( err_o           )
   );

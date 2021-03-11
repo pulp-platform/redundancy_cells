@@ -11,6 +11,7 @@
 // Adds SECDED ECC to hci_core_intf
 
 module hci_core_intf_ecc_enc #(
+  parameter  bit          DropECC   = 0,
   parameter  int unsigned DW        = 32,
   parameter  int unsigned UW        = 0,
   localparam int unsigned NbEccBits = ( DW == 32 ) ? 7 : 8   // currently 7bit for DW=32, 8bit for DW=64
@@ -27,6 +28,8 @@ module hci_core_intf_ecc_enc #(
   if (bus_out.UW != bus_in.UW+NbEccBits) $fatal("Ensure bus_out UW");
 `endif
 
+  logic [DW-1:0] data_corrected;
+
   localparam EccUserWidth = UW + NbEccBits;
 
   assign bus_out.req          = bus_in.req;
@@ -38,7 +41,11 @@ module hci_core_intf_ecc_enc #(
   assign bus_out.be           = bus_in.be;
   assign bus_out.boffs        = bus_in.boffs;
   assign bus_out.lrdy         = bus_in.lrdy;
-  // assign bus_in.r_data        = bus_out.r_data; // remove ecc below
+  if (DropECC) begin
+    assign bus_in.r_data      = bus_out.r_data;
+  end else begin
+    assign bus_in.r_data      = data_corrected; // remove ecc below
+  end
   assign bus_in.r_user        = bus_out.r_user[UW-1:0]; // remove ecc below
   assign bus_in.r_valid       = bus_out.r_valid;
   assign bus_in.r_opc         = bus_out.r_opc;
@@ -46,27 +53,27 @@ module hci_core_intf_ecc_enc #(
 
   if (DW == 32) begin
     prim_secded_39_32_enc ecc_encode (
-      .in  ( bus_in.wata                    ),
+      .in  ( bus_in.wata                                     ),
       .out ( {bus_out.user[EccUserWidth-1:UW], bus_out.data} )
     );
 
     prim_secded_39_32_dec ecc_decode (
       .in         ( {bus_out.r_user[EccUserWidth-1:UW], bus_out.r_data} ),
-      .d_o        ( bus_in.r_data ),
-      .syndrome_o ( syndrome_o    ),
-      .err_o      ( err_o         )
+      .d_o        ( data_corrected                                      ),
+      .syndrome_o ( syndrome_o                                          ),
+      .err_o      ( err_o                                               )
     );
   end else if (DW == 64) begin
     prim_secded_72_64_enc ecc_encode (
-      .in  ( bus_in.data                    ),
+      .in  ( bus_in.data                                     ),
       .out ( {bus_out.user[EccUserWidth-1:UW], bus_out.data} )
     );
 
     prim_secded_72_64_dec ecc_decode (
       .in         ( {bus_out.r_user[EccUserWidth-1:UW], bus_out.r_data} ),
-      .d_o        ( bus_in.r_data ),
-      .syndrome_o ( syndrome_o    ),
-      .err_o      ( err_o         )
+      .d_o        ( data_corrected                                      ),
+      .syndrome_o ( syndrome_o                                          ),
+      .err_o      ( err_o                                               )
     );
   end else begin
     $fatal(1, "please chose appropriate DW or update the code.");

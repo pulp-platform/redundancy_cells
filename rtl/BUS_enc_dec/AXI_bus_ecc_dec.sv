@@ -11,6 +11,7 @@
 // Removes SECDED ECC from AXI_BUS
 
 module AXI_bus_ecc_dec #(
+  parameter  bit          DropECC      = 0,
   parameter  int unsigned AxiAddrWidth = 0, // irrelevant here
   parameter  int unsigned AxiDataWidth = 32, // currently only 32 or 64 bit supported
   parameter  int unsigned AxiIdWidth   = 0, // irrelevant here
@@ -27,6 +28,8 @@ module AXI_bus_ecc_dec #(
 `ifndef TARGET_SYNTHESIS
   if (bus_in.AXI_USER_WIDTH != bus_out.AXI_USER_WIDTH+NbEccBits) $fatal("Ensure bus_in AXI_USER_WIDTH");
 `endif
+
+  logic [AxiDataWidth-1:0] data_corrected;
 
   localparam EccUserWidth = AxiUserWidth + NbEccBits;
 
@@ -45,7 +48,12 @@ module AXI_bus_ecc_dec #(
   assign bus_out.aw_valid  = bus_in.aw_valid;
   assign bus_in.aw_ready   = bus_out.aw_ready;
 
-  // assign bus_out.w_data    = bus_in.w_data; // remove ecc below
+
+  if (DropECC) begin
+    assign bus_out.w_data  = bus_in.w_data;
+  end else begin
+    assign bus_out.wdata   = data_corrected; // remove ecc below
+  end
   assign bus_out.w_strb    = bus_in.w_strb;
   assign bus_out.w_last    = bus_in.w_last;
   assign bus_out.w_user    = bus_in.w_user[AxiUserWidth-1:0]; // remove ecc below
@@ -88,7 +96,7 @@ module AXI_bus_ecc_dec #(
 
     prim_secded_39_32_dec ecc_decode (
       .in         ( {bus_in.w_user[EccUserWidth-1:AxiUserWidth], bus_in.w_data} ),
-      .d_o        ( bus_out.w_data                                              ),
+      .d_o        ( data_corrected                                              ),
       .syndrome_o ( syndrome_o                                                  ),
       .err_o      ( err_o                                                       )
     );
@@ -100,7 +108,7 @@ module AXI_bus_ecc_dec #(
 
     prim_secded_72_64_dec ecc_decode (
       .in         ( {bus_in.w_user[EccUserWidth-1:AxiUserWidth], bus_in.w_data} ),
-      .d_o        ( bus_out.w_data                                              ),
+      .d_o        ( data_corrected                                              ),
       .syndrome_o ( syndrome_o                                                  ),
       .err_o      ( err_o                                                       )
     );

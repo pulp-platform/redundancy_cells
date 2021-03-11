@@ -11,6 +11,7 @@
 // Removes SECDED ECC from hci_core_intf
 
 module hci_core_intf_ecc_dec #(
+  parameter  bit          DropECC   = 0,
   parameter  int unsigned DW        = 32,
   parameter  int unsigned UW        = 0,
   localparam int unsigned NbEccBits = ( DW == 32 ) ? 7 : 8   // currently 7bit for DW=32, 8bit for DW=64
@@ -27,13 +28,19 @@ module hci_core_intf_ecc_dec #(
   if (bus_in.UW != bus_out.UW+NbEccBits) $fatal("Ensure bus_in UW");
 `endif
 
+  logic [DW-1:0] data_corrected;
+
   localparam EccUserWidth = UW + NbEccBits;
 
   assign bus_out.req           = bus_in.req;
   assign bus_in.gnt            = bus_out.gnt;
   assign bus_out.add           = bus_in.add;
   assign bus_out.wen           = bus_in.wen;
-  // assign bus_out.data          = bus_in.data; // remove ecc below
+  if (DropECC) begin
+    assign bus_out.data        = bus_in.data;
+  end else begin
+    assign bus_out.data        = data_corrected; // remove ecc below
+  end
   assign bus_out.user          = bus_in.user[UW-1:0]; // remove ecc below
   assign bus_out.be            = bus_in.be;
   assign bus_out.boffs         = bus_in.boffs;
@@ -52,7 +59,7 @@ module hci_core_intf_ecc_dec #(
 
     prim_secded_39_32_dec ecc_decode (
       .in         ( {bus_in.user[EccUserWidth-1:UW], bus_in.data} ),
-      .d_o        ( bus_out.data                                  ),
+      .d_o        ( data_corrected                                ),
       .syndrome_o ( syndrome_o                                    ),
       .err_o      ( err_o                                         )
     );
@@ -64,7 +71,7 @@ module hci_core_intf_ecc_dec #(
 
     prim_secded_72_64_dec ecc_decode (
       .in         ( {bus_in.user[EccUserWidth-1:UW], bus_in.data} ),
-      .d_o        ( bus_out.data                                  ),
+      .d_o        ( data_corrected                                ),
       .syndrome_o ( syndrome_o                                    ),
       .err_o      ( err_o                                         )
     );
