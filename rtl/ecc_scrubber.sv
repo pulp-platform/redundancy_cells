@@ -11,9 +11,9 @@
 // Scrubber for ecc
 
 module ecc_scrubber #(
-  parameter  BankSize       = 256,
-  parameter  UseExternalECC = 0,
-  localparam DataWidth      = 39
+  parameter  int unsigned BankSize       = 256,
+  parameter  bit          UseExternalECC = 0,
+  localparam int unsigned DataWidth      = 39
 ) (
   input  logic                        clk_i,
   input  logic                        rst_ni,
@@ -41,7 +41,7 @@ module ecc_scrubber #(
   input  logic [                 2:0] ecc_err_i
 );
 
-  logic [                 2:0] ecc_err;
+  logic [                 1:0] ecc_err;
   logic [                31:0] data_tmp;
 
   logic                        scrub_req;
@@ -107,14 +107,15 @@ module ecc_scrubber #(
           state_d = Write;
       end
     end else if (state_q == Write) begin
-      if (ecc_err[0] == 1'b0) begin // No Correctable Error
+      if (ecc_err[0] == 1'b0) begin   // No Error (maybe not correctable)
         state_d = Idle;
-      end else begin                // Correctable Error
+        working_add_d = (working_add_q + 1) % BankSize;
+      end else begin                  // Correctable Error
         scrub_req = 1'b1;
         scrub_we  = 1'b1;
-        if (intc_req_i == 1'b1) begin
-          state_d = Read;
-        end else begin
+        if (intc_req_i == 1'b1) begin // INTC interference - retry read and write
+          state_d = Read; 
+        end else begin                // Error corrected
           state_d = Idle;
           working_add_d = (working_add_q + 1) % BankSize;
         end

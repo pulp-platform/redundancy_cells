@@ -15,11 +15,11 @@ module tb_ecc_sram #(
   parameter int unsigned InputECC = 0
 );
 
-  localparam BankSize = 256;
-  localparam AddrWidth = $clog2(BankSize);
-  localparam DataWidth = 32;
+  localparam BankSize       = 256;
+  localparam AddrWidth      = $clog2(BankSize);
+  localparam DataWidth      = 32;
   localparam ProtectedWidth = 39;
-  localparam BEWidth = DataWidth/8;
+  localparam BEWidth        = DataWidth/8;
 
   localparam CyclTime = 10ns;
   localparam ApplTime = 2ns;

@@ -15,6 +15,8 @@ sources:
     # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
+  - rtl/cTCLS_unit/ctcls_manager_reg_pkg.sv
+  - rtl/cTCLS_unit/resynch_mem.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
@@ -23,13 +25,13 @@ sources:
   - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
-  - rtl/cTCLS_unit/ctcls_manager_reg_pkg.sv
-  - rtl/ecc_scrubber.sv
+  - rtl/lowrisc_ecc/prim_secded_pkg.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
   - rtl/cTCLS_unit/ctcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
+  - rtl/ecc_scrubber.sv
   - rtl/ecc_sram_wrap.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
@@ -52,10 +54,11 @@ sources:
   - rtl/bitwise_TMR_voter.sv
   - target: test
     files:
+      - test/tb_ecc_scrubber.sv
+      - test/tb_ecc_secded.sv
+      - test/tb_ecc_sram.sv
       - test/tb_tmr_voter.sv
       - test/tb_tmr_voter_detect.sv
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
-      - test/tb_ecc_sram.sv
-      - test/tb_ecc_secded.sv
 
