@@ -41,10 +41,16 @@ module hci_mem_intf_ecc_dec #(
   end else begin
     assign bus_out.data        = data_corrected; // remove ecc below
   end
-  assign bus_out.user          = bus_in.user[UW-1:0]; // remove ecc below
+  if (UW > 0) begin
+    assign bus_out.user        = bus_in.user[UW-1:0]; // remove ecc below
+  end else begin
+    assign bus_out.user        = '0;
+  end
   assign bus_out.be            = bus_in.be;
   // assign bus_in.r_data         = bus_out.r_data; // add ecc below
-  assign bus_in.r_user[UW-1:0] = bus_out.r_user[UW-1:0]; // add ecc below
+  if (UW > 0) begin
+    assign bus_in.r_user[UW-1:0] = bus_out.r_user[UW-1:0]; // add ecc below
+  end
   assign bus_in.r_valid        = bus_out.r_valid;
 
 

@@ -37,7 +37,9 @@ module hci_core_intf_ecc_enc #(
   assign bus_out.add          = bus_in.add;
   assign bus_out.wen          = bus_in.wen;
   // assign bus_out.data         = bus_in.data; // add ecc below
-  assign bus_out.user[UW-1:0] = bus_in.user[UW-1:0]; // add ecc below
+  if (UW > 0) begin
+    assign bus_out.user[UW-1:0] = bus_in.user[UW-1:0]; // add ecc below
+  end
   assign bus_out.be           = bus_in.be;
   assign bus_out.boffs        = bus_in.boffs;
   assign bus_out.lrdy         = bus_in.lrdy;
@@ -46,14 +48,18 @@ module hci_core_intf_ecc_enc #(
   end else begin
     assign bus_in.r_data      = data_corrected; // remove ecc below
   end
-  assign bus_in.r_user        = bus_out.r_user[UW-1:0]; // remove ecc below
+  if (UW > 0) begin
+    assign bus_in.r_user      = bus_out.r_user[UW-1:0]; // remove ecc below
+  end else begin
+    assign bus_in.r_user      = '0;
+  end
   assign bus_in.r_valid       = bus_out.r_valid;
   assign bus_in.r_opc         = bus_out.r_opc;
 
 
   if (DW == 32) begin
     prim_secded_39_32_enc ecc_encode (
-      .in  ( bus_in.wata                                     ),
+      .in  ( bus_in.data                                     ),
       .out ( {bus_out.user[EccUserWidth-1:UW], bus_out.data} )
     );
 

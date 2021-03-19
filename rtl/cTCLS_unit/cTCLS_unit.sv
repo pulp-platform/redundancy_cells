@@ -19,7 +19,8 @@ module cTCLS_unit #(
   parameter int unsigned InstrRdataWidth  = 32,
   parameter int unsigned NExtPerfCounters = 5,
   parameter int unsigned DataWidth        = 32,
-  parameter int unsigned BEWidth          = 4
+  parameter int unsigned BEWidth          = 4,
+  parameter int unsigned UserWidth        = 0
 ) (
   input  logic                             clk_i,
   input  logic                             rst_ni,
@@ -53,10 +54,12 @@ module cTCLS_unit #(
   output logic [2:0][                31:0] intc_data_add_o,
   output logic [2:0]                       intc_data_wen_o,
   output logic [2:0][       DataWidth-1:0] intc_data_wdata_o,
+  output logic [2:0][       UserWidth-1:0] intc_data_user_o,
   output logic [2:0][         BEWidth-1:0] intc_data_be_o,
   input  logic [2:0]                       intc_data_gnt_i,
   input  logic [2:0]                       intc_data_r_opc_i,
   input  logic [2:0][       DataWidth-1:0] intc_data_r_rdata_i,
+  input  logic [2:0][       UserWidth-1:0] intc_data_r_user_i,
   input  logic [2:0]                       intc_data_r_valid_i,
 
   input  logic [2:0][NExtPerfCounters-1:0] intc_perf_counters_i,
@@ -89,10 +92,12 @@ module cTCLS_unit #(
   input  logic [2:0][                31:0] core_data_add_i,
   input  logic [2:0]                       core_data_wen_i,
   input  logic [2:0][       DataWidth-1:0] core_data_wdata_i,
+  input  logic [2:0][       UserWidth-1:0] core_data_user_i,
   input  logic [2:0][         BEWidth-1:0] core_data_be_i,
   output logic [2:0]                       core_data_gnt_o,
   output logic [2:0]                       core_data_r_opc_o,
   output logic [2:0][       DataWidth-1:0] core_data_r_rdata_o,
+  output logic [2:0][       UserWidth-1:0] core_data_r_user_o,
   output logic [2:0]                       core_data_r_valid_o,
 
   output logic [2:0][NExtPerfCounters-1:0] core_perf_counters_o
@@ -117,8 +122,8 @@ module cTCLS_unit #(
   logic      [MAIN_TMR_WIDTH-1:0] main_tmr_out;
   logic [2:0][MAIN_TMR_WIDTH-1:0] main_tmr_in;
 
-  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth;
-  //                          data_add  data_wen  data_wdata  data_be
+  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth + UserWidth;
+  //                          data_add  data_wen  data_wdata  data_be   data_user
   logic      [DATA_TMR_WIDTH-1:0] data_tmr_out;
   logic [2:0][DATA_TMR_WIDTH-1:0] data_tmr_in;
 
@@ -135,6 +140,7 @@ module cTCLS_unit #(
   logic                 data_wen;
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
+  logic [UserWidth-1:0] data_user;
 
   /************************************
    *  Slave Peripheral communication  *
@@ -153,6 +159,8 @@ module cTCLS_unit #(
     .devmode_i ( '0               )
   );
 
+  assign hw2reg.sp_store.d = '0;
+  assign hw2reg.sp_store.de = '0;
   assign hw2reg.mismatches_0.d = reg2hw.mismatches_0.q + 1;
   assign hw2reg.mismatches_1.d = reg2hw.mismatches_1.q + 1;
   assign hw2reg.mismatches_2.d = reg2hw.mismatches_2.q + 1;
@@ -172,7 +180,7 @@ module cTCLS_unit #(
 
   bitwise_TMR_voter #(
     .DataWidth( MAIN_TMR_WIDTH ),
-    .VoterType( 2              )
+    .VoterType( 0              )
   ) main_voter (
     .a_i         ( main_tmr_in[0] ),
     .b_i         ( main_tmr_in[1] ),
@@ -182,16 +190,24 @@ module cTCLS_unit #(
     .error_cba_o ( main_error_cba )
   );
 
+  for (genvar i = 0; i < 3; i++) begin
+    if (UserWidth > 0) begin
+      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i], core_data_user_i[i]};
+    end else begin
+      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i]};
+    end
+  end
 
-  assign data_tmr_in[0] = {core_data_add_i[0], core_data_wen_i[0], core_data_wdata_i[0], core_data_be_i[0]};
-  assign data_tmr_in[1] = {core_data_add_i[1], core_data_wen_i[1], core_data_wdata_i[1], core_data_be_i[1]};
-  assign data_tmr_in[2] = {core_data_add_i[2], core_data_wen_i[2], core_data_wdata_i[2], core_data_be_i[2]};
-
-  assign {data_add, data_wen, data_wdata, data_be} = data_tmr_out;
+  if (UserWidth > 0) begin
+    assign {data_add, data_wen, data_wdata, data_be, data_user} = data_tmr_out;
+  end else begin
+    assign {data_add, data_wen, data_wdata, data_be} = data_tmr_out;
+    assign data_user = '0;
+  end
 
   bitwise_TMR_voter #(
     .DataWidth( DATA_TMR_WIDTH ),
-    .VoterType( 2              )
+    .VoterType( 0              )
   ) data_voter (
     .a_i         ( data_tmr_in[0] ),
     .b_i         ( data_tmr_in[1] ),
@@ -220,7 +236,7 @@ module cTCLS_unit #(
     hw2reg.mismatches_1.de = 1'b0;
     hw2reg.mismatches_2.de = 1'b0;
     if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
-      $display("[TCLS] mismatch detected");
+      $display("[TCLS] %t - mismatch detected", $realtime);
       if (TMR_error_detect == 3'b001) hw2reg.mismatches_0.de = 1'b1;
       if (TMR_error_detect == 3'b010) hw2reg.mismatches_1.de = 1'b1;
       if (TMR_error_detect == 3'b100) hw2reg.mismatches_2.de = 1'b1;
@@ -236,7 +252,7 @@ module cTCLS_unit #(
     end
     if (red_mode_q == TMR_RELOAD) begin
       if (reg2hw.sp_store == '0) begin
-        $display("[TCLS] mismatch restored");
+        $display("[TCLS] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
       end
     end
@@ -349,6 +365,7 @@ module cTCLS_unit #(
       intc_data_add_o[i]    = core_data_add_i[i];
       intc_data_wen_o[i]    = core_data_wen_i[i];
       intc_data_wdata_o[i]  = core_data_wdata_i[i];
+      intc_data_user_o[i]   = core_data_user_i[i];
       intc_data_be_o[i]     = core_data_be_i[i];
     end
     if (red_mode_q == NON_TMR) begin
@@ -357,6 +374,7 @@ module cTCLS_unit #(
 
         core_data_gnt_o[i]     = intc_data_gnt_i[i];
         core_data_r_rdata_o[i] = intc_data_r_rdata_i[i];
+        core_data_r_user_o[i]  = intc_data_r_user_i[i];
         core_data_r_opc_o[i]   = intc_data_r_opc_i[i];
         core_data_r_valid_o[i] = intc_data_r_valid_i[i];
       end
@@ -365,6 +383,7 @@ module cTCLS_unit #(
       intc_data_add_o[0]    = data_add;
       intc_data_wen_o[0]    = data_wen;
       intc_data_wdata_o[0]  = data_wdata;
+      intc_data_user_o[0]   = data_user;
       intc_data_be_o[0]     = data_be;
       
       intc_data_req_o[1]    = '0;
@@ -373,6 +392,7 @@ module cTCLS_unit #(
       for (int i = 0; i < 3; i++) begin
         core_data_gnt_o[i]     = intc_data_gnt_i[0];
         core_data_r_rdata_o[i] = intc_data_r_rdata_i[0];
+        core_data_r_user_o[i]  = intc_data_r_user_i[0];
         core_data_r_opc_o[i]   = intc_data_r_opc_i[0];
         core_data_r_valid_o[i] = intc_data_r_valid_i[0];
       end
