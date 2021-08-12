@@ -92,9 +92,9 @@ module ecc_scrubber #(
   end
 
   always_comb begin : proc_FSM_logic
-    state_d = state_q;
-    scrub_req = 1'b0;
-    scrub_we = 1'b0;
+    state_d       = state_q;
+    scrub_req     = 1'b0;
+    scrub_we      = 1'b0;
     working_add_d = working_add_q;
 
     if (state_q == Idle) begin
@@ -104,19 +104,19 @@ module ecc_scrubber #(
     end else if (state_q == Read) begin
       scrub_req = 1'b1;
       if (intc_req_i == 1'b0) begin
-          state_d = Write;
+        state_d = Write;
       end
     end else if (state_q == Write) begin
       if (ecc_err[0] == 1'b0) begin   // No Error (maybe not correctable)
-        state_d = Idle;
+        state_d       = Idle;
         working_add_d = (working_add_q + 1) % BankSize;
       end else begin                  // Correctable Error
         scrub_req = 1'b1;
         scrub_we  = 1'b1;
         if (intc_req_i == 1'b1) begin // INTC interference - retry read and write
-          state_d = Read; 
+          state_d = Read;
         end else begin                // Error corrected
-          state_d = Idle;
+          state_d       = Idle;
           working_add_d = (working_add_q + 1) % BankSize;
         end
       end
