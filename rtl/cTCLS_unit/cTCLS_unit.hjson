@@ -2,8 +2,11 @@
   name: "cTCLS_manager",
   clock_primary: "clk_i",
   reset_primary: "rst_ni",
-  bus_device: "reg",
-  bus_host: "",
+  bus_interfaces: [
+    { protocol: "reg_iface",
+      direction: "device"
+    }
+  ],
 
   regwidth: "32",
   registers: [

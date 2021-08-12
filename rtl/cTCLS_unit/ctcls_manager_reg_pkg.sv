@@ -6,9 +6,13 @@
 
 package ctcls_manager_reg_pkg;
 
+  // Address widths within the block
+  parameter int BlockAw = 5;
+
   ////////////////////////////
   // Typedefs for registers //
   ////////////////////////////
+
   typedef struct packed {
     logic [31:0] q;
   } ctcls_manager_reg2hw_sp_store_reg_t;
@@ -34,7 +38,6 @@ package ctcls_manager_reg_pkg;
     logic [31:0] q;
   } ctcls_manager_reg2hw_mismatches_2_reg_t;
 
-
   typedef struct packed {
     logic [31:0] d;
     logic        de;
@@ -55,37 +58,31 @@ package ctcls_manager_reg_pkg;
     logic        de;
   } ctcls_manager_hw2reg_mismatches_2_reg_t;
 
-
-  ///////////////////////////////////////
-  // Register to internal design logic //
-  ///////////////////////////////////////
+  // Register -> HW type
   typedef struct packed {
-    ctcls_manager_reg2hw_sp_store_reg_t sp_store; // [130:99]
-    ctcls_manager_reg2hw_mode_reg_t mode; // [98:97]
-    ctcls_manager_reg2hw_mismatches_0_reg_t mismatches_0; // [96:65]
-    ctcls_manager_reg2hw_mismatches_1_reg_t mismatches_1; // [64:33]
-    ctcls_manager_reg2hw_mismatches_2_reg_t mismatches_2; // [32:1]
+    ctcls_manager_reg2hw_sp_store_reg_t sp_store; // [129:98]
+    ctcls_manager_reg2hw_mode_reg_t mode; // [97:96]
+    ctcls_manager_reg2hw_mismatches_0_reg_t mismatches_0; // [95:64]
+    ctcls_manager_reg2hw_mismatches_1_reg_t mismatches_1; // [63:32]
+    ctcls_manager_reg2hw_mismatches_2_reg_t mismatches_2; // [31:0]
   } ctcls_manager_reg2hw_t;
 
-  ///////////////////////////////////////
-  // Internal design logic to register //
-  ///////////////////////////////////////
+  // HW -> register type
   typedef struct packed {
-    ctcls_manager_hw2reg_sp_store_reg_t sp_store; // [132:101]
-    ctcls_manager_hw2reg_mismatches_0_reg_t mismatches_0; // [100:69]
-    ctcls_manager_hw2reg_mismatches_1_reg_t mismatches_1; // [68:37]
-    ctcls_manager_hw2reg_mismatches_2_reg_t mismatches_2; // [36:5]
+    ctcls_manager_hw2reg_sp_store_reg_t sp_store; // [131:99]
+    ctcls_manager_hw2reg_mismatches_0_reg_t mismatches_0; // [98:66]
+    ctcls_manager_hw2reg_mismatches_1_reg_t mismatches_1; // [65:33]
+    ctcls_manager_hw2reg_mismatches_2_reg_t mismatches_2; // [32:0]
   } ctcls_manager_hw2reg_t;
 
-  // Register Address
-  parameter logic [4:0] CTCLS_MANAGER_SP_STORE_OFFSET = 5'h 0;
-  parameter logic [4:0] CTCLS_MANAGER_MODE_OFFSET = 5'h 4;
-  parameter logic [4:0] CTCLS_MANAGER_MISMATCHES_0_OFFSET = 5'h 8;
-  parameter logic [4:0] CTCLS_MANAGER_MISMATCHES_1_OFFSET = 5'h c;
-  parameter logic [4:0] CTCLS_MANAGER_MISMATCHES_2_OFFSET = 5'h 10;
+  // Register offsets
+  parameter logic [BlockAw-1:0] CTCLS_MANAGER_SP_STORE_OFFSET = 5'h 0;
+  parameter logic [BlockAw-1:0] CTCLS_MANAGER_MODE_OFFSET = 5'h 4;
+  parameter logic [BlockAw-1:0] CTCLS_MANAGER_MISMATCHES_0_OFFSET = 5'h 8;
+  parameter logic [BlockAw-1:0] CTCLS_MANAGER_MISMATCHES_1_OFFSET = 5'h c;
+  parameter logic [BlockAw-1:0] CTCLS_MANAGER_MISMATCHES_2_OFFSET = 5'h 10;
 
-
-  // Register Index
+  // Register index
   typedef enum int {
     CTCLS_MANAGER_SP_STORE,
     CTCLS_MANAGER_MODE,
@@ -97,10 +94,11 @@ package ctcls_manager_reg_pkg;
   // Register width information to check illegal writes
   parameter logic [3:0] CTCLS_MANAGER_PERMIT [5] = '{
     4'b 1111, // index[0] CTCLS_MANAGER_SP_STORE
-    4'b 0011, // index[1] CTCLS_MANAGER_MODE
+    4'b 0001, // index[1] CTCLS_MANAGER_MODE
     4'b 1111, // index[2] CTCLS_MANAGER_MISMATCHES_0
     4'b 1111, // index[3] CTCLS_MANAGER_MISMATCHES_1
     4'b 1111  // index[4] CTCLS_MANAGER_MISMATCHES_2
   };
+
 endpackage
 
