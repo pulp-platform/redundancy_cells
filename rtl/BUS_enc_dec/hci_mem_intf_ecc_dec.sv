@@ -39,17 +39,17 @@ module hci_mem_intf_ecc_dec #(
   if (DropECC) begin
     assign bus_out.data        = bus_in.data;
   end else begin
-    assign bus_out.data        = data_corrected; // remove ecc below
+    assign bus_out.data        = data_corrected; // remove ECC below
   end
   if (UW > 0) begin
-    assign bus_out.user        = bus_in.user[UW-1:0]; // remove ecc below
+    assign bus_out.user        = bus_in.user[UW-1:0]; // remove ECC below
   end else begin
     assign bus_out.user        = '0;
   end
   assign bus_out.be            = bus_in.be;
-  // assign bus_in.r_data         = bus_out.r_data; // add ecc below
+  // assign bus_in.r_data         = bus_out.r_data; // add ECC below
   if (UW > 0) begin
-    assign bus_in.r_user[UW-1:0] = bus_out.r_user[UW-1:0]; // add ecc below
+    assign bus_in.r_user[UW-1:0] = bus_out.r_user[UW-1:0]; // add ECC below
   end
   assign bus_in.r_valid        = bus_out.r_valid;
 
@@ -79,7 +79,7 @@ module hci_mem_intf_ecc_dec #(
       .err_o      ( err_o                                          )
     );
   end else begin
-    $fatal(1, "please chose appropriate DW or update the code.");
+    $fatal(1, "please choose appropriate DW or update the code.");
   end
 
 

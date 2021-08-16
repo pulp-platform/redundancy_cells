@@ -34,7 +34,7 @@ module PE_XBAR_bus_ecc_dec #(
   if (DropECC) begin
     assign bus_out.wdata = bus_in.wdata[DataWidth-1:0];
   end else begin
-    assign bus_out.wdata = data_corrected; // remove ecc below
+    assign bus_out.wdata = data_corrected; // remove ECC below
   end
 
   assign bus_in.gnt      = bus_out.gnt;

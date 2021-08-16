@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add ECC encoder for AXI_BUS
 
 ### Changed
+- Updated `axi` version
+- Updated `hci` version
+- Updatad `register_interface` version and aligned to new reggen_tool format
+
 ### Removed
 ### Fixed
 

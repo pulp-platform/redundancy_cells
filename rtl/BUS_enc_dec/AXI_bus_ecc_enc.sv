@@ -23,7 +23,7 @@ module AXI_bus_ecc_enc #(
   output logic [NbEccBits-1:0] syndrome_o,
   output logic [          1:0] err_o
 );
-  // ECC is added to the higher bits of USER signals, calculated from dat bits.
+  // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
 `ifndef TARGET_SYNTHESIS
   if (bus_out.AXI_USER_WIDTH != bus_in.AXI_USER_WIDTH+NbEccBits) $fatal("Ensure bus_out AXI_USER_WIDTH");
@@ -48,10 +48,10 @@ module AXI_bus_ecc_enc #(
   assign bus_out.aw_valid  =                      bus_in.aw_valid;
   assign bus_in.aw_ready   =                      bus_out.aw_ready;
 
-  // assign bus_out.w_data                     = bus_in.w_data; // add ecc below
+  // assign bus_out.w_data                     = bus_in.w_data; // add ECC below
   assign bus_out.w_strb                   = bus_in.w_strb;
   assign bus_out.w_last                   = bus_in.w_last;
-  assign bus_out.w_user[AxiUserWidth-1:0] = bus_in.w_user; // add ecc below
+  assign bus_out.w_user[AxiUserWidth-1:0] = bus_in.w_user; // add ECC below
   assign bus_out.w_valid                  = bus_in.w_valid;
   assign bus_in.w_ready                   = bus_out.w_ready;
 
@@ -79,11 +79,11 @@ module AXI_bus_ecc_enc #(
   if (DropECC) begin
     assign bus_in.r_data   = bus_out.r_data;
   end else begin
-    assign bus_in.r_data   = data_corrected; // remove ecc below
+    assign bus_in.r_data   = data_corrected; // remove ECC below
   end
   assign bus_in.r_resp     = bus_out.r_resp;
   assign bus_in.r_last     = bus_out.r_last;
-  assign bus_in.r_user     = bus_out.r_user[AxiUserWidth-1:0]; // remove ecc below
+  assign bus_in.r_user     = bus_out.r_user[AxiUserWidth-1:0]; // remove ECC below
   assign bus_in.r_valid    = bus_out.r_valid;
   assign bus_out.r_ready   = bus_in.r_ready;
 
@@ -112,7 +112,7 @@ module AXI_bus_ecc_enc #(
       .err_o      ( err_o                                                         )
     );
   end else begin
-    $fatal(1, "please chose appropriate AxiDataWidth or update the code.");
+    $fatal(1, "please choose appropriate AxiDataWidth or update the code.");
   end
   
 

@@ -39,7 +39,7 @@ module PE_XBAR_bus_ecc_enc #(
   if (DropECC) begin
     assign bus_in.r_rdata = bus_out.r_rdata[DataWidth-1:0];
   end else begin
-    assign bus_in.r_rdata = data_corrected; // remove ecc below
+    assign bus_in.r_rdata = data_corrected; // remove ECC below
   end
 
   prim_secded_39_32_enc ecc_encode (
