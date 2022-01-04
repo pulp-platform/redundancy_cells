@@ -195,8 +195,10 @@ module ecc_sram_wrap #(
     .DataWidth ( ProtectedWidth ), // Data signal width
     .ByteWidth ( ProtectedWidth ), // Width of a data byte
     .NumPorts  ( 1              ), // Number of read and write ports
-    .Latency   ( 1              ), // Latency when the read data is available
-    .SimInit   ( "zeros"        )
+`ifndef TARGET_SYNTHESIS
+    .SimInit   ( "zeros"        ),
+`endif
+    .Latency   ( 1              ) // Latency when the read data is available
   ) i_bank (
     .clk_i,                  // Clock
     .rst_ni,                 // Asynchronous reset active low
