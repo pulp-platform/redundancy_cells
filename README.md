@@ -1,6 +1,6 @@
 # Redundancy Cells
 
-This repository contains various modules used to add redundancy.
+This repository contains various modules used to add redundancy. This repository was forked from https://github.com/pulp-platform/redundancy_cells .
 
 ## ECC encoders and decoders
 ECC encoders and decoders are imported using lowRISC's `vendor.py` script. To re-import and re-generate the `prim_secded_` modules run
