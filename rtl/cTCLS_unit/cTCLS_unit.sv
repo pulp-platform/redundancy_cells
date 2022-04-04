@@ -26,6 +26,8 @@ module cTCLS_unit #(
 
   input                                    tcls_req_t speriph_request,
   output                                   tcls_rsp_t speriph_response,
+  output logic                             tcls_triple_core_mismatch,
+  output logic                             tcls_single_core_mismatch,
 
   // Ports to connect Interconnect/rest of system
   input logic [ 31:0]                      intc_hart_id_i,
@@ -62,7 +64,7 @@ module cTCLS_unit #(
   // Ports to connect Cores
   output logic [2:0]                       core_rst_no,
 
-  output logic [2:0][ 31:0]                 core_hart_id_o,
+  output logic [2:0][ 31:0]                core_hart_id_o,
 
    
   output logic [2:0]                       core_fetch_en_o,
@@ -146,7 +148,8 @@ module cTCLS_unit #(
     .reg2hw    ( reg2hw           ),
     .hw2reg    ( hw2reg           ),
     .devmode_i ( '0               )
-  );
+  )
+;
 
   assign hw2reg.sp_store.d = '0;
   assign hw2reg.sp_store.de = '0;
@@ -201,11 +204,13 @@ module cTCLS_unit #(
     TMR_error        = main_error;
     TMR_error_detect = main_error_cba;
     if (data_req) begin
-      TMR_error        = main_error | data_error; // TODO: check for triple mismatch across both domains
+      TMR_error        = main_error | data_error;
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
 
+  assign tcls_triple_core_mismatch = TMR_error;
+  
   /***********************
    *  FSM for TCLS unit  *
    ***********************/
