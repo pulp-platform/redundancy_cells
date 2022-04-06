@@ -1,0 +1,73 @@
+{
+  name: "TCLS_manager",
+  clock_primary: "clk_i",
+  reset_primary: "rst_ni",
+  bus_interfaces: [
+    { protocol: "reg_iface",
+      direction: "device"
+    }
+  ],
+
+  regwidth: "32",
+  registers: [
+    { name: "SP_store",
+      desc: "Stack Pointer storage register",
+      swaccess: "rw",
+      hwaccess: "hrw",
+      fields: [
+        { bits: "31:0",
+          name: "SP",
+          desc: "Stack Pointer"
+        }
+      ]
+    },
+    { name: "MODE",
+      desc: "Redundancy Mode configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits: "0",
+          name: "MODE",
+          desc: "TMR mode enable"
+        },
+        { bits: "1",
+          name: "RESTORE_MODE",
+          desc: "Enable wait-for-restoration"
+        }
+      ]
+    },
+    { name: "MISMATCHES_0",
+      desc: "Mismatch counter of core 0",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      fields: [
+        { bits: "31:0",
+          name: "mismatches_0",
+          desc: "mismatch counter of core 0"
+        }
+      ]
+    },
+    { name: "MISMATCHES_1",
+      desc: "Mismatch counter of core 1",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      fields: [
+        { bits: "31:0",
+          name: "mismatches_1",
+          desc: "mismatch counter of core 1"
+        }
+      ]
+    },
+    { name: "MISMATCHES_2",
+      desc: "Mismatch counter of core 2",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      fields: [
+        { bits: "31:0",
+          name: "mismatches_2",
+          desc: "mismatch counter of core 2"
+        }
+      ]
+    }
+  ],
+}
