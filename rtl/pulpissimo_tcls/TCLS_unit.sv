@@ -208,7 +208,7 @@ module TCLS_unit #(
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
-
+  assign tcls_single_core_mismatch = (TMR_error_detect != 3'b000);
   assign tcls_triple_core_mismatch = TMR_error;
   
   /***********************

@@ -14,11 +14,11 @@
 
 SHELL=bash
 
-REG_PATH = $(shell bender path register_interface)
+REG_PATH = ../register_interface
 REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
-HJSON = rtl/cTCLS_unit/cTCLS_unit.hjson
+HJSON = rtl/pulpissimo_tcls/TCLS_unit.hjson
 
-TARGET_DIR = rtl/cTCLS_unit
+TARGET_DIR = rtl/pulpissimo_tcls
 
 .PHONY: gen_cTCLS
 gen_cTCLS:
@@ -26,6 +26,13 @@ gen_cTCLS:
 	python $(REG_TOOL) $(HJSON) -d > $(TARGET_DIR)/doc.html
 	python $(REG_TOOL) $(HJSON) -D > $(TARGET_DIR)/cTCLS.h
 	python $(REG_TOOL) $(HJSON) --doc > $(TARGET_DIR)/doc.md
+
+gen_TCLS:
+	python $(REG_TOOL) $(HJSON) -t $(TARGET_DIR) -r
+	python $(REG_TOOL) $(HJSON) -d > $(TARGET_DIR)/doc.html
+	python $(REG_TOOL) $(HJSON) -D > $(TARGET_DIR)/TCLS.h
+	python $(REG_TOOL) $(HJSON) --doc > $(TARGET_DIR)/doc.md
+
 
 gen_ECC:
 	./util/vendor.py util/lowrisc_opentitan.vendor.hjson
