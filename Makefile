@@ -16,11 +16,11 @@ SHELL=bash
 
 REG_PATH = ../register_interface
 REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
-HJSON = rtl/pulpissimo_tcls/TCLS_unit.hjson
+HJSON = rtl/ecc_registers/ecc_sram_wrapper.hjson
 
-TARGET_DIR = rtl/pulpissimo_tcls
+TARGET_DIR = rtl
 
-.PHONY: gen_cTCLS
+# .PHONY: gen_cTCLS
 gen_cTCLS:
 	python $(REG_TOOL) $(HJSON) -t $(TARGET_DIR) -r
 	python $(REG_TOOL) $(HJSON) -d > $(TARGET_DIR)/doc.html
@@ -33,6 +33,11 @@ gen_TCLS:
 	python $(REG_TOOL) $(HJSON) -D > $(TARGET_DIR)/TCLS.h
 	python $(REG_TOOL) $(HJSON) --doc > $(TARGET_DIR)/doc.md
 
+gen_ecc_registers:
+	python $(REG_TOOL) $(HJSON) -t $(TARGET_DIR) -r
+	python $(REG_TOOL) $(HJSON) -d > $(TARGET_DIR)/doc.html
+	python $(REG_TOOL) $(HJSON) -D > $(TARGET_DIR)/ECC.h
+	python $(REG_TOOL) $(HJSON) --doc > $(TARGET_DIR)/doc.md
 
 gen_ECC:
 	./util/vendor.py util/lowrisc_opentitan.vendor.hjson

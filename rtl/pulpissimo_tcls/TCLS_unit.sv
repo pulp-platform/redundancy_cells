@@ -12,14 +12,15 @@
 
 `include "register_interface/typedef.svh"
 // Peripheral communication signals
-import tcls_manager_reg_pkg::* ;
-`REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
+
 
 module TCLS_unit #(
   parameter int unsigned InstrRdataWidth  = 32,
   parameter int unsigned NExtPerfCounters = 5,
   parameter int unsigned DataWidth        = 32,
-  parameter int unsigned BEWidth          = 4
+  parameter int unsigned BEWidth          = 4,
+  parameter type         tcls_req_t       = logic,
+  parameter type         tcls_rsp_t       = logic
 ) (
   input logic                              clk_i,
   input logic                              rst_ni,
@@ -98,6 +99,9 @@ module TCLS_unit #(
   // APU/SHARED_FPU not implemented
 );
 
+   import tcls_manager_reg_pkg::* ;
+
+  
    tcls_manager_reg2hw_t reg2hw;
    tcls_manager_hw2reg_t hw2reg;
    
