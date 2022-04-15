@@ -1,0 +1,25 @@
+{
+  name: "ECC_manager",
+  clock_primary: "clk_i",
+  reset_primary: "rst_ni",
+  bus_interfaces: [
+    { protocol: "reg_iface",
+      direction: "device"
+    }
+  ],
+
+  regwidth: "32",
+  registers: [
+    { name: "correctable_mismatches",
+      desc: "Correctable mismatches caught by ecc",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      fields: [
+        { bits: "31:0",
+          name: "correctable_mismatches",
+          desc: "Correctable mismatches caught by ecc"
+        }
+      ]
+    }
+  ],
+}
