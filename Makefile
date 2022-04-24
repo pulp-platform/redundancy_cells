@@ -16,9 +16,9 @@ SHELL=bash
 
 REG_PATH = ../register_interface
 REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
-HJSON = rtl/ecc_registers/ecc_sram_wrapper.hjson
+HJSON = rtl/ecc_wrap/ecc_sram_wrapper.hjson
 
-TARGET_DIR = rtl
+TARGET_DIR = rtl/ecc_wrap
 
 # .PHONY: gen_cTCLS
 gen_cTCLS:
