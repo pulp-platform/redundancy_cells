@@ -11,31 +11,45 @@
 // Adapts bus to sram adding ecc bits
 
 module ecc_sram_wrap #(
-  parameter int unsigned  BankSize = 256,
-  parameter bit           InputECC = 0, // 0: no ECC on input
+  parameter  int unsigned BankSize         = 256,
+  parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
   // Set params
-  parameter int unsigned  UnprotectedWidth = 32, // This currently only works for 32bit
-  parameter int unsigned  ProtectedWidth = 39, // This currently only works for 39bit
-  localparam int unsigned DataInWidth = InputECC ? ProtectedWidth : UnprotectedWidth,
-  localparam int unsigned BEInWidth = UnprotectedWidth/8,
-  localparam int unsigned BankAddWidth = $clog2(BankSize)
+  parameter  int unsigned UnprotectedWidth = 32, // This currently only works for 32bit
+  parameter  int unsigned ProtectedWidth   = 39, // This currently only works for 39bit
+  localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
+  localparam int unsigned BEInWidth        = UnprotectedWidth/8,
+  localparam int unsigned BankAddWidth     = $clog2(BankSize)
 ) (
-  input logic                    clk_i,
-  input logic                    rst_ni,
+  input  logic                   clk_i,
+  input  logic                   rst_ni,
 
-  input logic [DataInWidth-1:0]  tcdm_wdata_i,
-  input logic [ 31:0]            tcdm_add_i,
-  input logic                    tcdm_req_i,
-  input logic                    tcdm_wen_i,
-  input logic [ BEInWidth-1:0]   tcdm_be_i,
+  input  logic [DataInWidth-1:0] tcdm_wdata_i,
+  input  logic [           31:0] tcdm_add_i,
+  input  logic                   tcdm_req_i,
+  input  logic                   tcdm_wen_i,
+  input  logic [  BEInWidth-1:0] tcdm_be_i,
   output logic [DataInWidth-1:0] tcdm_rdata_o,
   output logic                   tcdm_gnt_o,
-  output logic [1:0]             error_o // bit 0: single error ; bit 1: double error
+  output logic                   single_error_o,
+  output logic                   multi_error_o
 );
-  // TODO: - log errors from ECC decoding
-  //       - Add memory scrubber
+  // TODO: - Add memory scrubber
 
+  logic [1:0]                    ecc_error;
+  logic                          valid_read_d, valid_read_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
+    if(~rst_ni) begin
+      valid_read_q <= '0;
+    end else begin
+      valid_read_q <= valid_read_d;
+    end
+  end
+
+  assign valid_read_d = tcdm_req_i && tcdm_gnt_o && (tcdm_wen_i || (tcdm_be_i != {BEInWidth{1'b1}}));
+  assign single_error_o = ecc_error[0] && valid_read_q;
+  assign multi_error_o  = ecc_error[1] && valid_read_q;
   
 
   
@@ -73,7 +87,7 @@ module ecc_sram_wrap #(
       .in         ( bank_rdata ),
       .d_o        ( loaded ),
       .syndrome_o (),
-      .err_o      (error_o)
+      .err_o      (ecc_error)
     );
 
     prim_secded_39_32_enc ecc_encode (
@@ -88,12 +102,12 @@ module ecc_sram_wrap #(
     assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
     always_comb begin : proc_load_and_store_comb
-      store_state_d = NORMAL;
-      tcdm_gnt_o    = 1'b1;
-      to_store      = tcdm_wdata_i;
+      store_state_d =  NORMAL;
+      tcdm_gnt_o    =  1'b1;
+      to_store      =  tcdm_wdata_i;
       bank_we       = ~tcdm_wen_i;
-      bank_req      = tcdm_req_i;
-      bank_add      = tcdm_add_i[BankAddWidth+2-1:2];
+      bank_req      =  tcdm_req_i;
+      bank_add      =  tcdm_add_i[BankAddWidth+2-1:2];
       if (store_state_q == NORMAL) begin
         if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
           store_state_d = LOAD_AND_STORE;

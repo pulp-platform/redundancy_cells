@@ -9,72 +9,28 @@
   ],
 
   regwidth: "32",
+
+  param_list: [ 
+  { name:   "NumBanks",
+      default: "6"
+  }
+  ],
   registers: [
-    { name: "PRIVATE0",
-      desc: "errors in private bank 0",
-      swaccess: "rw0c",
-      hwaccess: "hrw",
-      fields: [
-        { bits: "31:0",
-          name: "private0",
-          desc: "Correctable mismatches caught by ecc"
-        }
-      ]
-    },
-    { name: "PRIVATE1",
-      desc: "errors in private bank 1",
-      swaccess: "rw0c",
-      hwaccess: "hrw",
-      fields: [
-        { bits: "31:0",
-          name: "private1",
-          desc: "Correctable mismatches caught by ecc"
-        }
-      ]
-    },
-    { name: "CUTS0",
-      desc: "errors in public bank 0",
-      swaccess: "rw0c",
-      hwaccess: "hrw",
-      fields: [
-        { bits: "31:0",
-          name: "cuts0",
-          desc: "Correctable mismatches caught by ecc"
-        }
-      ]
-    },
-    { name: "CUTS1",
-      desc: "errors in public bank 1",
-      swaccess: "rw0c",
-      hwaccess: "hrw",
-      fields: [
-        { bits: "31:0",
-          name: "cuts1",
-          desc: "Correctable mismatches caught by ecc"
-        }
-      ]
-    },
-    { name: "CUTS2",
-      desc: "errors in public bank 2",
-      swaccess: "rw0c",
-      hwaccess: "hrw",
-      fields: [
-        { bits: "31:0",
-          name: "cuts2",
-          desc: "Correctable mismatches caught by ecc"
-        }
-      ]
-    },
-    { name: "CUTS3",
-      desc: "errors in public bank 3",
-      swaccess: "rw0c",
-      hwaccess: "hrw",
-      fields: [
-        { bits: "31:0",
-          name: "cuts3",
-          desc: "Correctable mismatches caught by ecc"
-        }
-      ]
+    { multireg: 
+      { count: "NumBanks",
+        cname: "mismatch_count",
+        name: "mismatch_count",
+        desc: "Correctable mismatches caught by ecc",
+        swaccess: "rw0c",
+        hwaccess: "hrw",
+        resval: "0",
+        fields: [
+          { bits: "31:0",
+            name: "correctable_mismatches",
+            desc: "Correctable mismatches caught by ecc"
+          }
+        ]
+      }
     }
   ],
 }

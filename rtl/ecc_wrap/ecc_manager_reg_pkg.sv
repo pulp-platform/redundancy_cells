@@ -6,6 +6,9 @@
 
 package ecc_manager_reg_pkg;
 
+  // Param list
+  parameter int NumBanks = 6;
+
   // Address widths within the block
   parameter int BlockAw = 5;
 
@@ -15,104 +18,49 @@ package ecc_manager_reg_pkg;
 
   typedef struct packed {
     logic [31:0] q;
-  } ecc_manager_reg2hw_private0_reg_t;
-
-  typedef struct packed {
-    logic [31:0] q;
-  } ecc_manager_reg2hw_private1_reg_t;
-
-  typedef struct packed {
-    logic [31:0] q;
-  } ecc_manager_reg2hw_cuts0_reg_t;
-
-  typedef struct packed {
-    logic [31:0] q;
-  } ecc_manager_reg2hw_cuts1_reg_t;
-
-  typedef struct packed {
-    logic [31:0] q;
-  } ecc_manager_reg2hw_cuts2_reg_t;
-
-  typedef struct packed {
-    logic [31:0] q;
-  } ecc_manager_reg2hw_cuts3_reg_t;
+  } ecc_manager_reg2hw_mismatch_count_mreg_t;
 
   typedef struct packed {
     logic [31:0] d;
     logic        de;
-  } ecc_manager_hw2reg_private0_reg_t;
-
-  typedef struct packed {
-    logic [31:0] d;
-    logic        de;
-  } ecc_manager_hw2reg_private1_reg_t;
-
-  typedef struct packed {
-    logic [31:0] d;
-    logic        de;
-  } ecc_manager_hw2reg_cuts0_reg_t;
-
-  typedef struct packed {
-    logic [31:0] d;
-    logic        de;
-  } ecc_manager_hw2reg_cuts1_reg_t;
-
-  typedef struct packed {
-    logic [31:0] d;
-    logic        de;
-  } ecc_manager_hw2reg_cuts2_reg_t;
-
-  typedef struct packed {
-    logic [31:0] d;
-    logic        de;
-  } ecc_manager_hw2reg_cuts3_reg_t;
+  } ecc_manager_hw2reg_mismatch_count_mreg_t;
 
   // Register -> HW type
   typedef struct packed {
-    ecc_manager_reg2hw_private0_reg_t private0; // [191:160]
-    ecc_manager_reg2hw_private1_reg_t private1; // [159:128]
-    ecc_manager_reg2hw_cuts0_reg_t cuts0; // [127:96]
-    ecc_manager_reg2hw_cuts1_reg_t cuts1; // [95:64]
-    ecc_manager_reg2hw_cuts2_reg_t cuts2; // [63:32]
-    ecc_manager_reg2hw_cuts3_reg_t cuts3; // [31:0]
+    ecc_manager_reg2hw_mismatch_count_mreg_t [5:0] mismatch_count; // [191:0]
   } ecc_manager_reg2hw_t;
 
   // HW -> register type
   typedef struct packed {
-    ecc_manager_hw2reg_private0_reg_t private0; // [197:165]
-    ecc_manager_hw2reg_private1_reg_t private1; // [164:132]
-    ecc_manager_hw2reg_cuts0_reg_t cuts0; // [131:99]
-    ecc_manager_hw2reg_cuts1_reg_t cuts1; // [98:66]
-    ecc_manager_hw2reg_cuts2_reg_t cuts2; // [65:33]
-    ecc_manager_hw2reg_cuts3_reg_t cuts3; // [32:0]
+    ecc_manager_hw2reg_mismatch_count_mreg_t [5:0] mismatch_count; // [197:0]
   } ecc_manager_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] ECC_MANAGER_PRIVATE0_OFFSET = 5'h 0;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_PRIVATE1_OFFSET = 5'h 4;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_CUTS0_OFFSET = 5'h 8;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_CUTS1_OFFSET = 5'h c;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_CUTS2_OFFSET = 5'h 10;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_CUTS3_OFFSET = 5'h 14;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_0_OFFSET = 5'h 0;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_1_OFFSET = 5'h 4;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_2_OFFSET = 5'h 8;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_3_OFFSET = 5'h c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_4_OFFSET = 5'h 10;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_5_OFFSET = 5'h 14;
 
   // Register index
   typedef enum int {
-    ECC_MANAGER_PRIVATE0,
-    ECC_MANAGER_PRIVATE1,
-    ECC_MANAGER_CUTS0,
-    ECC_MANAGER_CUTS1,
-    ECC_MANAGER_CUTS2,
-    ECC_MANAGER_CUTS3
+    ECC_MANAGER_MISMATCH_COUNT_0,
+    ECC_MANAGER_MISMATCH_COUNT_1,
+    ECC_MANAGER_MISMATCH_COUNT_2,
+    ECC_MANAGER_MISMATCH_COUNT_3,
+    ECC_MANAGER_MISMATCH_COUNT_4,
+    ECC_MANAGER_MISMATCH_COUNT_5
   } ecc_manager_id_e;
 
   // Register width information to check illegal writes
   parameter logic [3:0] ECC_MANAGER_PERMIT [6] = '{
-    4'b 1111, // index[0] ECC_MANAGER_PRIVATE0
-    4'b 1111, // index[1] ECC_MANAGER_PRIVATE1
-    4'b 1111, // index[2] ECC_MANAGER_CUTS0
-    4'b 1111, // index[3] ECC_MANAGER_CUTS1
-    4'b 1111, // index[4] ECC_MANAGER_CUTS2
-    4'b 1111  // index[5] ECC_MANAGER_CUTS3
+    4'b 1111, // index[0] ECC_MANAGER_MISMATCH_COUNT_0
+    4'b 1111, // index[1] ECC_MANAGER_MISMATCH_COUNT_1
+    4'b 1111, // index[2] ECC_MANAGER_MISMATCH_COUNT_2
+    4'b 1111, // index[3] ECC_MANAGER_MISMATCH_COUNT_3
+    4'b 1111, // index[4] ECC_MANAGER_MISMATCH_COUNT_4
+    4'b 1111  // index[5] ECC_MANAGER_MISMATCH_COUNT_5
   };
 
 endpackage

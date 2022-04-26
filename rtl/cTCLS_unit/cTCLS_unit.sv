@@ -12,102 +12,103 @@
 
 `include "register_interface/typedef.svh"
 // Peripheral communication signals
-
-
+import ctcls_manager_reg_pkg::* ;
+`REG_BUS_TYPEDEF_ALL(tcls, logic[31:0], logic[31:0], logic[3:0])
 
 module cTCLS_unit #(
-  parameter int unsigned InstrRdataWidth = 32,
+  parameter int unsigned InstrRdataWidth  = 32,
   parameter int unsigned NExtPerfCounters = 5,
-  parameter int unsigned DataWidth = 32,
-  parameter int unsigned BEWidth = 4,
-  parameter type         tcls_req_t       = logic,
-  parameter type         tcls_rsp_t       = logic
+  parameter int unsigned DataWidth        = 32,
+  parameter int unsigned BEWidth          = 4,
+  parameter int unsigned UserWidth        = 0
 ) (
-  
-  input logic                              clk_i,
-  input logic                              rst_ni,
+  input  logic                             clk_i,
+  input  logic                             rst_ni,
 
-  input                                    tcls_req_t speriph_request,
-  output                                   tcls_rsp_t speriph_response,
-  output logic                             tcls_triple_core_mismatch,
-  output logic                             tcls_single_core_mismatch,
+  input  tcls_req_t                        speriph_request,
+  output tcls_rsp_t                        speriph_response,
 
   // Ports to connect Interconnect/rest of system
-  input logic [ 31:0]                      intc_hart_id_i,
+  input  logic [2:0][                 3:0] intc_core_id_i,
+  input  logic [2:0][                 5:0] intc_cluster_id_i,
 
-  input logic                              intc_fetch_en_i,
-  input logic [ 31:0]                      intc_boot_addr_i,
+  input  logic [2:0]                       intc_clock_en_i,
+  input  logic [2:0]                       intc_fetch_en_i,
+  input  logic [2:0][                31:0] intc_boot_addr_i,
+  output logic [2:0]                       intc_core_busy_o,
 
-  input logic [31 :0]                      intc_irq_x_i,
-  output logic                             intc_irq_x_ack_o,
-  output logic [ 4:0]                      intc_irq_x_ack_id_o,
+  input  logic [2:0]                       intc_irq_req_i,
+  output logic [2:0]                       intc_irq_ack_o,
+  input  logic [2:0][                 4:0] intc_irq_id_i,
+  output logic [2:0][                 4:0] intc_irq_ack_id_o,
 
-   
-  input logic                              intc_instr_err_i,
-  output logic                             intc_instr_req_o,
-  input logic                              intc_instr_gnt_i,
-  output logic [ 31:0]                     intc_instr_addr_o,
-  input logic [InstrRdataWidth-1:0]        intc_instr_rdata_i,
-  input logic                              intc_instr_rvalid_i,
+  output logic [2:0]                       intc_instr_req_o,
+  input  logic [2:0]                       intc_instr_gnt_i,
+  output logic [2:0][                31:0] intc_instr_addr_o,
+  input  logic [2:0][ InstrRdataWidth-1:0] intc_instr_r_rdata_i,
+  input  logic [2:0]                       intc_instr_r_valid_i,
 
-  input logic                              intc_debug_req_i,
+  input  logic [2:0]                       intc_debug_req_i,
 
-  output logic                             intc_data_req_o,
-  output logic [ 31:0]                     intc_data_addr_o,
-  output logic                             intc_data_we_o,
-  output logic [ DataWidth-1:0]            intc_data_wdata_o,
-  output logic [ BEWidth-1:0]              intc_data_be_o,
-  input logic                              intc_data_gnt_i,
-  input logic [ DataWidth-1:0]             intc_data_rdata_i,
-  input logic                              intc_data_rvalid_i,
-  input logic                              intc_data_err_i,
+  output logic [2:0]                       intc_data_req_o,
+  output logic [2:0][                31:0] intc_data_add_o,
+  output logic [2:0]                       intc_data_wen_o,
+  output logic [2:0][       DataWidth-1:0] intc_data_wdata_o,
+  output logic [2:0][       UserWidth-1:0] intc_data_user_o,
+  output logic [2:0][         BEWidth-1:0] intc_data_be_o,
+  input  logic [2:0]                       intc_data_gnt_i,
+  input  logic [2:0]                       intc_data_r_opc_i,
+  input  logic [2:0][       DataWidth-1:0] intc_data_r_rdata_i,
+  input  logic [2:0][       UserWidth-1:0] intc_data_r_user_i,
+  input  logic [2:0]                       intc_data_r_valid_i,
 
-  input logic [NExtPerfCounters-1:0]       intc_perf_counters_i,
+  input  logic [2:0][NExtPerfCounters-1:0] intc_perf_counters_i,
 
   // Ports to connect Cores
   output logic [2:0]                       core_rst_no,
 
-  output logic [2:0][ 31:0]                core_hart_id_o,
+  output logic [2:0][                 3:0] core_core_id_o,
+  output logic [2:0][                 5:0] core_cluster_id_o,
 
-   
+  output logic [2:0]                       core_clock_en_o,
   output logic [2:0]                       core_fetch_en_o,
-  output logic [2:0][ 31:0]                core_boot_addr_o,
+  output logic [2:0][                31:0] core_boot_addr_o,
+  input  logic [2:0]                       core_core_busy_i,
 
-  output logic [2:0][ 31:0]                core_irq_x_o,
-  input logic [2:0]                        core_irq_x_ack_i,
-  input logic [2:0][ 4:0]                  core_irq_x_ack_id_i,
-  
-  output logic [2:0]                       core_instr_err_o,
-  input logic [2:0]                        core_instr_req_i,
+  output logic [2:0]                       core_irq_req_o,
+  input  logic [2:0]                       core_irq_ack_i,
+  output logic [2:0][                 4:0] core_irq_id_o,
+  input  logic [2:0][                 4:0] core_irq_ack_id_i,
+
+  input  logic [2:0]                       core_instr_req_i,
   output logic [2:0]                       core_instr_gnt_o,
-  input logic [2:0][ 31:0]                 core_instr_addr_i,
-  output logic [2:0][ InstrRdataWidth-1:0] core_instr_rdata_o,
-  output logic [2:0]                       core_instr_rvalid_o,
+  input  logic [2:0][                31:0] core_instr_addr_i,
+  output logic [2:0][ InstrRdataWidth-1:0] core_instr_r_rdata_o,
+  output logic [2:0]                       core_instr_r_valid_o,
 
   output logic [2:0]                       core_debug_req_o,
 
-  input logic [2:0]                        core_data_req_i,
-  input logic [2:0][ 31:0]                 core_data_addr_i,
-  input logic [2:0]                        core_data_we_i,
-  input logic [2:0][ DataWidth-1:0]        core_data_wdata_i,
-  input logic [2:0][ BEWidth-1:0]          core_data_be_i,
+  input  logic [2:0]                       core_data_req_i,
+  input  logic [2:0][                31:0] core_data_add_i,
+  input  logic [2:0]                       core_data_wen_i,
+  input  logic [2:0][       DataWidth-1:0] core_data_wdata_i,
+  input  logic [2:0][       UserWidth-1:0] core_data_user_i,
+  input  logic [2:0][         BEWidth-1:0] core_data_be_i,
   output logic [2:0]                       core_data_gnt_o,
-  output logic [2:0][ DataWidth-1:0]       core_data_rdata_o,
-  output logic [2:0]                       core_data_rvalid_o,
-  output logic [2:0]                       core_data_err_o,
+  output logic [2:0]                       core_data_r_opc_o,
+  output logic [2:0][       DataWidth-1:0] core_data_r_rdata_o,
+  output logic [2:0][       UserWidth-1:0] core_data_r_user_o,
+  output logic [2:0]                       core_data_r_valid_o,
 
   output logic [2:0][NExtPerfCounters-1:0] core_perf_counters_o
 
   // APU/SHARED_FPU not implemented
 );
-  
-   import ctcls_manager_reg_pkg::* ;
 
-  
-   ctcls_manager_reg2hw_t reg2hw;
-   ctcls_manager_hw2reg_t hw2reg;
-   
-   // State signals
+  ctcls_manager_reg2hw_t reg2hw;
+  ctcls_manager_hw2reg_t hw2reg;
+
+  // State signals
   typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
 
   redundancy_mode_e red_mode_d, red_mode_q;
@@ -116,16 +117,17 @@ module cTCLS_unit #(
   logic       TMR_error, main_error, data_error;
   logic [2:0] TMR_error_detect, main_error_cba, data_error_cba;
 
-  localparam MAIN_TMR_WIDTH = 1      + 5          + 1        + 32        + 1;
-  //                          irq_ack  irq_ack_id   instr_req  instr_addr  data_req
+  localparam MAIN_TMR_WIDTH = 1   + 1      + 5         + 1        + 32        + 1;
+  //                          busy  irq_ack  irq_ack_id  instr_req  instr_addr  data_req
   logic      [MAIN_TMR_WIDTH-1:0] main_tmr_out;
   logic [2:0][MAIN_TMR_WIDTH-1:0] main_tmr_in;
 
-  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth;
-  //                          data_addr  data_we  data_wdata  data_be 
+  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth + UserWidth;
+  //                          data_add  data_wen  data_wdata  data_be   data_user
   logic      [DATA_TMR_WIDTH-1:0] data_tmr_out;
   logic [2:0][DATA_TMR_WIDTH-1:0] data_tmr_in;
 
+  logic                 core_busy;
 
   logic                 irq_ack;
   logic [          4:0] irq_ack_id;
@@ -134,10 +136,11 @@ module cTCLS_unit #(
   logic [         31:0] instr_addr;
 
   logic                 data_req;
-  logic [         31:0] data_addr;
-  logic                 data_we;
+  logic [         31:0] data_add;
+  logic                 data_wen;
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
+  logic [UserWidth-1:0] data_user;
 
   /************************************
    *  Slave Peripheral communication  *
@@ -154,8 +157,7 @@ module cTCLS_unit #(
     .reg2hw    ( reg2hw           ),
     .hw2reg    ( hw2reg           ),
     .devmode_i ( '0               )
-  )
-;
+  );
 
   assign hw2reg.sp_store.d = '0;
   assign hw2reg.sp_store.de = '0;
@@ -169,11 +171,11 @@ module cTCLS_unit #(
   // TMR voters are separated for data, as this only needs to be compared when the core reads or writes data
 
   for (genvar i = 0; i < 3; i++) begin
-    assign main_tmr_in[i] = {core_irq_x_ack_i[i], core_irq_x_ack_id_i[i],
+    assign main_tmr_in[i] = {core_core_busy_i[i], core_irq_ack_i[i], core_irq_ack_id_i[i],
         core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i]};
   end
 
-  assign { irq_ack, irq_ack_id,
+  assign { core_busy, irq_ack, irq_ack_id,
       instr_req, instr_addr, data_req } = main_tmr_out;
 
   bitwise_TMR_voter #(
@@ -189,11 +191,20 @@ module cTCLS_unit #(
   );
 
   for (genvar i = 0; i < 3; i++) begin
-    assign data_tmr_in[i] = {core_data_addr_i[i], core_data_we_i[i], core_data_wdata_i[i], core_data_be_i[i]};
+    if (UserWidth > 0) begin
+      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i], core_data_user_i[i]};
+    end else begin
+      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i]};
+    end
   end
 
-  assign {data_addr, data_we, data_wdata, data_be} = data_tmr_out;
-  
+  if (UserWidth > 0) begin
+    assign {data_add, data_wen, data_wdata, data_be, data_user} = data_tmr_out;
+  end else begin
+    assign {data_add, data_wen, data_wdata, data_be} = data_tmr_out;
+    assign data_user = '0;
+  end
+
   bitwise_TMR_voter #(
     .DataWidth( DATA_TMR_WIDTH ),
     .VoterType( 0              )
@@ -210,13 +221,11 @@ module cTCLS_unit #(
     TMR_error        = main_error;
     TMR_error_detect = main_error_cba;
     if (data_req) begin
-      TMR_error        = main_error | data_error;
+      TMR_error        = main_error | data_error; // TODO: check for triple mismatch across both domains
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
 
-  assign tcls_triple_core_mismatch = TMR_error;
-  
   /***********************
    *  FSM for TCLS unit  *
    ***********************/
@@ -249,8 +258,12 @@ module cTCLS_unit #(
     end
 
     // Before core startup: set TMR mode from reg2hw.mode.mode
-    if (intc_fetch_en_i == 0) begin
-      red_mode_d = TMR_RUN;
+    if (intc_fetch_en_i[0] == 0 & core_core_busy_i[0] == 0) begin
+      if (reg2hw.mode.mode == 1) begin
+        red_mode_d = TMR_RUN;
+      end else begin
+        red_mode_d = NON_TMR;
+      end
     end
 
     // Assign reset signals - If reset should be triggered in during resynchronization, signal synchronization needs to be ensured.
@@ -261,7 +274,7 @@ module cTCLS_unit #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
-      red_mode_q <= TMR_RUN;
+      red_mode_q <= NON_TMR;
     end else begin
       red_mode_q <= red_mode_d;
     end
@@ -272,63 +285,118 @@ module cTCLS_unit #(
    ***********************************************/
 
   always_comb begin : proc_irq_assign
-    intc_irq_x_ack_o    = irq_ack;
-    intc_irq_x_ack_id_o = irq_ack_id;
-    
-    for (int i = 0; i < 3; i++) begin
-      core_irq_x_o[i] = intc_irq_x_i;
-    end
+    if (red_mode_q == NON_TMR) begin
+      for (int i = 0; i < 3; i++) begin
+        intc_irq_ack_o[i]    = core_irq_ack_i[i];
+        intc_irq_ack_id_o[i] = core_irq_ack_id_i[i];
 
-    // Trigger Re-synchronization TODO: WHAT TO CHANGE HERE?
-    if (red_mode_q == TMR_UNLOAD) begin
-      //for (int i = 0; i < 3; i++) begin
-        //core_irq_req_o[i] = 1'b1;
-        //core_irq_id_o[i]  = 5'd31;
-      //end
-      intc_irq_x_ack_o = '0;
-      intc_irq_x_ack_id_o = '0;
+        core_irq_req_o[i] = intc_irq_req_i[i];
+        core_irq_id_o[i]  = intc_irq_id_i[i];
+      end
+    end else begin
+      intc_irq_ack_o[0]    = irq_ack;
+      intc_irq_ack_id_o[0] = irq_ack_id;
+
+      intc_irq_ack_o[1] = '0;
+      intc_irq_ack_o[2] = '0;
+      intc_irq_ack_id_o[1] = '0;
+      intc_irq_ack_id_o[2] = '0;
+      for (int i = 0; i < 3; i++) begin
+        core_irq_req_o[i] = intc_irq_req_i[0];
+        core_irq_id_o[i]  = intc_irq_req_i[0];
+      end
+
+      // Trigger Re-synchronization
+      if (red_mode_q == TMR_UNLOAD) begin
+        for (int i = 0; i < 3; i++) begin
+          core_irq_req_o[i] = 1'b1;
+          core_irq_id_o[i]  = 5'd31;
+        end
+        intc_irq_ack_o[0] = '0;
+        intc_irq_ack_id_o[0] = '0;
+      end
     end
   end
 
   /*********************
    *  CTRL signal MUX  *
-   ********************/
+   *********************/
 
+  always_comb begin : proc_ctrl_assign
+    if (red_mode_q == NON_TMR) begin
+      for (int i = 0; i < 3; i++) begin
+        core_core_id_o[i]          = intc_core_id_i[i];
+        core_cluster_id_o[i]       = intc_cluster_id_i[i];
 
+        core_clock_en_o[i]         = intc_clock_en_i[i];
+        core_fetch_en_o[i]         = intc_fetch_en_i[i]; // May need config on state transition
+        core_boot_addr_o[i]        = intc_boot_addr_i[i];
+        core_debug_req_o[i]        = intc_debug_req_i[i];
 
-   always_comb begin : proc_ctrl_assign
+        core_perf_counters_o[i]    = intc_perf_counters_i[i];
 
-     for (int i = 0; i < 3; i++) begin
-       core_hart_id_o[i]          = intc_hart_id_i;
+        intc_core_busy_o[i] = core_core_busy_i[i];
+      end
+    end else begin
+      intc_core_busy_o[0] = core_busy;
+      intc_core_busy_o[1] = '0;
+      intc_core_busy_o[2] = '0;
 
-       core_fetch_en_o[i]         = intc_fetch_en_i; // May need config on state transition
-       core_boot_addr_o[i]        = intc_boot_addr_i; // May need special value when restoring from tcls error
-       core_debug_req_o[i]        = intc_debug_req_i;
+      for (int i = 0; i < 3; i++) begin
+        core_core_id_o[i]          = intc_core_id_i[0];
+        core_cluster_id_o[i]       = intc_cluster_id_i[0];
 
-       core_perf_counters_o[i]    = intc_perf_counters_i;
-     end
-     
-   end // block: proc_ctrl_assign
- 
+        core_clock_en_o[i]         = intc_clock_en_i[0];
+        core_fetch_en_o[i]         = intc_fetch_en_i[0]; // May need config on state transition
+        core_boot_addr_o[i]        = intc_boot_addr_i[0]; // May need special value when restoring from tcls error
+        core_debug_req_o[i]        = intc_debug_req_i[0];
+
+        core_perf_counters_o[i]    = intc_perf_counters_i[0];
+      end
+    end
+  end
 
   /******************
    *  Data bus MUX  *
    ******************/
 
   always_comb begin : proc_data_assign
-    intc_data_req_o   = data_req;
-    intc_data_addr_o  = data_addr;
-    intc_data_we_o    = data_we;
-    intc_data_wdata_o = data_wdata;
-    intc_data_be_o    = data_be;
-    
     for (int i = 0; i < 3; i++) begin
-      core_data_gnt_o[i]     = intc_data_gnt_i;
-      core_data_rdata_o[i] = intc_data_rdata_i;
-      core_data_rvalid_o[i] = intc_data_rvalid_i;
-      core_data_err_o[i] = intc_data_err_i;
+      intc_data_add_o[i]    = core_data_add_i[i];
+      intc_data_wen_o[i]    = core_data_wen_i[i];
+      intc_data_wdata_o[i]  = core_data_wdata_i[i];
+      intc_data_user_o[i]   = core_data_user_i[i];
+      intc_data_be_o[i]     = core_data_be_i[i];
     end
-     
+    if (red_mode_q == NON_TMR) begin
+      for (int i = 0; i < 3; i++) begin
+        intc_data_req_o[i]    = core_data_req_i[i];
+
+        core_data_gnt_o[i]     = intc_data_gnt_i[i];
+        core_data_r_rdata_o[i] = intc_data_r_rdata_i[i];
+        core_data_r_user_o[i]  = intc_data_r_user_i[i];
+        core_data_r_opc_o[i]   = intc_data_r_opc_i[i];
+        core_data_r_valid_o[i] = intc_data_r_valid_i[i];
+      end
+    end else begin
+      intc_data_req_o[0]    = data_req;
+      intc_data_add_o[0]    = data_add;
+      intc_data_wen_o[0]    = data_wen;
+      intc_data_wdata_o[0]  = data_wdata;
+      intc_data_user_o[0]   = data_user;
+      intc_data_be_o[0]     = data_be;
+      
+      intc_data_req_o[1]    = '0;
+      intc_data_req_o[2]    = '0;
+
+      for (int i = 0; i < 3; i++) begin
+        core_data_gnt_o[i]     = intc_data_gnt_i[0];
+        core_data_r_rdata_o[i] = intc_data_r_rdata_i[0];
+        core_data_r_user_o[i]  = intc_data_r_user_i[0];
+        core_data_r_opc_o[i]   = intc_data_r_opc_i[0];
+        core_data_r_valid_o[i] = intc_data_r_valid_i[0];
+      end
+    end
   end
 
   /*******************
@@ -336,16 +404,30 @@ module cTCLS_unit #(
    *******************/
 
   always_comb begin : proc_instr_assign
-    intc_instr_req_o  = instr_req;
-    intc_instr_addr_o = instr_addr;
-    
     for (int i = 0; i < 3; i++) begin
-      core_instr_gnt_o[i]     = intc_instr_gnt_i;
-      core_instr_rdata_o[i] = intc_instr_rdata_i;
-      core_instr_rvalid_o[i]  = intc_instr_rvalid_i;
-      core_instr_err_o[i] = intc_instr_err_i;
+      intc_instr_addr_o[i] = core_instr_addr_i[i];
     end
-end
+    if (red_mode_q == NON_TMR) begin
+      for (int i = 0; i < 3; i++) begin
+        intc_instr_req_o[i]  = core_instr_req_i[i];
+
+        core_instr_gnt_o[i]     = intc_instr_gnt_i[i];
+        core_instr_r_rdata_o[i] = intc_instr_r_rdata_i[i];
+        core_instr_r_valid_o[i] = intc_instr_r_valid_i[i];
+      end
+    end else begin
+      intc_instr_req_o[0]  = instr_req;
+      intc_instr_addr_o[0] = instr_addr;
+
+      intc_instr_req_o[1]  = '0;
+      intc_instr_req_o[2]  = '0;
+      for (int i = 0; i < 3; i++) begin
+        core_instr_gnt_o[i]     = intc_instr_gnt_i[0];
+        core_instr_r_rdata_o[i] = intc_instr_r_rdata_i[0];
+        core_instr_r_valid_o[i] = intc_instr_r_valid_i[0];
+      end
+    end
+  end
 
 
 endmodule
