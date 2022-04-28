@@ -51,11 +51,12 @@ module ecc_sram_wrap #(
   assign single_error_o = ecc_error[0] && valid_read_q;
   assign multi_error_o = ecc_error[1] && valid_read_q;
 
-  always_comb begin
+`ifndef TARGET_SYNTHESIS
+  always_ff  @(posedge clk_i or negedge rst_ni) begin
     if ((ecc_error[0] && valid_read_q) == 1) $display("[ECC] %t - single error detected", $realtime);
     if ((ecc_error[1] && valid_read_q) == 1) $display("[ECC] %t - multi error detected", $realtime);
   end
- 
+`endif
   
 
   
