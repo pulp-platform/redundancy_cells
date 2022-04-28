@@ -30,7 +30,8 @@ module ecc_sram_wrap #(
   input  logic                   tcdm_wen_i,
   input  logic [  BEInWidth-1:0] tcdm_be_i,
   output logic [DataInWidth-1:0] tcdm_rdata_o,
-  output logic                   tcdm_gnt_o
+  output logic                   tcdm_gnt_o,
+  output logic [            1:0] error_o // bit 0: single error ; bit 1: double error
 );
   // TODO: - log errors from ECC decoding
   //       - Add memory scrubber
@@ -66,7 +67,7 @@ module ecc_sram_wrap #(
       .in         ( bank_rdata ),
       .d_o        ( loaded ),
       .syndrome_o (),
-      .err_o      ()
+      .err_o      (error_o)
     );
 
     prim_secded_39_32_enc ecc_encode (
