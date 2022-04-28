@@ -34,7 +34,6 @@ sources:
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_scrubber.sv
-  - rtl/ecc_wrap/ecc_sram_wrap.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
   - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
@@ -51,8 +50,10 @@ sources:
     # Level 2
   - include_dirs:
       - rtl/cTCLS_unit
+      - rtl/ecc_wrap
     files:
       - rtl/cTCLS_unit/cTCLS_unit.sv
+      - rtl/ecc_wrap/ecc_sram_wrap.sv
   - rtl/bitwise_TMR_voter.sv
   - target: test
     files:
