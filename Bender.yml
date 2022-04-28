@@ -18,6 +18,7 @@ sources:
     # Level 0
   - rtl/cTCLS_unit/ctcls_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
+  - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
@@ -32,6 +33,7 @@ sources:
     # Level 1
   - rtl/cTCLS_unit/ctcls_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
+  - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_scrubber.sv
   - rtl/ecc_wrap/ecc_sram_wrap.sv
@@ -49,11 +51,16 @@ sources:
   - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
+  - rtl/bitwise_TMR_voter.sv
+    # Level 3
   - include_dirs:
       - rtl/cTCLS_unit
     files:
       - rtl/cTCLS_unit/cTCLS_unit.sv
-  - rtl/bitwise_TMR_voter.sv
+  - include_dirs:
+      - rtl/pulpissimo_tcls
+    files:
+      - rtl/pulpissimo_tcls/TCLS_unit.sv
   - target: test
     files:
       - test/tb_ecc_scrubber.sv
