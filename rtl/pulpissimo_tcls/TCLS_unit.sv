@@ -25,8 +25,8 @@ module TCLS_unit #(
   input logic                              clk_i,
   input logic                              rst_ni,
 
-  input                                    tcls_req_t speriph_request,
-  output                                   tcls_rsp_t speriph_response,
+  input                                    tcls_req_t reg_request,
+  output                                   tcls_rsp_t reg_response,
   output logic                             tcls_triple_core_mismatch,
   output logic                             tcls_single_core_mismatch,
 
@@ -147,13 +147,12 @@ module TCLS_unit #(
   ) i_registers (
     .clk_i     ( clk_i            ),
     .rst_ni    ( rst_ni           ),
-    .reg_req_i ( speriph_request  ),
-    .reg_rsp_o ( speriph_response ),
+    .reg_req_i ( reg_request      ),
+    .reg_rsp_o ( reg_response     ),
     .reg2hw    ( reg2hw           ),
     .hw2reg    ( hw2reg           ),
     .devmode_i ( '0               )
-  )
-;
+  );
 
   assign hw2reg.sp_store.d = '0;
   assign hw2reg.sp_store.de = '0;
@@ -276,17 +275,8 @@ module TCLS_unit #(
     for (int i = 0; i < 3; i++) begin
       core_irq_x_o[i] = intc_irq_x_i;
     end
-
-    // Trigger Re-synchronization TODO: WHAT TO CHANGE HERE?
-    if (red_mode_q == TMR_UNLOAD) begin
-      //for (int i = 0; i < 3; i++) begin
-        //core_irq_req_o[i] = 1'b1;
-        //core_irq_id_o[i]  = 5'd31;
-      //end
-      intc_irq_x_ack_o = '0;
-      intc_irq_x_ack_id_o = '0;
-    end
   end
+    
 
   /*********************
    *  CTRL signal MUX  *
