@@ -49,7 +49,13 @@ module ecc_sram_wrap #(
 
   assign valid_read_d = tcdm_req_i && tcdm_gnt_o && (tcdm_wen_i || (tcdm_be_i != {BEInWidth{1'b1}}));
   assign single_error_o = ecc_error[0] && valid_read_q;
-  assign multi_error_o  = ecc_error[1] && valid_read_q;
+  assign multi_error_o = ecc_error[1] && valid_read_q;
+
+  always_comb begin
+    if ((ecc_error[0] && valid_read_q) == 1) $display("[ECC] %t - single error detected", $realtime);
+    if ((ecc_error[1] && valid_read_q) == 1) $display("[ECC] %t - multi error detected", $realtime);
+  end
+ 
   
 
   
