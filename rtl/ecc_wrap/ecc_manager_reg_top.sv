@@ -68,185 +68,187 @@ module ecc_manager_reg_top #(
   // Define SW related signals
   // Format: <reg>_<field>_{wd|we|qs}
   //        or <reg>_{wd|we|qs} if field == 1 or 0
-  logic [31:0] private0_qs;
-  logic [31:0] private0_wd;
-  logic private0_we;
-  logic [31:0] private1_qs;
-  logic [31:0] private1_wd;
-  logic private1_we;
-  logic [31:0] cuts0_qs;
-  logic [31:0] cuts0_wd;
-  logic cuts0_we;
-  logic [31:0] cuts1_qs;
-  logic [31:0] cuts1_wd;
-  logic cuts1_we;
-  logic [31:0] cuts2_qs;
-  logic [31:0] cuts2_wd;
-  logic cuts2_we;
-  logic [31:0] cuts3_qs;
-  logic [31:0] cuts3_wd;
-  logic cuts3_we;
+  logic [31:0] mismatch_count_0_qs;
+  logic [31:0] mismatch_count_0_wd;
+  logic mismatch_count_0_we;
+  logic [31:0] mismatch_count_1_qs;
+  logic [31:0] mismatch_count_1_wd;
+  logic mismatch_count_1_we;
+  logic [31:0] mismatch_count_2_qs;
+  logic [31:0] mismatch_count_2_wd;
+  logic mismatch_count_2_we;
+  logic [31:0] mismatch_count_3_qs;
+  logic [31:0] mismatch_count_3_wd;
+  logic mismatch_count_3_we;
+  logic [31:0] mismatch_count_4_qs;
+  logic [31:0] mismatch_count_4_wd;
+  logic mismatch_count_4_we;
+  logic [31:0] mismatch_count_5_qs;
+  logic [31:0] mismatch_count_5_wd;
+  logic mismatch_count_5_we;
 
   // Register instances
-  // R[private0]: V(False)
+
+  // Subregister 0 of Multireg mismatch_count
+  // R[mismatch_count_0]: V(False)
 
   prim_subreg #(
     .DW      (32),
     .SWACCESS("W0C"),
     .RESVAL  (32'h0)
-  ) u_private0 (
+  ) u_mismatch_count_0 (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (private0_we),
-    .wd     (private0_wd),
+    .we     (mismatch_count_0_we),
+    .wd     (mismatch_count_0_wd),
 
     // from internal hardware
-    .de     (hw2reg.private0.de),
-    .d      (hw2reg.private0.d ),
+    .de     (hw2reg.mismatch_count[0].de),
+    .d      (hw2reg.mismatch_count[0].d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.private0.q ),
+    .q      (reg2hw.mismatch_count[0].q ),
 
     // to register interface (read)
-    .qs     (private0_qs)
+    .qs     (mismatch_count_0_qs)
   );
 
-
-  // R[private1]: V(False)
+  // Subregister 1 of Multireg mismatch_count
+  // R[mismatch_count_1]: V(False)
 
   prim_subreg #(
     .DW      (32),
     .SWACCESS("W0C"),
     .RESVAL  (32'h0)
-  ) u_private1 (
+  ) u_mismatch_count_1 (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (private1_we),
-    .wd     (private1_wd),
+    .we     (mismatch_count_1_we),
+    .wd     (mismatch_count_1_wd),
 
     // from internal hardware
-    .de     (hw2reg.private1.de),
-    .d      (hw2reg.private1.d ),
+    .de     (hw2reg.mismatch_count[1].de),
+    .d      (hw2reg.mismatch_count[1].d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.private1.q ),
+    .q      (reg2hw.mismatch_count[1].q ),
 
     // to register interface (read)
-    .qs     (private1_qs)
+    .qs     (mismatch_count_1_qs)
   );
 
-
-  // R[cuts0]: V(False)
+  // Subregister 2 of Multireg mismatch_count
+  // R[mismatch_count_2]: V(False)
 
   prim_subreg #(
     .DW      (32),
     .SWACCESS("W0C"),
     .RESVAL  (32'h0)
-  ) u_cuts0 (
+  ) u_mismatch_count_2 (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (cuts0_we),
-    .wd     (cuts0_wd),
+    .we     (mismatch_count_2_we),
+    .wd     (mismatch_count_2_wd),
 
     // from internal hardware
-    .de     (hw2reg.cuts0.de),
-    .d      (hw2reg.cuts0.d ),
+    .de     (hw2reg.mismatch_count[2].de),
+    .d      (hw2reg.mismatch_count[2].d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.cuts0.q ),
+    .q      (reg2hw.mismatch_count[2].q ),
 
     // to register interface (read)
-    .qs     (cuts0_qs)
+    .qs     (mismatch_count_2_qs)
   );
 
-
-  // R[cuts1]: V(False)
+  // Subregister 3 of Multireg mismatch_count
+  // R[mismatch_count_3]: V(False)
 
   prim_subreg #(
     .DW      (32),
     .SWACCESS("W0C"),
     .RESVAL  (32'h0)
-  ) u_cuts1 (
+  ) u_mismatch_count_3 (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (cuts1_we),
-    .wd     (cuts1_wd),
+    .we     (mismatch_count_3_we),
+    .wd     (mismatch_count_3_wd),
 
     // from internal hardware
-    .de     (hw2reg.cuts1.de),
-    .d      (hw2reg.cuts1.d ),
+    .de     (hw2reg.mismatch_count[3].de),
+    .d      (hw2reg.mismatch_count[3].d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.cuts1.q ),
+    .q      (reg2hw.mismatch_count[3].q ),
 
     // to register interface (read)
-    .qs     (cuts1_qs)
+    .qs     (mismatch_count_3_qs)
   );
 
-
-  // R[cuts2]: V(False)
+  // Subregister 4 of Multireg mismatch_count
+  // R[mismatch_count_4]: V(False)
 
   prim_subreg #(
     .DW      (32),
     .SWACCESS("W0C"),
     .RESVAL  (32'h0)
-  ) u_cuts2 (
+  ) u_mismatch_count_4 (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (cuts2_we),
-    .wd     (cuts2_wd),
+    .we     (mismatch_count_4_we),
+    .wd     (mismatch_count_4_wd),
 
     // from internal hardware
-    .de     (hw2reg.cuts2.de),
-    .d      (hw2reg.cuts2.d ),
+    .de     (hw2reg.mismatch_count[4].de),
+    .d      (hw2reg.mismatch_count[4].d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.cuts2.q ),
+    .q      (reg2hw.mismatch_count[4].q ),
 
     // to register interface (read)
-    .qs     (cuts2_qs)
+    .qs     (mismatch_count_4_qs)
   );
 
-
-  // R[cuts3]: V(False)
+  // Subregister 5 of Multireg mismatch_count
+  // R[mismatch_count_5]: V(False)
 
   prim_subreg #(
     .DW      (32),
     .SWACCESS("W0C"),
     .RESVAL  (32'h0)
-  ) u_cuts3 (
+  ) u_mismatch_count_5 (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (cuts3_we),
-    .wd     (cuts3_wd),
+    .we     (mismatch_count_5_we),
+    .wd     (mismatch_count_5_wd),
 
     // from internal hardware
-    .de     (hw2reg.cuts3.de),
-    .d      (hw2reg.cuts3.d ),
+    .de     (hw2reg.mismatch_count[5].de),
+    .d      (hw2reg.mismatch_count[5].d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.cuts3.q ),
+    .q      (reg2hw.mismatch_count[5].q ),
 
     // to register interface (read)
-    .qs     (cuts3_qs)
+    .qs     (mismatch_count_5_qs)
   );
 
 
@@ -255,12 +257,12 @@ module ecc_manager_reg_top #(
   logic [5:0] addr_hit;
   always_comb begin
     addr_hit = '0;
-    addr_hit[0] = (reg_addr == ECC_MANAGER_PRIVATE0_OFFSET);
-    addr_hit[1] = (reg_addr == ECC_MANAGER_PRIVATE1_OFFSET);
-    addr_hit[2] = (reg_addr == ECC_MANAGER_CUTS0_OFFSET);
-    addr_hit[3] = (reg_addr == ECC_MANAGER_CUTS1_OFFSET);
-    addr_hit[4] = (reg_addr == ECC_MANAGER_CUTS2_OFFSET);
-    addr_hit[5] = (reg_addr == ECC_MANAGER_CUTS3_OFFSET);
+    addr_hit[0] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_0_OFFSET);
+    addr_hit[1] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_1_OFFSET);
+    addr_hit[2] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_2_OFFSET);
+    addr_hit[3] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_3_OFFSET);
+    addr_hit[4] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_4_OFFSET);
+    addr_hit[5] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_5_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -276,50 +278,50 @@ module ecc_manager_reg_top #(
                (addr_hit[5] & (|(ECC_MANAGER_PERMIT[5] & ~reg_be)))));
   end
 
-  assign private0_we = addr_hit[0] & reg_we & !reg_error;
-  assign private0_wd = reg_wdata[31:0];
+  assign mismatch_count_0_we = addr_hit[0] & reg_we & !reg_error;
+  assign mismatch_count_0_wd = reg_wdata[31:0];
 
-  assign private1_we = addr_hit[1] & reg_we & !reg_error;
-  assign private1_wd = reg_wdata[31:0];
+  assign mismatch_count_1_we = addr_hit[1] & reg_we & !reg_error;
+  assign mismatch_count_1_wd = reg_wdata[31:0];
 
-  assign cuts0_we = addr_hit[2] & reg_we & !reg_error;
-  assign cuts0_wd = reg_wdata[31:0];
+  assign mismatch_count_2_we = addr_hit[2] & reg_we & !reg_error;
+  assign mismatch_count_2_wd = reg_wdata[31:0];
 
-  assign cuts1_we = addr_hit[3] & reg_we & !reg_error;
-  assign cuts1_wd = reg_wdata[31:0];
+  assign mismatch_count_3_we = addr_hit[3] & reg_we & !reg_error;
+  assign mismatch_count_3_wd = reg_wdata[31:0];
 
-  assign cuts2_we = addr_hit[4] & reg_we & !reg_error;
-  assign cuts2_wd = reg_wdata[31:0];
+  assign mismatch_count_4_we = addr_hit[4] & reg_we & !reg_error;
+  assign mismatch_count_4_wd = reg_wdata[31:0];
 
-  assign cuts3_we = addr_hit[5] & reg_we & !reg_error;
-  assign cuts3_wd = reg_wdata[31:0];
+  assign mismatch_count_5_we = addr_hit[5] & reg_we & !reg_error;
+  assign mismatch_count_5_wd = reg_wdata[31:0];
 
   // Read data return
   always_comb begin
     reg_rdata_next = '0;
     unique case (1'b1)
       addr_hit[0]: begin
-        reg_rdata_next[31:0] = private0_qs;
+        reg_rdata_next[31:0] = mismatch_count_0_qs;
       end
 
       addr_hit[1]: begin
-        reg_rdata_next[31:0] = private1_qs;
+        reg_rdata_next[31:0] = mismatch_count_1_qs;
       end
 
       addr_hit[2]: begin
-        reg_rdata_next[31:0] = cuts0_qs;
+        reg_rdata_next[31:0] = mismatch_count_2_qs;
       end
 
       addr_hit[3]: begin
-        reg_rdata_next[31:0] = cuts1_qs;
+        reg_rdata_next[31:0] = mismatch_count_3_qs;
       end
 
       addr_hit[4]: begin
-        reg_rdata_next[31:0] = cuts2_qs;
+        reg_rdata_next[31:0] = mismatch_count_4_qs;
       end
 
       addr_hit[5]: begin
-        reg_rdata_next[31:0] = cuts3_qs;
+        reg_rdata_next[31:0] = mismatch_count_5_qs;
       end
 
       default: begin
