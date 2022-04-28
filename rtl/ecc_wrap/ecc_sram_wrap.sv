@@ -19,14 +19,10 @@ module ecc_sram_wrap #(
   parameter int unsigned  ProtectedWidth = 39, // This currently only works for 39bit
   localparam int unsigned DataInWidth = InputECC ? ProtectedWidth : UnprotectedWidth,
   localparam int unsigned BEInWidth = UnprotectedWidth/8,
-  localparam int unsigned BankAddWidth = $clog2(BankSize),
-  parameter type         ecc_req_t       = logic,
-  parameter type         ecc_rsp_t       = logic
+  localparam int unsigned BankAddWidth = $clog2(BankSize)
 ) (
   input logic                    clk_i,
   input logic                    rst_ni,
-  input                          ecc_req_t speriph_request,
-  output                         ecc_rsp_t speriph_response,
 
   input logic [DataInWidth-1:0]  tcdm_wdata_i,
   input logic [ 31:0]            tcdm_add_i,
@@ -34,27 +30,13 @@ module ecc_sram_wrap #(
   input logic                    tcdm_wen_i,
   input logic [ BEInWidth-1:0]   tcdm_be_i,
   output logic [DataInWidth-1:0] tcdm_rdata_o,
-  output logic                   tcdm_gnt_o
+  output logic                   tcdm_gnt_o,
+  output logic [1:0]             error_o // bit 0: single error ; bit 1: double error
 );
   // TODO: - log errors from ECC decoding
   //       - Add memory scrubber
 
-  import ecc_manager_reg_pkg::* ;
-  ecc_manager_reg2hw_t reg2hw;
-  ecc_manager_hw2reg_t hw2reg;
-
-  ecc_manager_reg_top #(
-                         .reg_req_t ( ecc_req_t ),
-                         .reg_rsp_t ( ecc_rsp_t )
-                         ) i_registers (
-                                        .clk_i     ( clk_i            ),
-                                        .rst_ni    ( rst_ni           ),
-                                        .reg_req_i ( speriph_request  ),
-                                        .reg_rsp_o ( speriph_response ),
-                                        .reg2hw    ( reg2hw           ),
-                                        .hw2reg    ( hw2reg           ),
-                                        .devmode_i ( '0               )
-                                        );
+  
 
   
   
@@ -65,14 +47,9 @@ module ecc_sram_wrap #(
   logic                      bank_be;
   logic [ProtectedWidth-1:0] bank_rdata;
 
-  logic [1:0]                syndrome;
 
-  
-  
   assign bank_be = 1'b1;
-
-  assign hw2reg.correctable_mismatches.d = reg2hw.correctable_mismatches.q + 1;
-  assign hw2reg.correctable_mismatches.de = syndrome[0];
+  
   
   if ( InputECC == 0 ) begin : ECC_0_ASSIGN
     // Loads  -> loads full data
@@ -95,8 +72,8 @@ module ecc_sram_wrap #(
     prim_secded_39_32_dec ecc_decode (
       .in         ( bank_rdata ),
       .d_o        ( loaded ),
-      .syndrome_o (syndrome),
-      .err_o      ()
+      .syndrome_o (),
+      .err_o      (error_o)
     );
 
     prim_secded_39_32_enc ecc_encode (
