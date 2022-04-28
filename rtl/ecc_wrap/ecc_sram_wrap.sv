@@ -31,10 +31,25 @@ module ecc_sram_wrap #(
   input  logic [  BEInWidth-1:0] tcdm_be_i,
   output logic [DataInWidth-1:0] tcdm_rdata_o,
   output logic                   tcdm_gnt_o,
-  output logic [            1:0] error_o // bit 0: single error ; bit 1: double error
+  output logic                   single_error_o,
+  output logic                   multi_error_o
 );
-  // TODO: - log errors from ECC decoding
-  //       - Add memory scrubber
+  // TODO: - Add memory scrubber
+
+  logic [1:0]                    ecc_error;
+  logic                          valid_read_d, valid_read_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
+    if(~rst_ni) begin
+      valid_read_q <= '0;
+    end else begin
+      valid_read_q <= valid_read_d;
+    end
+  end
+
+  assign valid_read_d = tcdm_req_i && tcdm_gnt_o && (tcdm_wen_i || (tcdm_be_i != {BEInWidth{1'b1}}));
+  assign single_error_o = ecc_error[0] && valid_read_q;
+  assign multi_error_o  = ecc_error[1] && valid_read_q;
 
   logic                      bank_req;
   logic                      bank_we;
@@ -67,7 +82,7 @@ module ecc_sram_wrap #(
       .in         ( bank_rdata ),
       .d_o        ( loaded ),
       .syndrome_o (),
-      .err_o      (error_o)
+      .err_o      (ecc_error)
     );
 
     prim_secded_39_32_enc ecc_encode (
