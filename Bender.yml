@@ -17,6 +17,7 @@ sources:
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
   - rtl/cTCLS_unit/ctcls_manager_reg_pkg.sv
+  - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
@@ -30,9 +31,10 @@ sources:
   - rtl/TMR_word_voter.sv
     # Level 1
   - rtl/cTCLS_unit/ctcls_manager_reg_top.sv
+  - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_scrubber.sv
-  - rtl/ecc_sram_wrap.sv
+  - rtl/ecc_wrap/ecc_sram_wrap.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
   - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
   - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
