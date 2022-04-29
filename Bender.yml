@@ -52,6 +52,7 @@ sources:
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
+  - rtl/ecc_wrap/ecc_manager.sv
     # Level 3
   - include_dirs:
       - rtl/cTCLS_unit
