@@ -106,7 +106,7 @@ module TCLS_unit #(
    tcls_manager_hw2reg_t hw2reg;
    
    // State signals
-  typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
+  typedef enum logic [1:0] {TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
 
   redundancy_mode_e red_mode_d, red_mode_q;
 
@@ -232,28 +232,34 @@ module TCLS_unit #(
     hw2reg.mismatches_2.de = 1'b0;
     if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
       $display("[TCLS] %t - mismatch detected", $realtime);
-      if (TMR_error_detect == 3'b001) hw2reg.mismatches_0.de = 1'b1;
-      if (TMR_error_detect == 3'b010) hw2reg.mismatches_1.de = 1'b1;
-      if (TMR_error_detect == 3'b100) hw2reg.mismatches_2.de = 1'b1;
+      if (TMR_error_detect[0]) hw2reg.mismatches_0.de = 1'b1;
+      if (TMR_error_detect[1]) hw2reg.mismatches_1.de = 1'b1;
+      if (TMR_error_detect[2]) hw2reg.mismatches_2.de = 1'b1;
 
       if (reg2hw.mode.restore_mode == 0) begin
         red_mode_d = TMR_UNLOAD;
       end
     end
     if (red_mode_q == TMR_UNLOAD) begin
-      if (reg2hw.sp_store != '0) begin
+      if (reg2hw.sp_store.q != '0) begin
         red_mode_d = TMR_RELOAD;
-        setback_d = 1'b1;
+        if (reg2hw.config.setback) begin
+          setback_d = 1'b1;
+        end
       end
     end
     if (red_mode_q == TMR_RELOAD) begin
-      if (reg2hw.sp_store == '0) begin
+      if (reg2hw.sp_store.q == '0) begin
         $display("[TCLS] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
+      end else begin
+        if (TMR_error_detect != 3'b000 && reg2hw.config.setback && reg2hw.config.reload_setback &&
+            !(reg2hw.sp_store.qe && reg_request.wdata == '0)) begin
+          setback_d = 1'b1;
+        end
       end
     end
 
-    // Before core startup: set TMR mode from reg2hw.mode.mode
     if (intc_fetch_en_i == 0) begin
       red_mode_d = TMR_RUN;
     end
