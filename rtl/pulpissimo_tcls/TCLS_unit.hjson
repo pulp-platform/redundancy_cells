@@ -22,7 +22,7 @@
         }
       ]
     },
-    { name: "CONFIG",
+    { name: "TCLS_CONFIG",
       desc: "Re-synchronization configuration",
       swaccess: "rw",
       hwaccess: "hro",
