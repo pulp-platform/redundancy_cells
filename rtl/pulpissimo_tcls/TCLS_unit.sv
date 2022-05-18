@@ -236,14 +236,12 @@ module TCLS_unit #(
       if (TMR_error_detect[1]) hw2reg.mismatches_1.de = 1'b1;
       if (TMR_error_detect[2]) hw2reg.mismatches_2.de = 1'b1;
 
-      if (reg2hw.mode.restore_mode == 0) begin
-        red_mode_d = TMR_UNLOAD;
-      end
+      red_mode_d = TMR_UNLOAD;
     end
     if (red_mode_q == TMR_UNLOAD) begin
       if (reg2hw.sp_store.q != '0) begin
         red_mode_d = TMR_RELOAD;
-        if (reg2hw.config.setback) begin
+        if (reg2hw.tcls_config.setback) begin
           setback_d = 1'b1;
         end
       end
@@ -253,7 +251,7 @@ module TCLS_unit #(
         $display("[TCLS] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
       end else begin
-        if (TMR_error_detect != 3'b000 && reg2hw.config.setback && reg2hw.config.reload_setback &&
+        if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback && reg2hw.tcls_config.reload_setback &&
             !(reg2hw.sp_store.qe && reg_request.wdata == '0)) begin
           setback_d = 1'b1;
         end

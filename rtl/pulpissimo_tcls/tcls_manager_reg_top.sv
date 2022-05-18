@@ -71,12 +71,12 @@ module tcls_manager_reg_top #(
   logic [31:0] sp_store_qs;
   logic [31:0] sp_store_wd;
   logic sp_store_we;
-  logic config_setback_qs;
-  logic config_setback_wd;
-  logic config_setback_we;
-  logic config_reload_setback_qs;
-  logic config_reload_setback_wd;
-  logic config_reload_setback_we;
+  logic tcls_config_setback_qs;
+  logic tcls_config_setback_wd;
+  logic tcls_config_setback_we;
+  logic tcls_config_reload_setback_qs;
+  logic tcls_config_reload_setback_wd;
+  logic tcls_config_reload_setback_we;
   logic [31:0] mismatches_0_qs;
   logic [31:0] mismatches_0_wd;
   logic mismatches_0_we;
@@ -115,20 +115,20 @@ module tcls_manager_reg_top #(
   );
 
 
-  // R[config]: V(False)
+  // R[tcls_config]: V(False)
 
   //   F[setback]: 0:0
   prim_subreg #(
     .DW      (1),
     .SWACCESS("RW"),
     .RESVAL  (1'h0)
-  ) u_config_setback (
+  ) u_tcls_config_setback (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (config_setback_we),
-    .wd     (config_setback_wd),
+    .we     (tcls_config_setback_we),
+    .wd     (tcls_config_setback_wd),
 
     // from internal hardware
     .de     (1'b0),
@@ -136,10 +136,10 @@ module tcls_manager_reg_top #(
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.config.setback.q ),
+    .q      (reg2hw.tcls_config.setback.q ),
 
     // to register interface (read)
-    .qs     (config_setback_qs)
+    .qs     (tcls_config_setback_qs)
   );
 
 
@@ -148,13 +148,13 @@ module tcls_manager_reg_top #(
     .DW      (1),
     .SWACCESS("RW"),
     .RESVAL  (1'h0)
-  ) u_config_reload_setback (
+  ) u_tcls_config_reload_setback (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (config_reload_setback_we),
-    .wd     (config_reload_setback_wd),
+    .we     (tcls_config_reload_setback_we),
+    .wd     (tcls_config_reload_setback_wd),
 
     // from internal hardware
     .de     (1'b0),
@@ -162,10 +162,10 @@ module tcls_manager_reg_top #(
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.config.reload_setback.q ),
+    .q      (reg2hw.tcls_config.reload_setback.q ),
 
     // to register interface (read)
-    .qs     (config_reload_setback_qs)
+    .qs     (tcls_config_reload_setback_qs)
   );
 
 
@@ -256,7 +256,7 @@ module tcls_manager_reg_top #(
   always_comb begin
     addr_hit = '0;
     addr_hit[0] = (reg_addr == TCLS_MANAGER_SP_STORE_OFFSET);
-    addr_hit[1] = (reg_addr == TCLS_MANAGER_CONFIG_OFFSET);
+    addr_hit[1] = (reg_addr == TCLS_MANAGER_TCLS_CONFIG_OFFSET);
     addr_hit[2] = (reg_addr == TCLS_MANAGER_MISMATCHES_0_OFFSET);
     addr_hit[3] = (reg_addr == TCLS_MANAGER_MISMATCHES_1_OFFSET);
     addr_hit[4] = (reg_addr == TCLS_MANAGER_MISMATCHES_2_OFFSET);
@@ -277,11 +277,11 @@ module tcls_manager_reg_top #(
   assign sp_store_we = addr_hit[0] & reg_we & !reg_error;
   assign sp_store_wd = reg_wdata[31:0];
 
-  assign config_setback_we = addr_hit[1] & reg_we & !reg_error;
-  assign config_setback_wd = reg_wdata[0];
+  assign tcls_config_setback_we = addr_hit[1] & reg_we & !reg_error;
+  assign tcls_config_setback_wd = reg_wdata[0];
 
-  assign config_reload_setback_we = addr_hit[1] & reg_we & !reg_error;
-  assign config_reload_setback_wd = reg_wdata[1];
+  assign tcls_config_reload_setback_we = addr_hit[1] & reg_we & !reg_error;
+  assign tcls_config_reload_setback_wd = reg_wdata[1];
 
   assign mismatches_0_we = addr_hit[2] & reg_we & !reg_error;
   assign mismatches_0_wd = reg_wdata[31:0];
@@ -301,8 +301,8 @@ module tcls_manager_reg_top #(
       end
 
       addr_hit[1]: begin
-        reg_rdata_next[0] = config_setback_qs;
-        reg_rdata_next[1] = config_reload_setback_qs;
+        reg_rdata_next[0] = tcls_config_setback_qs;
+        reg_rdata_next[1] = tcls_config_reload_setback_qs;
       end
 
       addr_hit[2]: begin
