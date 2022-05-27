@@ -10,7 +10,7 @@ package ecc_manager_reg_pkg;
   parameter int NumBanks = 6;
 
   // Address widths within the block
-  parameter int BlockAw = 5;
+  parameter int BlockAw = 6;
 
   ////////////////////////////
   // Typedefs for registers //
@@ -21,13 +21,23 @@ package ecc_manager_reg_pkg;
   } ecc_manager_reg2hw_mismatch_count_mreg_t;
 
   typedef struct packed {
+    logic [31:0] q;
+  } ecc_manager_reg2hw_write_mask_data_n_mreg_t;
+
+  typedef struct packed {
+    logic [6:0]  q;
+  } ecc_manager_reg2hw_write_mask_ecc_n_mreg_t;
+
+  typedef struct packed {
     logic [31:0] d;
     logic        de;
   } ecc_manager_hw2reg_mismatch_count_mreg_t;
 
   // Register -> HW type
   typedef struct packed {
-    ecc_manager_reg2hw_mismatch_count_mreg_t [5:0] mismatch_count; // [191:0]
+    ecc_manager_reg2hw_mismatch_count_mreg_t [5:0] mismatch_count; // [425:234]
+    ecc_manager_reg2hw_write_mask_data_n_mreg_t [5:0] write_mask_data_n; // [233:42]
+    ecc_manager_reg2hw_write_mask_ecc_n_mreg_t [5:0] write_mask_ecc_n; // [41:0]
   } ecc_manager_reg2hw_t;
 
   // HW -> register type
@@ -36,12 +46,20 @@ package ecc_manager_reg_pkg;
   } ecc_manager_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_0_OFFSET = 5'h 0;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_1_OFFSET = 5'h 4;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_2_OFFSET = 5'h 8;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_3_OFFSET = 5'h c;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_4_OFFSET = 5'h 10;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_5_OFFSET = 5'h 14;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_0_OFFSET = 6'h 0;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_1_OFFSET = 6'h 4;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_2_OFFSET = 6'h 8;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_3_OFFSET = 6'h c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_4_OFFSET = 6'h 10;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_5_OFFSET = 6'h 14;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_0_OFFSET = 6'h 18;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_1_OFFSET = 6'h 1c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_2_OFFSET = 6'h 20;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_3_OFFSET = 6'h 24;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_4_OFFSET = 6'h 28;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_5_OFFSET = 6'h 2c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_ECC_N_0_OFFSET = 6'h 30;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_ECC_N_1_OFFSET = 6'h 34;
 
   // Register index
   typedef enum int {
@@ -50,17 +68,33 @@ package ecc_manager_reg_pkg;
     ECC_MANAGER_MISMATCH_COUNT_2,
     ECC_MANAGER_MISMATCH_COUNT_3,
     ECC_MANAGER_MISMATCH_COUNT_4,
-    ECC_MANAGER_MISMATCH_COUNT_5
+    ECC_MANAGER_MISMATCH_COUNT_5,
+    ECC_MANAGER_WRITE_MASK_DATA_N_0,
+    ECC_MANAGER_WRITE_MASK_DATA_N_1,
+    ECC_MANAGER_WRITE_MASK_DATA_N_2,
+    ECC_MANAGER_WRITE_MASK_DATA_N_3,
+    ECC_MANAGER_WRITE_MASK_DATA_N_4,
+    ECC_MANAGER_WRITE_MASK_DATA_N_5,
+    ECC_MANAGER_WRITE_MASK_ECC_N_0,
+    ECC_MANAGER_WRITE_MASK_ECC_N_1
   } ecc_manager_id_e;
 
   // Register width information to check illegal writes
-  parameter logic [3:0] ECC_MANAGER_PERMIT [6] = '{
-    4'b 1111, // index[0] ECC_MANAGER_MISMATCH_COUNT_0
-    4'b 1111, // index[1] ECC_MANAGER_MISMATCH_COUNT_1
-    4'b 1111, // index[2] ECC_MANAGER_MISMATCH_COUNT_2
-    4'b 1111, // index[3] ECC_MANAGER_MISMATCH_COUNT_3
-    4'b 1111, // index[4] ECC_MANAGER_MISMATCH_COUNT_4
-    4'b 1111  // index[5] ECC_MANAGER_MISMATCH_COUNT_5
+  parameter logic [3:0] ECC_MANAGER_PERMIT [14] = '{
+    4'b 1111, // index[ 0] ECC_MANAGER_MISMATCH_COUNT_0
+    4'b 1111, // index[ 1] ECC_MANAGER_MISMATCH_COUNT_1
+    4'b 1111, // index[ 2] ECC_MANAGER_MISMATCH_COUNT_2
+    4'b 1111, // index[ 3] ECC_MANAGER_MISMATCH_COUNT_3
+    4'b 1111, // index[ 4] ECC_MANAGER_MISMATCH_COUNT_4
+    4'b 1111, // index[ 5] ECC_MANAGER_MISMATCH_COUNT_5
+    4'b 1111, // index[ 6] ECC_MANAGER_WRITE_MASK_DATA_N_0
+    4'b 1111, // index[ 7] ECC_MANAGER_WRITE_MASK_DATA_N_1
+    4'b 1111, // index[ 8] ECC_MANAGER_WRITE_MASK_DATA_N_2
+    4'b 1111, // index[ 9] ECC_MANAGER_WRITE_MASK_DATA_N_3
+    4'b 1111, // index[10] ECC_MANAGER_WRITE_MASK_DATA_N_4
+    4'b 1111, // index[11] ECC_MANAGER_WRITE_MASK_DATA_N_5
+    4'b 1111, // index[12] ECC_MANAGER_WRITE_MASK_ECC_N_0
+    4'b 0011  // index[13] ECC_MANAGER_WRITE_MASK_ECC_N_1
   };
 
 endpackage
