@@ -31,6 +31,38 @@
           }
         ]
       }
+    },
+    { multireg:
+      { count: "NumBanks",
+        cname: "write_mask_data_n",
+        name: "write_mask_data_n",
+        desc: "Testing: Inverted write mask for data bits",
+        swaccess: "rw",
+        hwaccess: "hro",
+        resval: "0",
+        fields: [
+          { bits: "31:0",
+            name: "write_mask_data_n",
+            desc: "Testing: Inverted write mask for data bits"
+          }
+        ]
+      }
+    },
+    { multireg:
+      { count: "NumBanks",
+        cname: "write_mask_ecc_n",
+        name: "write_mask_ecc_n",
+        desc: "Testing: Inverted write mask for ECC bits",
+        swaccess: "rw",
+        hwaccess: "hro",
+        resval: "0",
+        fields: [
+          { bits: "6:0",
+            name: "write_mask_ecc_n",
+            desc: "Testing: Inverted write mask for ECC bits"
+          }
+        ]
+      }
     }
   ],
 }

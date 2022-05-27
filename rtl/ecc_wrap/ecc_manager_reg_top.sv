@@ -10,7 +10,7 @@
 module ecc_manager_reg_top #(
     parameter type reg_req_t = logic,
     parameter type reg_rsp_t = logic,
-    parameter int AW = 5
+    parameter int AW = 6
 ) (
   input clk_i,
   input rst_ni,
@@ -86,6 +86,42 @@ module ecc_manager_reg_top #(
   logic [31:0] mismatch_count_5_qs;
   logic [31:0] mismatch_count_5_wd;
   logic mismatch_count_5_we;
+  logic [31:0] write_mask_data_n_0_qs;
+  logic [31:0] write_mask_data_n_0_wd;
+  logic write_mask_data_n_0_we;
+  logic [31:0] write_mask_data_n_1_qs;
+  logic [31:0] write_mask_data_n_1_wd;
+  logic write_mask_data_n_1_we;
+  logic [31:0] write_mask_data_n_2_qs;
+  logic [31:0] write_mask_data_n_2_wd;
+  logic write_mask_data_n_2_we;
+  logic [31:0] write_mask_data_n_3_qs;
+  logic [31:0] write_mask_data_n_3_wd;
+  logic write_mask_data_n_3_we;
+  logic [31:0] write_mask_data_n_4_qs;
+  logic [31:0] write_mask_data_n_4_wd;
+  logic write_mask_data_n_4_we;
+  logic [31:0] write_mask_data_n_5_qs;
+  logic [31:0] write_mask_data_n_5_wd;
+  logic write_mask_data_n_5_we;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_0_qs;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_0_wd;
+  logic write_mask_ecc_n_0_write_mask_ecc_n_0_we;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_1_qs;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_1_wd;
+  logic write_mask_ecc_n_0_write_mask_ecc_n_1_we;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_2_qs;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_2_wd;
+  logic write_mask_ecc_n_0_write_mask_ecc_n_2_we;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_3_qs;
+  logic [6:0] write_mask_ecc_n_0_write_mask_ecc_n_3_wd;
+  logic write_mask_ecc_n_0_write_mask_ecc_n_3_we;
+  logic [6:0] write_mask_ecc_n_1_write_mask_ecc_n_4_qs;
+  logic [6:0] write_mask_ecc_n_1_write_mask_ecc_n_4_wd;
+  logic write_mask_ecc_n_1_write_mask_ecc_n_4_we;
+  logic [6:0] write_mask_ecc_n_1_write_mask_ecc_n_5_qs;
+  logic [6:0] write_mask_ecc_n_1_write_mask_ecc_n_5_wd;
+  logic write_mask_ecc_n_1_write_mask_ecc_n_5_we;
 
   // Register instances
 
@@ -253,16 +289,352 @@ module ecc_manager_reg_top #(
 
 
 
+  // Subregister 0 of Multireg write_mask_data_n
+  // R[write_mask_data_n_0]: V(False)
 
-  logic [5:0] addr_hit;
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_write_mask_data_n_0 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_data_n_0_we),
+    .wd     (write_mask_data_n_0_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_data_n[0].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_data_n_0_qs)
+  );
+
+  // Subregister 1 of Multireg write_mask_data_n
+  // R[write_mask_data_n_1]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_write_mask_data_n_1 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_data_n_1_we),
+    .wd     (write_mask_data_n_1_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_data_n[1].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_data_n_1_qs)
+  );
+
+  // Subregister 2 of Multireg write_mask_data_n
+  // R[write_mask_data_n_2]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_write_mask_data_n_2 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_data_n_2_we),
+    .wd     (write_mask_data_n_2_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_data_n[2].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_data_n_2_qs)
+  );
+
+  // Subregister 3 of Multireg write_mask_data_n
+  // R[write_mask_data_n_3]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_write_mask_data_n_3 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_data_n_3_we),
+    .wd     (write_mask_data_n_3_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_data_n[3].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_data_n_3_qs)
+  );
+
+  // Subregister 4 of Multireg write_mask_data_n
+  // R[write_mask_data_n_4]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_write_mask_data_n_4 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_data_n_4_we),
+    .wd     (write_mask_data_n_4_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_data_n[4].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_data_n_4_qs)
+  );
+
+  // Subregister 5 of Multireg write_mask_data_n
+  // R[write_mask_data_n_5]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_write_mask_data_n_5 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_data_n_5_we),
+    .wd     (write_mask_data_n_5_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_data_n[5].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_data_n_5_qs)
+  );
+
+
+
+  // Subregister 0 of Multireg write_mask_ecc_n
+  // R[write_mask_ecc_n_0]: V(False)
+
+  // F[write_mask_ecc_n_0]: 6:0
+  prim_subreg #(
+    .DW      (7),
+    .SWACCESS("RW"),
+    .RESVAL  (7'h0)
+  ) u_write_mask_ecc_n_0_write_mask_ecc_n_0 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_ecc_n_0_write_mask_ecc_n_0_we),
+    .wd     (write_mask_ecc_n_0_write_mask_ecc_n_0_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_ecc_n[0].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_ecc_n_0_write_mask_ecc_n_0_qs)
+  );
+
+
+  // F[write_mask_ecc_n_1]: 13:7
+  prim_subreg #(
+    .DW      (7),
+    .SWACCESS("RW"),
+    .RESVAL  (7'h0)
+  ) u_write_mask_ecc_n_0_write_mask_ecc_n_1 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_ecc_n_0_write_mask_ecc_n_1_we),
+    .wd     (write_mask_ecc_n_0_write_mask_ecc_n_1_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_ecc_n[1].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_ecc_n_0_write_mask_ecc_n_1_qs)
+  );
+
+
+  // F[write_mask_ecc_n_2]: 20:14
+  prim_subreg #(
+    .DW      (7),
+    .SWACCESS("RW"),
+    .RESVAL  (7'h0)
+  ) u_write_mask_ecc_n_0_write_mask_ecc_n_2 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_ecc_n_0_write_mask_ecc_n_2_we),
+    .wd     (write_mask_ecc_n_0_write_mask_ecc_n_2_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_ecc_n[2].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_ecc_n_0_write_mask_ecc_n_2_qs)
+  );
+
+
+  // F[write_mask_ecc_n_3]: 27:21
+  prim_subreg #(
+    .DW      (7),
+    .SWACCESS("RW"),
+    .RESVAL  (7'h0)
+  ) u_write_mask_ecc_n_0_write_mask_ecc_n_3 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_ecc_n_0_write_mask_ecc_n_3_we),
+    .wd     (write_mask_ecc_n_0_write_mask_ecc_n_3_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_ecc_n[3].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_ecc_n_0_write_mask_ecc_n_3_qs)
+  );
+
+
+  // Subregister 4 of Multireg write_mask_ecc_n
+  // R[write_mask_ecc_n_1]: V(False)
+
+  // F[write_mask_ecc_n_4]: 6:0
+  prim_subreg #(
+    .DW      (7),
+    .SWACCESS("RW"),
+    .RESVAL  (7'h0)
+  ) u_write_mask_ecc_n_1_write_mask_ecc_n_4 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_ecc_n_1_write_mask_ecc_n_4_we),
+    .wd     (write_mask_ecc_n_1_write_mask_ecc_n_4_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_ecc_n[4].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_ecc_n_1_write_mask_ecc_n_4_qs)
+  );
+
+
+  // F[write_mask_ecc_n_5]: 13:7
+  prim_subreg #(
+    .DW      (7),
+    .SWACCESS("RW"),
+    .RESVAL  (7'h0)
+  ) u_write_mask_ecc_n_1_write_mask_ecc_n_5 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (write_mask_ecc_n_1_write_mask_ecc_n_5_we),
+    .wd     (write_mask_ecc_n_1_write_mask_ecc_n_5_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.write_mask_ecc_n[5].q ),
+
+    // to register interface (read)
+    .qs     (write_mask_ecc_n_1_write_mask_ecc_n_5_qs)
+  );
+
+
+
+
+
+  logic [13:0] addr_hit;
   always_comb begin
     addr_hit = '0;
-    addr_hit[0] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_0_OFFSET);
-    addr_hit[1] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_1_OFFSET);
-    addr_hit[2] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_2_OFFSET);
-    addr_hit[3] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_3_OFFSET);
-    addr_hit[4] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_4_OFFSET);
-    addr_hit[5] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_5_OFFSET);
+    addr_hit[ 0] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_0_OFFSET);
+    addr_hit[ 1] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_1_OFFSET);
+    addr_hit[ 2] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_2_OFFSET);
+    addr_hit[ 3] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_3_OFFSET);
+    addr_hit[ 4] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_4_OFFSET);
+    addr_hit[ 5] = (reg_addr == ECC_MANAGER_MISMATCH_COUNT_5_OFFSET);
+    addr_hit[ 6] = (reg_addr == ECC_MANAGER_WRITE_MASK_DATA_N_0_OFFSET);
+    addr_hit[ 7] = (reg_addr == ECC_MANAGER_WRITE_MASK_DATA_N_1_OFFSET);
+    addr_hit[ 8] = (reg_addr == ECC_MANAGER_WRITE_MASK_DATA_N_2_OFFSET);
+    addr_hit[ 9] = (reg_addr == ECC_MANAGER_WRITE_MASK_DATA_N_3_OFFSET);
+    addr_hit[10] = (reg_addr == ECC_MANAGER_WRITE_MASK_DATA_N_4_OFFSET);
+    addr_hit[11] = (reg_addr == ECC_MANAGER_WRITE_MASK_DATA_N_5_OFFSET);
+    addr_hit[12] = (reg_addr == ECC_MANAGER_WRITE_MASK_ECC_N_0_OFFSET);
+    addr_hit[13] = (reg_addr == ECC_MANAGER_WRITE_MASK_ECC_N_1_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -270,12 +642,20 @@ module ecc_manager_reg_top #(
   // Check sub-word write is permitted
   always_comb begin
     wr_err = (reg_we &
-              ((addr_hit[0] & (|(ECC_MANAGER_PERMIT[0] & ~reg_be))) |
-               (addr_hit[1] & (|(ECC_MANAGER_PERMIT[1] & ~reg_be))) |
-               (addr_hit[2] & (|(ECC_MANAGER_PERMIT[2] & ~reg_be))) |
-               (addr_hit[3] & (|(ECC_MANAGER_PERMIT[3] & ~reg_be))) |
-               (addr_hit[4] & (|(ECC_MANAGER_PERMIT[4] & ~reg_be))) |
-               (addr_hit[5] & (|(ECC_MANAGER_PERMIT[5] & ~reg_be)))));
+              ((addr_hit[ 0] & (|(ECC_MANAGER_PERMIT[ 0] & ~reg_be))) |
+               (addr_hit[ 1] & (|(ECC_MANAGER_PERMIT[ 1] & ~reg_be))) |
+               (addr_hit[ 2] & (|(ECC_MANAGER_PERMIT[ 2] & ~reg_be))) |
+               (addr_hit[ 3] & (|(ECC_MANAGER_PERMIT[ 3] & ~reg_be))) |
+               (addr_hit[ 4] & (|(ECC_MANAGER_PERMIT[ 4] & ~reg_be))) |
+               (addr_hit[ 5] & (|(ECC_MANAGER_PERMIT[ 5] & ~reg_be))) |
+               (addr_hit[ 6] & (|(ECC_MANAGER_PERMIT[ 6] & ~reg_be))) |
+               (addr_hit[ 7] & (|(ECC_MANAGER_PERMIT[ 7] & ~reg_be))) |
+               (addr_hit[ 8] & (|(ECC_MANAGER_PERMIT[ 8] & ~reg_be))) |
+               (addr_hit[ 9] & (|(ECC_MANAGER_PERMIT[ 9] & ~reg_be))) |
+               (addr_hit[10] & (|(ECC_MANAGER_PERMIT[10] & ~reg_be))) |
+               (addr_hit[11] & (|(ECC_MANAGER_PERMIT[11] & ~reg_be))) |
+               (addr_hit[12] & (|(ECC_MANAGER_PERMIT[12] & ~reg_be))) |
+               (addr_hit[13] & (|(ECC_MANAGER_PERMIT[13] & ~reg_be)))));
   end
 
   assign mismatch_count_0_we = addr_hit[0] & reg_we & !reg_error;
@@ -295,6 +675,42 @@ module ecc_manager_reg_top #(
 
   assign mismatch_count_5_we = addr_hit[5] & reg_we & !reg_error;
   assign mismatch_count_5_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_0_we = addr_hit[6] & reg_we & !reg_error;
+  assign write_mask_data_n_0_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_1_we = addr_hit[7] & reg_we & !reg_error;
+  assign write_mask_data_n_1_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_2_we = addr_hit[8] & reg_we & !reg_error;
+  assign write_mask_data_n_2_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_3_we = addr_hit[9] & reg_we & !reg_error;
+  assign write_mask_data_n_3_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_4_we = addr_hit[10] & reg_we & !reg_error;
+  assign write_mask_data_n_4_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_5_we = addr_hit[11] & reg_we & !reg_error;
+  assign write_mask_data_n_5_wd = reg_wdata[31:0];
+
+  assign write_mask_ecc_n_0_write_mask_ecc_n_0_we = addr_hit[12] & reg_we & !reg_error;
+  assign write_mask_ecc_n_0_write_mask_ecc_n_0_wd = reg_wdata[6:0];
+
+  assign write_mask_ecc_n_0_write_mask_ecc_n_1_we = addr_hit[12] & reg_we & !reg_error;
+  assign write_mask_ecc_n_0_write_mask_ecc_n_1_wd = reg_wdata[13:7];
+
+  assign write_mask_ecc_n_0_write_mask_ecc_n_2_we = addr_hit[12] & reg_we & !reg_error;
+  assign write_mask_ecc_n_0_write_mask_ecc_n_2_wd = reg_wdata[20:14];
+
+  assign write_mask_ecc_n_0_write_mask_ecc_n_3_we = addr_hit[12] & reg_we & !reg_error;
+  assign write_mask_ecc_n_0_write_mask_ecc_n_3_wd = reg_wdata[27:21];
+
+  assign write_mask_ecc_n_1_write_mask_ecc_n_4_we = addr_hit[13] & reg_we & !reg_error;
+  assign write_mask_ecc_n_1_write_mask_ecc_n_4_wd = reg_wdata[6:0];
+
+  assign write_mask_ecc_n_1_write_mask_ecc_n_5_we = addr_hit[13] & reg_we & !reg_error;
+  assign write_mask_ecc_n_1_write_mask_ecc_n_5_wd = reg_wdata[13:7];
 
   // Read data return
   always_comb begin
@@ -322,6 +738,42 @@ module ecc_manager_reg_top #(
 
       addr_hit[5]: begin
         reg_rdata_next[31:0] = mismatch_count_5_qs;
+      end
+
+      addr_hit[6]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_0_qs;
+      end
+
+      addr_hit[7]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_1_qs;
+      end
+
+      addr_hit[8]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_2_qs;
+      end
+
+      addr_hit[9]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_3_qs;
+      end
+
+      addr_hit[10]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_4_qs;
+      end
+
+      addr_hit[11]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_5_qs;
+      end
+
+      addr_hit[12]: begin
+        reg_rdata_next[6:0] = write_mask_ecc_n_0_write_mask_ecc_n_0_qs;
+        reg_rdata_next[13:7] = write_mask_ecc_n_0_write_mask_ecc_n_1_qs;
+        reg_rdata_next[20:14] = write_mask_ecc_n_0_write_mask_ecc_n_2_qs;
+        reg_rdata_next[27:21] = write_mask_ecc_n_0_write_mask_ecc_n_3_qs;
+      end
+
+      addr_hit[13]: begin
+        reg_rdata_next[6:0] = write_mask_ecc_n_1_write_mask_ecc_n_4_qs;
+        reg_rdata_next[13:7] = write_mask_ecc_n_1_write_mask_ecc_n_5_qs;
       end
 
       default: begin
