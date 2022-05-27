@@ -21,7 +21,8 @@ module ecc_manager #(
   input  ecc_mgr_req_t        ecc_mgr_req,
   output ecc_mgr_rsp_t        ecc_mgr_rsp,
 
-  input  logic [NumBanks-1:0] bank_faults
+  input  logic [NumBanks-1:0] bank_faults,
+  output logic [NumBanks-1:0][38:0] test_write_mask_no
 );
   import ecc_manager_reg_pkg::*;
 
@@ -44,6 +45,9 @@ module ecc_manager #(
   for (genvar i = 0; i < NumBanks; i++) begin : gen_fault_increment
     assign hw2reg.mismatch_count[i].d = reg2hw.mismatch_count[i].q + 1;
     assign hw2reg.mismatch_count[i].de = bank_faults[i];
+
+    assign test_write_mask_no[i][31:0] = reg2hw.write_mask_data_n[i];
+    assign test_write_mask_no[i][38:32] = reg2hw.write_mask_ecc_n[i];
   end
 
 endmodule

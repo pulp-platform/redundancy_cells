@@ -21,18 +21,20 @@ module ecc_sram_wrap #(
   localparam int unsigned BEInWidth        = UnprotectedWidth/8,
   localparam int unsigned BankAddWidth     = $clog2(BankSize)
 ) (
-  input  logic                   clk_i,
-  input  logic                   rst_ni,
+  input  logic                      clk_i,
+  input  logic                      rst_ni,
 
-  input  logic [DataInWidth-1:0] tcdm_wdata_i,
-  input  logic [           31:0] tcdm_add_i,
-  input  logic                   tcdm_req_i,
-  input  logic                   tcdm_wen_i,
-  input  logic [  BEInWidth-1:0] tcdm_be_i,
-  output logic [DataInWidth-1:0] tcdm_rdata_o,
-  output logic                   tcdm_gnt_o,
-  output logic                   single_error_o,
-  output logic                   multi_error_o
+  input  logic [   DataInWidth-1:0] tcdm_wdata_i,
+  input  logic [              31:0] tcdm_add_i,
+  input  logic                      tcdm_req_i,
+  input  logic                      tcdm_wen_i,
+  input  logic [     BEInWidth-1:0] tcdm_be_i,
+  output logic [   DataInWidth-1:0] tcdm_rdata_o,
+  output logic                      tcdm_gnt_o,
+  output logic                      single_error_o,
+  output logic                      multi_error_o,
+
+  input  logic [ProtectedWidth-1:0] test_write_mask_ni // Tie to '0 if unused!!!
 );
   // TODO: - Add memory scrubber
 
@@ -62,10 +64,8 @@ module ecc_sram_wrap #(
   logic                      bank_we;
   logic [  BankAddWidth-1:0] bank_add;
   logic [ProtectedWidth-1:0] bank_wdata;
-  logic                      bank_be;
   logic [ProtectedWidth-1:0] bank_rdata;
 
-  assign bank_be = 1'b1;
 
   if ( InputECC == 0 ) begin : ECC_0_ASSIGN
     // Loads  -> loads full data
@@ -216,7 +216,7 @@ module ecc_sram_wrap #(
   tc_sram #(
     .NumWords  ( BankSize       ), // Number of Words in data array
     .DataWidth ( ProtectedWidth ), // Data signal width
-    .ByteWidth ( ProtectedWidth ), // Width of a data byte
+    .ByteWidth ( 1              ), // Width of a data byte
     .NumPorts  ( 1              ), // Number of read and write ports
 `ifndef TARGET_SYNTHESIS
     .SimInit   ( "zeros"        ),
@@ -226,13 +226,13 @@ module ecc_sram_wrap #(
     .clk_i,                  // Clock
     .rst_ni,                 // Asynchronous reset active low
 
-    .req_i   ( bank_req   ), // request
-    .we_i    ( bank_we    ), // write enable
-    .addr_i  ( bank_add   ), // request address
-    .wdata_i ( bank_wdata ), // write data
-    .be_i    ( bank_be    ), // write byte enable
+    .req_i   (  bank_req           ), // request
+    .we_i    (  bank_we            ), // write enable
+    .addr_i  (  bank_add           ), // request address
+    .wdata_i (  bank_wdata         ), // write data
+    .be_i    ( ~test_write_mask_ni ), // write byte enable
 
-    .rdata_o ( bank_rdata )  // read data
+    .rdata_o (  bank_rdata         )  // read data
   );
 
 endmodule
