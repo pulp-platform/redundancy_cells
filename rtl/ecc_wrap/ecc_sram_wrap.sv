@@ -21,18 +21,19 @@ module ecc_sram_wrap #(
   localparam int unsigned BEInWidth        = UnprotectedWidth/8,
   localparam int unsigned BankAddWidth     = $clog2(BankSize)
 ) (
-  input  logic                   clk_i,
-  input  logic                   rst_ni,
-
-  input  logic [DataInWidth-1:0] tcdm_wdata_i,
-  input  logic [           31:0] tcdm_add_i,
-  input  logic                   tcdm_req_i,
-  input  logic                   tcdm_wen_i,
-  input  logic [  BEInWidth-1:0] tcdm_be_i,
+  input  logic 			 clk_i,
+  input  logic 			 rst_ni,
+  input  logic 			 test_mode_i,
+   
+  input  logic [DataInWidth-1:0]  tcdm_wdata_i,
+  input  logic [ 31:0] 		 tcdm_add_i,
+  input  logic 			 tcdm_req_i,
+  input  logic 			 tcdm_wen_i,
+  input  logic [ BEInWidth-1:0] 	 tcdm_be_i,
   output logic [DataInWidth-1:0] tcdm_rdata_o,
-  output logic                   tcdm_gnt_o,
-  output logic                   single_error_o,
-  output logic                   multi_error_o
+  output logic 			 tcdm_gnt_o,
+  output logic 			 single_error_o,
+  output logic 			 multi_error_o
 );
   // TODO: - Add memory scrubber
 
@@ -225,6 +226,7 @@ module ecc_sram_wrap #(
   ) i_bank (
     .clk_i,                  // Clock
     .rst_ni,                 // Asynchronous reset active low
+    .testmode_i (test_mode_i),
 
     .req_i   ( bank_req   ), // request
     .we_i    ( bank_we    ), // write enable
