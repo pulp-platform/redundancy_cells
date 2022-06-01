@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Expose  `ecc_sram` ecc error signals
+- Rename cTCLS to ODRG
 
 ## 0.4.0 - 2022-03-31
 

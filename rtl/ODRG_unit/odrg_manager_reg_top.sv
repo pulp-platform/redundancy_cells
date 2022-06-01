@@ -7,7 +7,7 @@
 
 `include "common_cells/assertions.svh"
 
-module ctcls_manager_reg_top #(
+module odrg_manager_reg_top #(
     parameter type reg_req_t = logic,
     parameter type reg_rsp_t = logic,
     parameter int AW = 5
@@ -17,15 +17,15 @@ module ctcls_manager_reg_top #(
   input  reg_req_t reg_req_i,
   output reg_rsp_t reg_rsp_o,
   // To HW
-  output ctcls_manager_reg_pkg::ctcls_manager_reg2hw_t reg2hw, // Write
-  input  ctcls_manager_reg_pkg::ctcls_manager_hw2reg_t hw2reg, // Read
+  output odrg_manager_reg_pkg::odrg_manager_reg2hw_t reg2hw, // Write
+  input  odrg_manager_reg_pkg::odrg_manager_hw2reg_t hw2reg, // Read
 
 
   // Config
   input devmode_i // If 1, explicit error return for unmapped register access
 );
 
-  import ctcls_manager_reg_pkg::* ;
+  import odrg_manager_reg_pkg::* ;
 
   localparam int DW = 32;
   localparam int DBW = DW/8;                    // Byte Width
@@ -255,11 +255,11 @@ module ctcls_manager_reg_top #(
   logic [4:0] addr_hit;
   always_comb begin
     addr_hit = '0;
-    addr_hit[0] = (reg_addr == CTCLS_MANAGER_SP_STORE_OFFSET);
-    addr_hit[1] = (reg_addr == CTCLS_MANAGER_MODE_OFFSET);
-    addr_hit[2] = (reg_addr == CTCLS_MANAGER_MISMATCHES_0_OFFSET);
-    addr_hit[3] = (reg_addr == CTCLS_MANAGER_MISMATCHES_1_OFFSET);
-    addr_hit[4] = (reg_addr == CTCLS_MANAGER_MISMATCHES_2_OFFSET);
+    addr_hit[0] = (reg_addr == ODRG_MANAGER_SP_STORE_OFFSET);
+    addr_hit[1] = (reg_addr == ODRG_MANAGER_MODE_OFFSET);
+    addr_hit[2] = (reg_addr == ODRG_MANAGER_MISMATCHES_0_OFFSET);
+    addr_hit[3] = (reg_addr == ODRG_MANAGER_MISMATCHES_1_OFFSET);
+    addr_hit[4] = (reg_addr == ODRG_MANAGER_MISMATCHES_2_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -267,11 +267,11 @@ module ctcls_manager_reg_top #(
   // Check sub-word write is permitted
   always_comb begin
     wr_err = (reg_we &
-              ((addr_hit[0] & (|(CTCLS_MANAGER_PERMIT[0] & ~reg_be))) |
-               (addr_hit[1] & (|(CTCLS_MANAGER_PERMIT[1] & ~reg_be))) |
-               (addr_hit[2] & (|(CTCLS_MANAGER_PERMIT[2] & ~reg_be))) |
-               (addr_hit[3] & (|(CTCLS_MANAGER_PERMIT[3] & ~reg_be))) |
-               (addr_hit[4] & (|(CTCLS_MANAGER_PERMIT[4] & ~reg_be)))));
+              ((addr_hit[0] & (|(ODRG_MANAGER_PERMIT[0] & ~reg_be))) |
+               (addr_hit[1] & (|(ODRG_MANAGER_PERMIT[1] & ~reg_be))) |
+               (addr_hit[2] & (|(ODRG_MANAGER_PERMIT[2] & ~reg_be))) |
+               (addr_hit[3] & (|(ODRG_MANAGER_PERMIT[3] & ~reg_be))) |
+               (addr_hit[4] & (|(ODRG_MANAGER_PERMIT[4] & ~reg_be)))));
   end
 
   assign sp_store_we = addr_hit[0] & reg_we & !reg_error;

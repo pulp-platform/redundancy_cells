@@ -1,5 +1,5 @@
 {
-  name: "cTCLS_manager",
+  name: "ODRG_manager",
   clock_primary: "clk_i",
   reset_primary: "rst_ni",
   bus_interfaces: [

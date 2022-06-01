@@ -19,20 +19,20 @@ REG_PATH = $(shell bender path register_interface)
 # REG_PATH = ../register_interface
 REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
 
-HJSON_CTCLS = rtl/cTCLS_unit/cTCLS_unit.hjson
+HJSON_ODRG = rtl/ODRG_unit/ODRG_unit.hjson
 HJSON_TCLS = rtl/pulpissimo_tcls/TCLS_unit.hjson
 HJSON_ECC = rtl/ecc_wrap/ecc_sram_wrapper.hjson
 
-TARGET_DIR_CTCLS = rtl/cTCLS_unit
+TARGET_DIR_ODRG = rtl/ODRG_unit
 TARGET_DIR_TCLS = rtl/pulpissimo_tcls
 TARGET_DIR_ECC = rtl/ecc_wrap
 
-# .PHONY: gen_cTCLS
-gen_cTCLS:
-	python $(REG_TOOL) $(HJSON_CTCLS) -t $(TARGET_DIR_CTCLS) -r
-	python $(REG_TOOL) $(HJSON_CTCLS) -d > $(TARGET_DIR_CTCLS)/doc.html
-	python $(REG_TOOL) $(HJSON_CTCLS) -D > $(TARGET_DIR_CTCLS)/cTCLS.h
-	python $(REG_TOOL) $(HJSON_CTCLS) --doc > $(TARGET_DIR_CTCLS)/doc.md
+# .PHONY: gen_ODRG
+gen_ODRG:
+	python $(REG_TOOL) $(HJSON_ODRG) -t $(TARGET_DIR_ODRG) -r
+	python $(REG_TOOL) $(HJSON_ODRG) -d > $(TARGET_DIR_ODRG)/doc.html
+	python $(REG_TOOL) $(HJSON_ODRG) -D > $(TARGET_DIR_ODRG)/ODRG.h
+	python $(REG_TOOL) $(HJSON_ODRG) --doc > $(TARGET_DIR_ODRG)/doc.md
 
 gen_TCLS:
 	python $(REG_TOOL) $(HJSON_TCLS) -t $(TARGET_DIR_TCLS) -r

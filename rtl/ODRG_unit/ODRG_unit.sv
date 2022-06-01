@@ -13,20 +13,20 @@
 // Peripheral communication signals
 
 
-module cTCLS_unit #(
+module ODRG_unit #(
   parameter int unsigned InstrRdataWidth  = 32,
   parameter int unsigned NExtPerfCounters = 5,
   parameter int unsigned DataWidth        = 32,
   parameter int unsigned BEWidth          = 4,
   parameter int unsigned UserWidth        = 0,
-  parameter type         tcls_req_t       = logic,
-  parameter type         tcls_rsp_t       = logic
+  parameter type         odrg_req_t       = logic,
+  parameter type         odrg_rsp_t       = logic
 ) (
   input  logic                             clk_i,
   input  logic                             rst_ni,
 
-  input  tcls_req_t                        speriph_request,
-  output tcls_rsp_t                        speriph_response,
+  input  odrg_req_t                        speriph_request,
+  output odrg_rsp_t                        speriph_response,
 
   // Ports to connect Interconnect/rest of system
   input  logic [2:0][                 3:0] intc_core_id_i,
@@ -104,9 +104,9 @@ module cTCLS_unit #(
 
   // APU/SHARED_FPU not implemented
 );
-  import ctcls_manager_reg_pkg::* ;
-  ctcls_manager_reg2hw_t reg2hw;
-  ctcls_manager_hw2reg_t hw2reg;
+  import odrg_manager_reg_pkg::* ;
+  odrg_manager_reg2hw_t reg2hw;
+  odrg_manager_hw2reg_t hw2reg;
 
   // State signals
   typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
@@ -146,9 +146,9 @@ module cTCLS_unit #(
    *  Slave Peripheral communication  *
    ************************************/
 
-  ctcls_manager_reg_top #(
-    .reg_req_t ( tcls_req_t ),
-    .reg_rsp_t ( tcls_rsp_t )
+  odrg_manager_reg_top #(
+    .reg_req_t ( odrg_req_t ),
+    .reg_rsp_t ( odrg_rsp_t )
   ) i_registers (
     .clk_i     ( clk_i            ),
     .rst_ni    ( rst_ni           ),
@@ -227,7 +227,7 @@ module cTCLS_unit #(
   end
 
   /***********************
-   *  FSM for TCLS unit  *
+   *  FSM for ODRG unit  *
    ***********************/
 
   always_comb begin : proc_fsm
@@ -236,7 +236,7 @@ module cTCLS_unit #(
     hw2reg.mismatches_1.de = 1'b0;
     hw2reg.mismatches_2.de = 1'b0;
     if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
-      $display("[TCLS] %t - mismatch detected", $realtime);
+      $display("[ODRG] %t - mismatch detected", $realtime);
       if (TMR_error_detect == 3'b001) hw2reg.mismatches_0.de = 1'b1;
       if (TMR_error_detect == 3'b010) hw2reg.mismatches_1.de = 1'b1;
       if (TMR_error_detect == 3'b100) hw2reg.mismatches_2.de = 1'b1;
@@ -252,7 +252,7 @@ module cTCLS_unit #(
     end
     if (red_mode_q == TMR_RELOAD) begin
       if (reg2hw.sp_store == '0) begin
-        $display("[TCLS] %t - mismatch restored", $realtime);
+        $display("[ODRG] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
       end
     end
