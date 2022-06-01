@@ -6,7 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## 0.3.0 - 2021-01-04
+### Added
+- Add `pulpissimo_tcls` permanently voted TCLS configuration
+- Add `ecc_manager` to log and errors
+
+### Changed
+- Expose  `ecc_sram` ecc error signals
+
+## 0.4.0 - 2022-03-31
+
+### Changed
+- Clean up interface of `cTCLS_unit`
+
+## 0.3.0 - 2022-01-04
 
 ### Added
 - Add secded ECC for 64 bit datawidth
