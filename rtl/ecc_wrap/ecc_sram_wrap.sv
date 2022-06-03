@@ -24,6 +24,9 @@ module ecc_sram_wrap #(
   input  logic                      clk_i,
   input  logic                      rst_ni,
 
+  input  logic                      scrub_trigger_i, // Set to 1'b0 to disable scrubber
+  output logic                      scrubber_fix_o,
+
   input  logic [   DataInWidth-1:0] tcdm_wdata_i,
   input  logic [              31:0] tcdm_add_i,
   input  logic                      tcdm_req_i,
@@ -65,6 +68,12 @@ module ecc_sram_wrap #(
   logic [  BankAddWidth-1:0] bank_add;
   logic [ProtectedWidth-1:0] bank_wdata;
   logic [ProtectedWidth-1:0] bank_rdata;
+
+  logic                      bank_scrub_req;
+  logic                      bank_scrub_we;
+  logic [  BankAddWidth-1:0] bank_scrub_add;
+  logic [ProtectedWidth-1:0] bank_scrub_wdata;
+  logic [ProtectedWidth-1:0] bank_scrub_rdata;
 
 
   if ( InputECC == 0 ) begin : ECC_0_ASSIGN
@@ -213,6 +222,34 @@ module ecc_sram_wrap #(
     end
   end // ECC_1_ASSIGN
 
+  ecc_scrubber #(
+    .BankSize       ( BankSize       ),
+    .UseExternalECC ( 0              ),
+    .DataWidth      ( ProtectedWidth )
+  ) i_scrubber (
+    .clk_i,
+    .rst_ni,
+    
+    .scrub_trigger_i ( scrub_trigger_i  ),
+    .bit_corrected_o ( scrubber_fix_o   ),
+
+    .intc_req_i      ( bank_req         ),
+    .intc_we_i       ( bank_we          ),
+    .intc_add_i      ( bank_add         ),
+    .intc_wdata_i    ( bank_wdata       ),
+    .intc_rdata_o    ( bank_rdata       ),
+
+    .bank_req_o      ( bank_scrub_req   ),
+    .bank_we_o       ( bank_scrub_we    ),
+    .bank_add_o      ( bank_scrub_add   ),
+    .bank_wdata_o    ( bank_scrub_wdata ),
+    .bank_rdata_i    ( bank_scrub_rdata ),
+
+    .ecc_out_o       (),
+    .ecc_in_i        ( '0 ),
+    .ecc_err_i       ( '0 )
+  );
+
   tc_sram #(
     .NumWords  ( BankSize       ), // Number of Words in data array
     .DataWidth ( ProtectedWidth ), // Data signal width
@@ -226,13 +263,13 @@ module ecc_sram_wrap #(
     .clk_i,                  // Clock
     .rst_ni,                 // Asynchronous reset active low
 
-    .req_i   (  bank_req           ), // request
-    .we_i    (  bank_we            ), // write enable
-    .addr_i  (  bank_add           ), // request address
-    .wdata_i (  bank_wdata         ), // write data
+    .req_i   (  bank_scrub_req           ), // request
+    .we_i    (  bank_scrub_we            ), // write enable
+    .addr_i  (  bank_scrub_add           ), // request address
+    .wdata_i (  bank_scrub_wdata         ), // write data
     .be_i    ( ~test_write_mask_ni ), // write byte enable
 
-    .rdata_o (  bank_rdata         )  // read data
+    .rdata_o (  bank_scrub_rdata         )  // read data
   );
 
 endmodule
