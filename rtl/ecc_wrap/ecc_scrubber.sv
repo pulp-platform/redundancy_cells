@@ -9,17 +9,19 @@
 // specific language governing permissions and limitations under the License.
 // 
 // Scrubber for ecc
+//   - iteratively steps through memory bank
+//   - corrects *only* correctable errors
 
 module ecc_scrubber #(
-  parameter  int unsigned BankSize       = 256,
-  parameter  bit          UseExternalECC = 0,
-  localparam int unsigned DataWidth      = 39
+  parameter int unsigned BankSize       = 256,
+  parameter bit          UseExternalECC = 0,
+  parameter int unsigned DataWidth      = 39
 ) (
   input  logic                        clk_i,
   input  logic                        rst_ni,
 
-  input  logic                        scrub_trigger_i,
-  output logic [                31:0] bit_corrections_o,
+  input  logic                        scrub_trigger_i, // Set to 1'b0 to disable
+  output logic                        bit_corrected_o,
 
   // Input signals from others accessing memory bank
   input  logic                        intc_req_i,
@@ -57,15 +59,17 @@ module ecc_scrubber #(
   logic [$clog2(BankSize)-1:0] working_add_d, working_add_q;
   assign scrub_add = working_add_q;
 
-  always_comb begin : proc_bank_assign
-    bank_req_o   = intc_req_i || scrub_req;
-    intc_rdata_o = bank_rdata_i;
-    scrub_rdata  = bank_rdata_i;
+  assign bank_req_o   = intc_req_i || scrub_req;
+  assign intc_rdata_o = bank_rdata_i;
+  assign scrub_rdata  = bank_rdata_i;
 
+  always_comb begin : proc_bank_assign
+    // By default, bank is connected to outside
     bank_we_o    = intc_we_i;
     bank_add_o   = intc_add_i;
     bank_wdata_o = intc_wdata_i;
     
+    // If scrubber active and outside is not, do scrub
     if ( (state_q == Read || state_q == Write) && intc_req_i == 1'b0) begin
       bank_we_o    = scrub_we;
       bank_add_o   = scrub_add;
@@ -96,35 +100,47 @@ module ecc_scrubber #(
     scrub_req     = 1'b0;
     scrub_we      = 1'b0;
     working_add_d = working_add_q;
+    bit_corrected_o = 1'b0;
 
     if (state_q == Idle) begin
+      // Switch to read state if triggered to scrub
       if (scrub_trigger_i) begin
         state_d = Read;
       end
+
     end else if (state_q == Read) begin
+      // Request read to scrub
       scrub_req = 1'b1;
+      // Request only active if outside is inactive
       if (intc_req_i == 1'b0) begin
         state_d = Write;
       end
+
     end else if (state_q == Write) begin
-      if (ecc_err[0] == 1'b0) begin   // No Error (maybe not correctable)
+      if (ecc_err[0] == 1'b0) begin   // No correctable Error
+        // Return to idle state
         state_d       = Idle;
-        working_add_d = (working_add_q + 1) % BankSize;
+        working_add_d = (working_add_q + 1) % BankSize; // increment address
+
       end else begin                  // Correctable Error
+        // Write corrected version
         scrub_req = 1'b1;
         scrub_we  = 1'b1;
-        if (intc_req_i == 1'b1) begin // INTC interference - retry read and write
+
+        // INTC interference - retry read and write
+        if (intc_req_i == 1'b1) begin
           state_d = Read;
         end else begin                // Error corrected
           state_d       = Idle;
-          working_add_d = (working_add_q + 1) % BankSize;
+          working_add_d = (working_add_q + 1) % BankSize; // increment address
+          bit_corrected_o = 1'b1;
         end
       end
     end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_bank_add
-    if(~rst_ni) begin
+    if(!rst_ni) begin
       working_add_q <= '0;
     end else begin
       working_add_q <= working_add_d;
@@ -132,22 +148,10 @@ module ecc_scrubber #(
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_FSM
-    if(~rst_ni) begin
+    if(!rst_ni) begin
       state_q <= Idle;
     end else begin
       state_q <= state_d;
-    end
-  end
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_bit_corrections
-    if(~rst_ni) begin
-      bit_corrections_o <= 0;
-    end else begin
-      if (ecc_err[0] == 1) begin
-        bit_corrections_o <= bit_corrections_o + 1;
-      end else begin
-        bit_corrections_o <= bit_corrections_o;
-      end
     end
   end
 

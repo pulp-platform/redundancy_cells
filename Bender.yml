@@ -33,8 +33,7 @@ sources:
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
-  - rtl/ecc_scrubber.sv
-  - rtl/ecc_wrap/ecc_sram_wrap.sv
+  - rtl/ecc_wrap/ecc_scrubber.sv
   - target: axi_ecc # custom ECC for PULP AXI IPs, make sure to include interface IPs when adding this target
     files:
       - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
@@ -57,6 +56,7 @@ sources:
     # Level 2
   - rtl/bitwise_TMR_voter.sv
   - rtl/ecc_wrap/ecc_manager.sv
+  - rtl/ecc_wrap/ecc_sram_wrap.sv
     # Level 3
   - include_dirs:
       - rtl/ODRG_unit
