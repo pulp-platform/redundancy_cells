@@ -20,14 +20,41 @@
       { count: "NumBanks",
         cname: "mismatch_count",
         name: "mismatch_count",
-        desc: "Correctable mismatches caught by ecc",
+        desc: "Correctable mismatches caught by ecc on access",
         swaccess: "rw0c",
         hwaccess: "hrw",
         resval: "0",
         fields: [
           { bits: "31:0",
             name: "correctable_mismatches",
-            desc: "Correctable mismatches caught by ecc"
+            desc: "Correctable mismatches caught by ecc on access"
+          }
+        ]
+      }
+    },
+    { name: "scrub_interval",
+      desc: "Interval between scrubs",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits: "31:0"
+          name: "scrub_interval"
+          desc: "Interval between scrubs"
+        }
+      ]
+    },
+    { multireg: 
+      { count: "NumBanks",
+        cname: "scrub_fix_count",
+        name: "scrub_fix_count",
+        desc: "Correctable mismatches caught by ecc on scrub",
+        swaccess: "rw0c",
+        hwaccess: "hrw",
+        resval: "0",
+        fields: [
+          { bits: "31:0",
+            name: "correctable_mismatches",
+            desc: "Correctable mismatches caught by ecc on scrub"
           }
         ]
       }
