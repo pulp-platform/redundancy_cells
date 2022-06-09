@@ -60,7 +60,7 @@ module ecc_manager #(
     assign test_write_mask_no[i][38:32] = reg2hw.write_mask_ecc_n[i];
 
     // Instantiate scrub trigger counter
-    assign scrub_trigger_o[i] = counter_value[i] == reg2hw.scrub_interval.q;
+    assign scrub_trigger_o[i] = (reg2hw.scrub_interval.q != '0) && (counter_value[i] == reg2hw.scrub_interval.q);
     counter #(
       .WIDTH           ( 32   ),
       .STICKY_OVERFLOW ( 1'b0 )
