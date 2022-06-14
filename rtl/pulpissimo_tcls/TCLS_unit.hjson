@@ -14,6 +14,7 @@
       desc: "Stack Pointer storage register",
       swaccess: "rw",
       hwaccess: "hrw",
+      hwqe: "true",
       fields: [
         { bits: "31:0",
           name: "SP",
@@ -21,18 +22,18 @@
         }
       ]
     },
-    { name: "MODE",
-      desc: "Redundancy Mode configuration",
+    { name: "TCLS_CONFIG",
+      desc: "Re-synchronization configuration",
       swaccess: "rw",
       hwaccess: "hro",
       fields: [
         { bits: "0",
-          name: "MODE",
-          desc: "TMR mode enable"
+          name: "SETBACK",
+          desc: "Enable setback (synchronous reset) during re-synch"
         },
         { bits: "1",
-          name: "RESTORE_MODE",
-          desc: "Enable wait-for-restoration"
+          name: "RELOAD_SETBACK",
+          desc: "Enable setback on mismatch during reload section of re-synch (only possible with SETBACK)"
         }
       ]
     },

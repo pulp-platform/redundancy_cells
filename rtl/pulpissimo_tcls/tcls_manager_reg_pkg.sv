@@ -15,16 +15,17 @@ package tcls_manager_reg_pkg;
 
   typedef struct packed {
     logic [31:0] q;
+    logic        qe;
   } tcls_manager_reg2hw_sp_store_reg_t;
 
   typedef struct packed {
     struct packed {
       logic        q;
-    } mode;
+    } setback;
     struct packed {
       logic        q;
-    } restore_mode;
-  } tcls_manager_reg2hw_mode_reg_t;
+    } reload_setback;
+  } tcls_manager_reg2hw_tcls_config_reg_t;
 
   typedef struct packed {
     logic [31:0] q;
@@ -60,8 +61,8 @@ package tcls_manager_reg_pkg;
 
   // Register -> HW type
   typedef struct packed {
-    tcls_manager_reg2hw_sp_store_reg_t sp_store; // [129:98]
-    tcls_manager_reg2hw_mode_reg_t mode; // [97:96]
+    tcls_manager_reg2hw_sp_store_reg_t sp_store; // [130:98]
+    tcls_manager_reg2hw_tcls_config_reg_t tcls_config; // [97:96]
     tcls_manager_reg2hw_mismatches_0_reg_t mismatches_0; // [95:64]
     tcls_manager_reg2hw_mismatches_1_reg_t mismatches_1; // [63:32]
     tcls_manager_reg2hw_mismatches_2_reg_t mismatches_2; // [31:0]
@@ -77,7 +78,7 @@ package tcls_manager_reg_pkg;
 
   // Register offsets
   parameter logic [BlockAw-1:0] TCLS_MANAGER_SP_STORE_OFFSET = 5'h 0;
-  parameter logic [BlockAw-1:0] TCLS_MANAGER_MODE_OFFSET = 5'h 4;
+  parameter logic [BlockAw-1:0] TCLS_MANAGER_TCLS_CONFIG_OFFSET = 5'h 4;
   parameter logic [BlockAw-1:0] TCLS_MANAGER_MISMATCHES_0_OFFSET = 5'h 8;
   parameter logic [BlockAw-1:0] TCLS_MANAGER_MISMATCHES_1_OFFSET = 5'h c;
   parameter logic [BlockAw-1:0] TCLS_MANAGER_MISMATCHES_2_OFFSET = 5'h 10;
@@ -85,7 +86,7 @@ package tcls_manager_reg_pkg;
   // Register index
   typedef enum int {
     TCLS_MANAGER_SP_STORE,
-    TCLS_MANAGER_MODE,
+    TCLS_MANAGER_TCLS_CONFIG,
     TCLS_MANAGER_MISMATCHES_0,
     TCLS_MANAGER_MISMATCHES_1,
     TCLS_MANAGER_MISMATCHES_2
@@ -94,7 +95,7 @@ package tcls_manager_reg_pkg;
   // Register width information to check illegal writes
   parameter logic [3:0] TCLS_MANAGER_PERMIT [5] = '{
     4'b 1111, // index[0] TCLS_MANAGER_SP_STORE
-    4'b 0001, // index[1] TCLS_MANAGER_MODE
+    4'b 0001, // index[1] TCLS_MANAGER_TCLS_CONFIG
     4'b 1111, // index[2] TCLS_MANAGER_MISMATCHES_0
     4'b 1111, // index[3] TCLS_MANAGER_MISMATCHES_1
     4'b 1111  // index[4] TCLS_MANAGER_MISMATCHES_2
