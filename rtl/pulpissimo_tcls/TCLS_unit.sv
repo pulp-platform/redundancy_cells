@@ -94,7 +94,10 @@ module TCLS_unit #(
   output logic [2:0]                       core_data_rvalid_o,
   output logic [2:0]                       core_data_err_o,
 
-  output logic [2:0][NExtPerfCounters-1:0] core_perf_counters_o
+  output logic [2:0][NExtPerfCounters-1:0] core_perf_counters_o,
+  output logic [2:0]                       main_error_cba_o,
+  output logic [2:0]                       data_error_cba_o,
+  output logic [1:0]                       tcls_state_o
 
   // APU/SHARED_FPU not implemented
 );
@@ -219,6 +222,11 @@ module TCLS_unit #(
   end
   assign tcls_single_core_mismatch = (TMR_error_detect != 3'b000);
   assign tcls_triple_core_mismatch = TMR_error;
+
+  assign main_error_cba_o = main_error_cba;
+  assign data_error_cba_o = data_error_cba;
+  assign tcls_state_o     = red_mode_q;
+  
   
   /***********************
    *  FSM for TCLS unit  *
