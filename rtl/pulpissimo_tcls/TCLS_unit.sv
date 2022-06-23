@@ -25,10 +25,12 @@ module TCLS_unit #(
   input logic                              clk_i,
   input logic                              rst_ni,
 
-  input                                    tcls_req_t reg_request,
-  output                                   tcls_rsp_t reg_response,
-  output logic                             tcls_triple_core_mismatch,
-  output logic                             tcls_single_core_mismatch,
+  input                                    tcls_req_t reg_request_i,
+  output                                   tcls_rsp_t reg_response_o,
+
+  output logic                             tcls_triple_core_mismatch_o,
+  output logic                             tcls_single_core_mismatch_o,
+  output logic                             resynch_req_o,
 
   // Ports to connect Interconnect/rest of system
   input logic [ 31:0]                      intc_hart_id_i,
@@ -153,8 +155,8 @@ module TCLS_unit #(
   ) i_registers (
     .clk_i     ( clk_i            ),
     .rst_ni    ( rst_ni           ),
-    .reg_req_i ( reg_request      ),
-    .reg_rsp_o ( reg_response     ),
+    .reg_req_i ( reg_request_i    ),
+    .reg_rsp_o ( reg_response_o   ),
     .reg2hw    ( reg2hw           ),
     .hw2reg    ( hw2reg           ),
     .devmode_i ( '0               )
@@ -217,8 +219,10 @@ module TCLS_unit #(
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
-  assign tcls_single_core_mismatch = (TMR_error_detect != 3'b000);
-  assign tcls_triple_core_mismatch = TMR_error;
+  assign tcls_single_core_mismatch_o = (TMR_error_detect != 3'b000);
+  assign tcls_triple_core_mismatch_o = TMR_error;
+
+  assign resynch_req_o = TMR_error && (red_mode_q != TMR_UNLOAD);
   
   /***********************
    *  FSM for TCLS unit  *
@@ -252,7 +256,7 @@ module TCLS_unit #(
         red_mode_d = TMR_RUN;
       end else begin
         if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback && reg2hw.tcls_config.reload_setback &&
-            !(reg2hw.sp_store.qe && reg_request.wdata == '0)) begin
+            !(reg2hw.sp_store.qe && reg_request_i.wdata == '0)) begin
           setback_d = 1'b1;
         end
       end
