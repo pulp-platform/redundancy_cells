@@ -77,6 +77,9 @@ module tcls_manager_reg_top #(
   logic tcls_config_reload_setback_qs;
   logic tcls_config_reload_setback_wd;
   logic tcls_config_reload_setback_we;
+  logic tcls_config_force_resynch_qs;
+  logic tcls_config_force_resynch_wd;
+  logic tcls_config_force_resynch_we;
   logic [31:0] mismatches_0_qs;
   logic [31:0] mismatches_0_wd;
   logic mismatches_0_we;
@@ -131,8 +134,8 @@ module tcls_manager_reg_top #(
     .wd     (tcls_config_setback_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de     (hw2reg.tcls_config.setback.de),
+    .d      (hw2reg.tcls_config.setback.d ),
 
     // to internal hardware
     .qe     (),
@@ -157,8 +160,8 @@ module tcls_manager_reg_top #(
     .wd     (tcls_config_reload_setback_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de     (hw2reg.tcls_config.reload_setback.de),
+    .d      (hw2reg.tcls_config.reload_setback.d ),
 
     // to internal hardware
     .qe     (),
@@ -166,6 +169,32 @@ module tcls_manager_reg_top #(
 
     // to register interface (read)
     .qs     (tcls_config_reload_setback_qs)
+  );
+
+
+  //   F[force_resynch]: 2:2
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h0)
+  ) u_tcls_config_force_resynch (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (tcls_config_force_resynch_we),
+    .wd     (tcls_config_force_resynch_wd),
+
+    // from internal hardware
+    .de     (hw2reg.tcls_config.force_resynch.de),
+    .d      (hw2reg.tcls_config.force_resynch.d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.tcls_config.force_resynch.q ),
+
+    // to register interface (read)
+    .qs     (tcls_config_force_resynch_qs)
   );
 
 
@@ -283,6 +312,9 @@ module tcls_manager_reg_top #(
   assign tcls_config_reload_setback_we = addr_hit[1] & reg_we & !reg_error;
   assign tcls_config_reload_setback_wd = reg_wdata[1];
 
+  assign tcls_config_force_resynch_we = addr_hit[1] & reg_we & !reg_error;
+  assign tcls_config_force_resynch_wd = reg_wdata[2];
+
   assign mismatches_0_we = addr_hit[2] & reg_we & !reg_error;
   assign mismatches_0_wd = reg_wdata[31:0];
 
@@ -303,6 +335,7 @@ module tcls_manager_reg_top #(
       addr_hit[1]: begin
         reg_rdata_next[0] = tcls_config_setback_qs;
         reg_rdata_next[1] = tcls_config_reload_setback_qs;
+        reg_rdata_next[2] = tcls_config_force_resynch_qs;
       end
 
       addr_hit[2]: begin
