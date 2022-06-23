@@ -25,8 +25,12 @@ module ODRG_unit #(
   input  logic                             clk_i,
   input  logic                             rst_ni,
 
-  input  odrg_req_t                        speriph_request,
-  output odrg_rsp_t                        speriph_response,
+  input  odrg_req_t                        reg_request_i,
+  output odrg_rsp_t                        reg_response_o,
+
+  output logic                             tcls_triple_core_mismatch_o,
+  output logic                             tcls_single_core_mismatch_o,
+  output logic                             resynch_req_o,
 
   // Ports to connect Interconnect/rest of system
   input  logic [2:0][                 3:0] intc_core_id_i,
@@ -65,7 +69,7 @@ module ODRG_unit #(
   input  logic [2:0][NExtPerfCounters-1:0] intc_perf_counters_i,
 
   // Ports to connect Cores
-  output logic [2:0]                       core_rst_no,
+  output logic [2:0]                       core_setback_o,
 
   output logic [2:0][                 3:0] core_core_id_o,
   output logic [2:0][                 5:0] core_cluster_id_o,
@@ -113,6 +117,8 @@ module ODRG_unit #(
 
   redundancy_mode_e red_mode_d, red_mode_q;
 
+  logic setback_d, setback_q;
+
   // TMR signals
   logic       TMR_error, main_error, data_error;
   logic [2:0] TMR_error_detect, main_error_cba, data_error_cba;
@@ -142,6 +148,10 @@ module ODRG_unit #(
   logic [  BEWidth-1:0] data_be;
   logic [UserWidth-1:0] data_user;
 
+  assign core_setback_o[0] = setback_q;
+  assign core_setback_o[1] = setback_q;
+  assign core_setback_o[2] = setback_q;
+
   /************************************
    *  Slave Peripheral communication  *
    ************************************/
@@ -150,13 +160,13 @@ module ODRG_unit #(
     .reg_req_t ( odrg_req_t ),
     .reg_rsp_t ( odrg_rsp_t )
   ) i_registers (
-    .clk_i     ( clk_i            ),
-    .rst_ni    ( rst_ni           ),
-    .reg_req_i ( speriph_request  ),
-    .reg_rsp_o ( speriph_response ),
-    .reg2hw    ( reg2hw           ),
-    .hw2reg    ( hw2reg           ),
-    .devmode_i ( '0               )
+    .clk_i     ( clk_i          ),
+    .rst_ni    ( rst_ni         ),
+    .reg_req_i ( reg_request_i  ),
+    .reg_rsp_o ( reg_response_o ),
+    .reg2hw    ( reg2hw         ),
+    .hw2reg    ( hw2reg         ),
+    .devmode_i ( '0             )
   );
 
   assign hw2reg.sp_store.d = '0;
@@ -225,16 +235,43 @@ module ODRG_unit #(
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
+  assign tcls_single_core_mismatch_o = (TMR_error_detect != 3'b000);
+  assign tcls_triple_core_mismatch_o = TMR_error;
+
+  assign resynch_req_o = TMR_error && (red_mode_q != TMR_UNLOAD);
+
+  assign hw2reg.mode.mode.d            = 1'b0;
+  assign hw2reg.mode.mode.de           = 1'b0;
+  assign hw2reg.mode.restore_mode.d    = 1'b0;
+  assign hw2reg.mode.restore_mode.de   = 1'b0;
+  assign hw2reg.mode.setback.d         = 1'b0;
+  assign hw2reg.mode.setback.de        = 1'b0;
+  assign hw2reg.mode.reload_setback.d  = 1'b0;
+  assign hw2reg.mode.reload_setback.de = 1'b0;
+  assign hw2reg.mode.force_resynch.d   = 1'b0;
 
   /***********************
    *  FSM for ODRG unit  *
    ***********************/
 
   always_comb begin : proc_fsm
+    setback_d = 1'b0;
     red_mode_d = red_mode_q;
     hw2reg.mismatches_0.de = 1'b0;
     hw2reg.mismatches_1.de = 1'b0;
     hw2reg.mismatches_2.de = 1'b0;
+    hw2reg.mode.force_resynch.de = 1'b0;
+
+    // If forced execute resynchronization
+    if (red_mode_q == TMR_RUN && reg2hw.mode.force_resynch.q) begin
+      hw2reg.mode.force_resynch.de = 1'b1;
+      if (reg2hw.mode.restore_mode == 0) begin
+        red_mode_d = TMR_UNLOAD;
+        // TODO: buffer the restoration until restore_mode is disabled
+      end
+    end
+
+    // If error detected, do resynchronization
     if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
       $display("[ODRG] %t - mismatch detected", $realtime);
       if (TMR_error_detect == 3'b001) hw2reg.mismatches_0.de = 1'b1;
@@ -243,20 +280,34 @@ module ODRG_unit #(
 
       if (reg2hw.mode.restore_mode == 0) begin
         red_mode_d = TMR_UNLOAD;
+        // TODO: buffer the restoration until restore_mode is disabled
       end
     end
+
+    // If unload complete, go to reload (and reset)
     if (red_mode_q == TMR_UNLOAD) begin
-      if (reg2hw.sp_store != '0) begin
+      if (reg2hw.sp_store.q != '0) begin
         red_mode_d = TMR_RELOAD;
+        if (reg2hw.mode.setback.q) begin
+          setback_d = 1'b1;
+        end
       end
     end
+
+    // If reload complete, finish (or reset if error happens during reload)
     if (red_mode_q == TMR_RELOAD) begin
       if (reg2hw.sp_store == '0) begin
         $display("[ODRG] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
+      end else begin
+        if (TMR_error_detect != 3'b000 && reg2hw.mode.setback.q && reg2hw.mode.reload_setback.q &&
+            !(reg2hw.sp_store.qe && reg_request_i.wdata == '0)) begin
+          setback_d = 1'b1;
+        end
       end
     end
 
+    // TODO: fix before startup
     // Before core startup: set TMR mode from reg2hw.mode.mode
     if (intc_fetch_en_i[0] == 0 & core_core_busy_i[0] == 0) begin
       if (reg2hw.mode.mode == 1) begin
@@ -265,18 +316,15 @@ module ODRG_unit #(
         red_mode_d = NON_TMR;
       end
     end
-
-    // Assign reset signals - If reset should be triggered in during resynchronization, signal synchronization needs to be ensured.
-    for (int i = 0; i < 3; i++) begin
-      core_rst_no[i] = rst_ni;
-    end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
-      red_mode_q <= NON_TMR;
+      red_mode_q <= TMR_RUN;
+      setback_q <= 1'b0;
     end else begin
       red_mode_q <= red_mode_d;
+      setback_q <= setback_d;
     end
   end
 
@@ -306,15 +354,16 @@ module ODRG_unit #(
         core_irq_id_o[i]  = intc_irq_req_i[0];
       end
 
-      // Trigger Re-synchronization
-      if (red_mode_q == TMR_UNLOAD) begin
-        for (int i = 0; i < 3; i++) begin
-          core_irq_req_o[i] = 1'b1;
-          core_irq_id_o[i]  = 5'd31;
-        end
-        intc_irq_ack_o[0] = '0;
-        intc_irq_ack_id_o[0] = '0;
-      end
+      // replaced by resync_req_o
+      // // Trigger Re-synchronization
+      // if (red_mode_q == TMR_UNLOAD) begin
+      //   for (int i = 0; i < 3; i++) begin
+      //     core_irq_req_o[i] = 1'b1;
+      //     core_irq_id_o[i]  = 5'd31;
+      //   end
+      //   intc_irq_ack_o[0] = '0;
+      //   intc_irq_ack_id_o[0] = '0;
+      // end
     end
   end
 

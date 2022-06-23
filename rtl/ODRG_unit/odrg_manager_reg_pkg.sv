@@ -15,6 +15,7 @@ package odrg_manager_reg_pkg;
 
   typedef struct packed {
     logic [31:0] q;
+    logic        qe;
   } odrg_manager_reg2hw_sp_store_reg_t;
 
   typedef struct packed {
@@ -24,6 +25,15 @@ package odrg_manager_reg_pkg;
     struct packed {
       logic        q;
     } restore_mode;
+    struct packed {
+      logic        q;
+    } setback;
+    struct packed {
+      logic        q;
+    } reload_setback;
+    struct packed {
+      logic        q;
+    } force_resynch;
   } odrg_manager_reg2hw_mode_reg_t;
 
   typedef struct packed {
@@ -44,6 +54,29 @@ package odrg_manager_reg_pkg;
   } odrg_manager_hw2reg_sp_store_reg_t;
 
   typedef struct packed {
+    struct packed {
+      logic        d;
+      logic        de;
+    } mode;
+    struct packed {
+      logic        d;
+      logic        de;
+    } restore_mode;
+    struct packed {
+      logic        d;
+      logic        de;
+    } setback;
+    struct packed {
+      logic        d;
+      logic        de;
+    } reload_setback;
+    struct packed {
+      logic        d;
+      logic        de;
+    } force_resynch;
+  } odrg_manager_hw2reg_mode_reg_t;
+
+  typedef struct packed {
     logic [31:0] d;
     logic        de;
   } odrg_manager_hw2reg_mismatches_0_reg_t;
@@ -60,8 +93,8 @@ package odrg_manager_reg_pkg;
 
   // Register -> HW type
   typedef struct packed {
-    odrg_manager_reg2hw_sp_store_reg_t sp_store; // [129:98]
-    odrg_manager_reg2hw_mode_reg_t mode; // [97:96]
+    odrg_manager_reg2hw_sp_store_reg_t sp_store; // [133:101]
+    odrg_manager_reg2hw_mode_reg_t mode; // [100:96]
     odrg_manager_reg2hw_mismatches_0_reg_t mismatches_0; // [95:64]
     odrg_manager_reg2hw_mismatches_1_reg_t mismatches_1; // [63:32]
     odrg_manager_reg2hw_mismatches_2_reg_t mismatches_2; // [31:0]
@@ -69,7 +102,8 @@ package odrg_manager_reg_pkg;
 
   // HW -> register type
   typedef struct packed {
-    odrg_manager_hw2reg_sp_store_reg_t sp_store; // [131:99]
+    odrg_manager_hw2reg_sp_store_reg_t sp_store; // [141:109]
+    odrg_manager_hw2reg_mode_reg_t mode; // [108:99]
     odrg_manager_hw2reg_mismatches_0_reg_t mismatches_0; // [98:66]
     odrg_manager_hw2reg_mismatches_1_reg_t mismatches_1; // [65:33]
     odrg_manager_hw2reg_mismatches_2_reg_t mismatches_2; // [32:0]
