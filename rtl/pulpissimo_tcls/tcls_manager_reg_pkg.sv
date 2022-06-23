@@ -25,6 +25,9 @@ package tcls_manager_reg_pkg;
     struct packed {
       logic        q;
     } reload_setback;
+    struct packed {
+      logic        q;
+    } force_resynch;
   } tcls_manager_reg2hw_tcls_config_reg_t;
 
   typedef struct packed {
@@ -45,6 +48,21 @@ package tcls_manager_reg_pkg;
   } tcls_manager_hw2reg_sp_store_reg_t;
 
   typedef struct packed {
+    struct packed {
+      logic        d;
+      logic        de;
+    } setback;
+    struct packed {
+      logic        d;
+      logic        de;
+    } reload_setback;
+    struct packed {
+      logic        d;
+      logic        de;
+    } force_resynch;
+  } tcls_manager_hw2reg_tcls_config_reg_t;
+
+  typedef struct packed {
     logic [31:0] d;
     logic        de;
   } tcls_manager_hw2reg_mismatches_0_reg_t;
@@ -61,8 +79,8 @@ package tcls_manager_reg_pkg;
 
   // Register -> HW type
   typedef struct packed {
-    tcls_manager_reg2hw_sp_store_reg_t sp_store; // [130:98]
-    tcls_manager_reg2hw_tcls_config_reg_t tcls_config; // [97:96]
+    tcls_manager_reg2hw_sp_store_reg_t sp_store; // [131:99]
+    tcls_manager_reg2hw_tcls_config_reg_t tcls_config; // [98:96]
     tcls_manager_reg2hw_mismatches_0_reg_t mismatches_0; // [95:64]
     tcls_manager_reg2hw_mismatches_1_reg_t mismatches_1; // [63:32]
     tcls_manager_reg2hw_mismatches_2_reg_t mismatches_2; // [31:0]
@@ -70,7 +88,8 @@ package tcls_manager_reg_pkg;
 
   // HW -> register type
   typedef struct packed {
-    tcls_manager_hw2reg_sp_store_reg_t sp_store; // [131:99]
+    tcls_manager_hw2reg_sp_store_reg_t sp_store; // [137:105]
+    tcls_manager_hw2reg_tcls_config_reg_t tcls_config; // [104:99]
     tcls_manager_hw2reg_mismatches_0_reg_t mismatches_0; // [98:66]
     tcls_manager_hw2reg_mismatches_1_reg_t mismatches_1; // [65:33]
     tcls_manager_hw2reg_mismatches_2_reg_t mismatches_2; // [32:0]

@@ -223,6 +223,12 @@ module TCLS_unit #(
   assign tcls_triple_core_mismatch_o = TMR_error;
 
   assign resynch_req_o = TMR_error && (red_mode_q != TMR_UNLOAD);
+
+  assign hw2reg.tcls_config.setback.d         = 1'b0;
+  assign hw2reg.tcls_config.setback.de        = 1'b0;
+  assign hw2reg.tcls_config.reload_setback.d  = 1'b0;
+  assign hw2reg.tcls_config.reload_setback.de = 1'b0;
+  assign hw2reg.tcls_config.force_resynch.d   = 1'b0;
   
   /***********************
    *  FSM for TCLS unit  *
@@ -234,6 +240,15 @@ module TCLS_unit #(
     hw2reg.mismatches_0.de = 1'b0;
     hw2reg.mismatches_1.de = 1'b0;
     hw2reg.mismatches_2.de = 1'b0;
+    hw2reg.tcls_config.force_resynch.de = 1'b0;
+
+    // If forced execute resynchronization
+    if (red_mode_q == TMR_RUN && reg2hw.tcls_config.force_resynch.q) begin
+      hw2reg.tcls_config.force_resynch.de = 1'b1;
+      red_mode_d = TMR_UNLOAD;
+    end
+
+    // If error detected, do resynchronization
     if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
       $display("[TCLS] %t - mismatch detected", $realtime);
       if (TMR_error_detect[0]) hw2reg.mismatches_0.de = 1'b1;
@@ -242,20 +257,24 @@ module TCLS_unit #(
 
       red_mode_d = TMR_UNLOAD;
     end
+
+    // If unload complete, go to reload (and reset)
     if (red_mode_q == TMR_UNLOAD) begin
       if (reg2hw.sp_store.q != '0) begin
         red_mode_d = TMR_RELOAD;
-        if (reg2hw.tcls_config.setback) begin
+        if (reg2hw.tcls_config.setback.q) begin
           setback_d = 1'b1;
         end
       end
     end
+
+    // If reload complete, finish (or reset if error happens during reload)
     if (red_mode_q == TMR_RELOAD) begin
       if (reg2hw.sp_store.q == '0) begin
         $display("[TCLS] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
       end else begin
-        if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback && reg2hw.tcls_config.reload_setback &&
+        if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback.q && reg2hw.tcls_config.reload_setback.q &&
             !(reg2hw.sp_store.qe && reg_request_i.wdata == '0)) begin
           setback_d = 1'b1;
         end
@@ -340,13 +359,13 @@ module TCLS_unit #(
     intc_instr_req_o  = instr_req;
     intc_instr_addr_o = instr_addr;
     
-    for (int i = 0; i < 3; i++) begin
-      core_instr_gnt_o[i]     = intc_instr_gnt_i;
-      core_instr_rdata_o[i] = intc_instr_rdata_i;
-      core_instr_rvalid_o[i]  = intc_instr_rvalid_i;
-      core_instr_err_o[i] = intc_instr_err_i;
-    end
-end
+      for (int i = 0; i < 3; i++) begin
+        core_instr_gnt_o[i]     = intc_instr_gnt_i;
+        core_instr_rdata_o[i] = intc_instr_rdata_i;
+        core_instr_rvalid_o[i]  = intc_instr_rvalid_i;
+        core_instr_err_o[i] = intc_instr_err_i;
+      end
+  end
 
 
 endmodule
