@@ -74,9 +74,9 @@ module odrg_manager_reg_top #(
   logic mode_mode_qs;
   logic mode_mode_wd;
   logic mode_mode_we;
-  logic mode_restore_mode_qs;
-  logic mode_restore_mode_wd;
-  logic mode_restore_mode_we;
+  logic mode_delay_resynch_qs;
+  logic mode_delay_resynch_wd;
+  logic mode_delay_resynch_we;
   logic mode_setback_qs;
   logic mode_setback_wd;
   logic mode_setback_we;
@@ -152,29 +152,29 @@ module odrg_manager_reg_top #(
   );
 
 
-  //   F[restore_mode]: 1:1
+  //   F[delay_resynch]: 1:1
   prim_subreg #(
     .DW      (1),
     .SWACCESS("RW"),
     .RESVAL  (1'h0)
-  ) u_mode_restore_mode (
+  ) u_mode_delay_resynch (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (mode_restore_mode_we),
-    .wd     (mode_restore_mode_wd),
+    .we     (mode_delay_resynch_we),
+    .wd     (mode_delay_resynch_wd),
 
     // from internal hardware
-    .de     (hw2reg.mode.restore_mode.de),
-    .d      (hw2reg.mode.restore_mode.d ),
+    .de     (hw2reg.mode.delay_resynch.de),
+    .d      (hw2reg.mode.delay_resynch.d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.mode.restore_mode.q ),
+    .q      (reg2hw.mode.delay_resynch.q ),
 
     // to register interface (read)
-    .qs     (mode_restore_mode_qs)
+    .qs     (mode_delay_resynch_qs)
   );
 
 
@@ -367,8 +367,8 @@ module odrg_manager_reg_top #(
   assign mode_mode_we = addr_hit[1] & reg_we & !reg_error;
   assign mode_mode_wd = reg_wdata[0];
 
-  assign mode_restore_mode_we = addr_hit[1] & reg_we & !reg_error;
-  assign mode_restore_mode_wd = reg_wdata[1];
+  assign mode_delay_resynch_we = addr_hit[1] & reg_we & !reg_error;
+  assign mode_delay_resynch_wd = reg_wdata[1];
 
   assign mode_setback_we = addr_hit[1] & reg_we & !reg_error;
   assign mode_setback_wd = reg_wdata[2];
@@ -398,7 +398,7 @@ module odrg_manager_reg_top #(
 
       addr_hit[1]: begin
         reg_rdata_next[0] = mode_mode_qs;
-        reg_rdata_next[1] = mode_restore_mode_qs;
+        reg_rdata_next[1] = mode_delay_resynch_qs;
         reg_rdata_next[2] = mode_setback_qs;
         reg_rdata_next[3] = mode_reload_setback_qs;
         reg_rdata_next[4] = mode_force_resynch_qs;
