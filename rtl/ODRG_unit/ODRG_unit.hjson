@@ -32,7 +32,7 @@
           desc: "TMR mode enable"
         },
         { bits: "1",
-          name: "RESTORE_MODE",
+          name: "DELAY_RESYNCH",
           desc: "Enable wait-for-restoration"
         },
         { bits: "2",

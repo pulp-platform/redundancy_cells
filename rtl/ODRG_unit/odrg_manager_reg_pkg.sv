@@ -24,7 +24,7 @@ package odrg_manager_reg_pkg;
     } mode;
     struct packed {
       logic        q;
-    } restore_mode;
+    } delay_resynch;
     struct packed {
       logic        q;
     } setback;
@@ -61,7 +61,7 @@ package odrg_manager_reg_pkg;
     struct packed {
       logic        d;
       logic        de;
-    } restore_mode;
+    } delay_resynch;
     struct packed {
       logic        d;
       logic        de;

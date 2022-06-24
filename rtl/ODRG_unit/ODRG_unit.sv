@@ -31,6 +31,7 @@ module ODRG_unit #(
   output logic                             tcls_triple_core_mismatch_o,
   output logic                             tcls_single_core_mismatch_o,
   output logic                             resynch_req_o,
+  input  logic                             cores_synch_i,
 
   // Ports to connect Interconnect/rest of system
   input  logic [2:0][                 3:0] intc_core_id_i,
@@ -51,6 +52,7 @@ module ODRG_unit #(
   output logic [2:0][                31:0] intc_instr_addr_o,
   input  logic [2:0][ InstrRdataWidth-1:0] intc_instr_r_rdata_i,
   input  logic [2:0]                       intc_instr_r_valid_i,
+  input  logic [2:0]                       intc_instr_err_i,
 
   input  logic [2:0]                       intc_debug_req_i,
 
@@ -65,6 +67,7 @@ module ODRG_unit #(
   input  logic [2:0][       DataWidth-1:0] intc_data_r_rdata_i,
   input  logic [2:0][       UserWidth-1:0] intc_data_r_user_i,
   input  logic [2:0]                       intc_data_r_valid_i,
+  input  logic [2:0]                       intc_data_err_i,
 
   input  logic [2:0][NExtPerfCounters-1:0] intc_perf_counters_i,
 
@@ -89,6 +92,7 @@ module ODRG_unit #(
   input  logic [2:0][                31:0] core_instr_addr_i,
   output logic [2:0][ InstrRdataWidth-1:0] core_instr_r_rdata_o,
   output logic [2:0]                       core_instr_r_valid_o,
+  output logic [2:0]                       core_instr_err_o,
 
   output logic [2:0]                       core_debug_req_o,
 
@@ -103,6 +107,7 @@ module ODRG_unit #(
   output logic [2:0][       DataWidth-1:0] core_data_r_rdata_o,
   output logic [2:0][       UserWidth-1:0] core_data_r_user_o,
   output logic [2:0]                       core_data_r_valid_o,
+  output logic [2:0]                       core_data_err_o,
 
   output logic [2:0][NExtPerfCounters-1:0] core_perf_counters_o
 
@@ -238,12 +243,12 @@ module ODRG_unit #(
   assign tcls_single_core_mismatch_o = (TMR_error_detect != 3'b000);
   assign tcls_triple_core_mismatch_o = TMR_error;
 
-  assign resynch_req_o = TMR_error && (red_mode_q != TMR_UNLOAD);
+  assign resynch_req_o = (TMR_error_detect != 3'b000) && (red_mode_q == TMR_RUN || red_mode_q == TMR_RELOAD);
 
   assign hw2reg.mode.mode.d            = 1'b0;
   assign hw2reg.mode.mode.de           = 1'b0;
-  assign hw2reg.mode.restore_mode.d    = 1'b0;
-  assign hw2reg.mode.restore_mode.de   = 1'b0;
+  assign hw2reg.mode.delay_resynch.d   = 1'b0;
+  assign hw2reg.mode.delay_resynch.de  = 1'b0;
   assign hw2reg.mode.setback.d         = 1'b0;
   assign hw2reg.mode.setback.de        = 1'b0;
   assign hw2reg.mode.reload_setback.d  = 1'b0;
@@ -265,9 +270,9 @@ module ODRG_unit #(
     // If forced execute resynchronization
     if (red_mode_q == TMR_RUN && reg2hw.mode.force_resynch.q) begin
       hw2reg.mode.force_resynch.de = 1'b1;
-      if (reg2hw.mode.restore_mode == 0) begin
+      if (reg2hw.mode.delay_resynch == 0) begin
         red_mode_d = TMR_UNLOAD;
-        // TODO: buffer the restoration until restore_mode is disabled
+        // TODO: buffer the restoration until delay_resynch is disabled
       end
     end
 
@@ -278,9 +283,9 @@ module ODRG_unit #(
       if (TMR_error_detect == 3'b010) hw2reg.mismatches_1.de = 1'b1;
       if (TMR_error_detect == 3'b100) hw2reg.mismatches_2.de = 1'b1;
 
-      if (reg2hw.mode.restore_mode == 0) begin
+      if (reg2hw.mode.delay_resynch == 0) begin
         red_mode_d = TMR_UNLOAD;
-        // TODO: buffer the restoration until restore_mode is disabled
+        // TODO: buffer the restoration until delay_resynch is disabled
       end
     end
 
@@ -307,13 +312,24 @@ module ODRG_unit #(
       end
     end
 
-    // TODO: fix before startup
     // Before core startup: set TMR mode from reg2hw.mode.mode
-    if (intc_fetch_en_i[0] == 0 & core_core_busy_i[0] == 0) begin
+    if (intc_fetch_en_i[0] == 0 && core_core_busy_i[0] == 0) begin
       if (reg2hw.mode.mode == 1) begin
-        red_mode_d = TMR_RUN;
-      end else begin
         red_mode_d = NON_TMR;
+      end else begin
+        red_mode_d = TMR_RUN;
+      end
+    end
+    // split single-error tolerant mode to performance mode anytime (but require correct core state)
+    if (red_mode_q == TMR_RUN) begin
+      if (reg2hw.mode.mode == 1) begin
+        red_mode_d = NON_TMR;
+      end
+    end
+    // Set TMR mode on external signal that cores are synchronized
+    if (red_mode_q == NON_TMR && cores_synch_i) begin
+      if (reg2hw.mode.mode == 0) begin
+        red_mode_d = TMR_RUN;
       end
     end
   end
@@ -351,7 +367,7 @@ module ODRG_unit #(
       intc_irq_ack_id_o[2] = '0;
       for (int i = 0; i < 3; i++) begin
         core_irq_req_o[i] = intc_irq_req_i[0];
-        core_irq_id_o[i]  = intc_irq_req_i[0];
+        core_irq_id_o[i]  = intc_irq_id_i[0];
       end
 
       // replaced by resync_req_o
@@ -426,6 +442,7 @@ module ODRG_unit #(
         core_data_r_user_o[i]  = intc_data_r_user_i[i];
         core_data_r_opc_o[i]   = intc_data_r_opc_i[i];
         core_data_r_valid_o[i] = intc_data_r_valid_i[i];
+        core_data_err_o[i]     = intc_data_err_i[i];
       end
     end else begin
       intc_data_req_o[0]    = data_req;
@@ -444,6 +461,7 @@ module ODRG_unit #(
         core_data_r_user_o[i]  = intc_data_r_user_i[0];
         core_data_r_opc_o[i]   = intc_data_r_opc_i[0];
         core_data_r_valid_o[i] = intc_data_r_valid_i[0];
+        core_data_err_o[i]     = intc_data_err_i[0];
       end
     end
   end
@@ -463,6 +481,7 @@ module ODRG_unit #(
         core_instr_gnt_o[i]     = intc_instr_gnt_i[i];
         core_instr_r_rdata_o[i] = intc_instr_r_rdata_i[i];
         core_instr_r_valid_o[i] = intc_instr_r_valid_i[i];
+        core_instr_err_o[i]     = intc_instr_err_i[i];
       end
     end else begin
       intc_instr_req_o[0]  = instr_req;
@@ -474,6 +493,7 @@ module ODRG_unit #(
         core_instr_gnt_o[i]     = intc_instr_gnt_i[0];
         core_instr_r_rdata_o[i] = intc_instr_r_rdata_i[0];
         core_instr_r_valid_o[i] = intc_instr_r_valid_i[0];
+        core_instr_err_o[i]     = intc_instr_err_i[0];
       end
     end
   end
