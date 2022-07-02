@@ -22,6 +22,7 @@ module ecc_scrubber #(
 
   input  logic                        scrub_trigger_i, // Set to 1'b0 to disable
   output logic                        bit_corrected_o,
+  output logic                        uncorrectable_o,
 
   // Input signals from others accessing memory bank
   input  logic                        intc_req_i,
@@ -101,6 +102,7 @@ module ecc_scrubber #(
     scrub_we      = 1'b0;
     working_add_d = working_add_q;
     bit_corrected_o = 1'b0;
+    uncorrectable_o = 1'b0;
 
     if (state_q == Idle) begin
       // Switch to read state if triggered to scrub
@@ -121,6 +123,7 @@ module ecc_scrubber #(
         // Return to idle state
         state_d       = Idle;
         working_add_d = (working_add_q + 1) % BankSize; // increment address
+        uncorrectable_o = ecc_err[1];
 
       end else begin                  // Correctable Error
         // Write corrected version

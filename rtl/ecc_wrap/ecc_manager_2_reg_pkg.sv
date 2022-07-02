@@ -10,7 +10,7 @@ package ecc_manager_2_reg_pkg;
   parameter int NumBanks = 2;
 
   // Address widths within the block
-  parameter int BlockAw = 5;
+  parameter int BlockAw = 6;
 
   ////////////////////////////
   // Typedefs for registers //
@@ -30,6 +30,10 @@ package ecc_manager_2_reg_pkg;
 
   typedef struct packed {
     logic [31:0] q;
+  } ecc_manager_2_reg2hw_scrub_uncorrectable_count_mreg_t;
+
+  typedef struct packed {
+    logic [31:0] q;
   } ecc_manager_2_reg2hw_write_mask_data_n_mreg_t;
 
   typedef struct packed {
@@ -46,30 +50,39 @@ package ecc_manager_2_reg_pkg;
     logic        de;
   } ecc_manager_2_hw2reg_scrub_fix_count_mreg_t;
 
+  typedef struct packed {
+    logic [31:0] d;
+    logic        de;
+  } ecc_manager_2_hw2reg_scrub_uncorrectable_count_mreg_t;
+
   // Register -> HW type
   typedef struct packed {
-    ecc_manager_2_reg2hw_mismatch_count_mreg_t [1:0] mismatch_count; // [237:174]
-    ecc_manager_2_reg2hw_scrub_interval_reg_t scrub_interval; // [173:142]
-    ecc_manager_2_reg2hw_scrub_fix_count_mreg_t [1:0] scrub_fix_count; // [141:78]
+    ecc_manager_2_reg2hw_mismatch_count_mreg_t [1:0] mismatch_count; // [301:238]
+    ecc_manager_2_reg2hw_scrub_interval_reg_t scrub_interval; // [237:206]
+    ecc_manager_2_reg2hw_scrub_fix_count_mreg_t [1:0] scrub_fix_count; // [205:142]
+    ecc_manager_2_reg2hw_scrub_uncorrectable_count_mreg_t [1:0] scrub_uncorrectable_count; // [141:78]
     ecc_manager_2_reg2hw_write_mask_data_n_mreg_t [1:0] write_mask_data_n; // [77:14]
     ecc_manager_2_reg2hw_write_mask_ecc_n_mreg_t [1:0] write_mask_ecc_n; // [13:0]
   } ecc_manager_2_reg2hw_t;
 
   // HW -> register type
   typedef struct packed {
-    ecc_manager_2_hw2reg_mismatch_count_mreg_t [1:0] mismatch_count; // [131:66]
-    ecc_manager_2_hw2reg_scrub_fix_count_mreg_t [1:0] scrub_fix_count; // [65:0]
+    ecc_manager_2_hw2reg_mismatch_count_mreg_t [1:0] mismatch_count; // [197:132]
+    ecc_manager_2_hw2reg_scrub_fix_count_mreg_t [1:0] scrub_fix_count; // [131:66]
+    ecc_manager_2_hw2reg_scrub_uncorrectable_count_mreg_t [1:0] scrub_uncorrectable_count; // [65:0]
   } ecc_manager_2_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_MISMATCH_COUNT_0_OFFSET = 5'h 0;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_MISMATCH_COUNT_1_OFFSET = 5'h 4;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_INTERVAL_OFFSET = 5'h 8;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_FIX_COUNT_0_OFFSET = 5'h c;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_FIX_COUNT_1_OFFSET = 5'h 10;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_WRITE_MASK_DATA_N_0_OFFSET = 5'h 14;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_WRITE_MASK_DATA_N_1_OFFSET = 5'h 18;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_2_WRITE_MASK_ECC_N_OFFSET = 5'h 1c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_MISMATCH_COUNT_0_OFFSET = 6'h 0;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_MISMATCH_COUNT_1_OFFSET = 6'h 4;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_INTERVAL_OFFSET = 6'h 8;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_FIX_COUNT_0_OFFSET = 6'h c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_FIX_COUNT_1_OFFSET = 6'h 10;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_0_OFFSET = 6'h 14;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_1_OFFSET = 6'h 18;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_WRITE_MASK_DATA_N_0_OFFSET = 6'h 1c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_WRITE_MASK_DATA_N_1_OFFSET = 6'h 20;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_2_WRITE_MASK_ECC_N_OFFSET = 6'h 24;
 
   // Register index
   typedef enum int {
@@ -78,21 +91,25 @@ package ecc_manager_2_reg_pkg;
     ECC_MANAGER_2_SCRUB_INTERVAL,
     ECC_MANAGER_2_SCRUB_FIX_COUNT_0,
     ECC_MANAGER_2_SCRUB_FIX_COUNT_1,
+    ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_0,
+    ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_1,
     ECC_MANAGER_2_WRITE_MASK_DATA_N_0,
     ECC_MANAGER_2_WRITE_MASK_DATA_N_1,
     ECC_MANAGER_2_WRITE_MASK_ECC_N
   } ecc_manager_2_id_e;
 
   // Register width information to check illegal writes
-  parameter logic [3:0] ECC_MANAGER_2_PERMIT [8] = '{
+  parameter logic [3:0] ECC_MANAGER_2_PERMIT [10] = '{
     4'b 1111, // index[0] ECC_MANAGER_2_MISMATCH_COUNT_0
     4'b 1111, // index[1] ECC_MANAGER_2_MISMATCH_COUNT_1
     4'b 1111, // index[2] ECC_MANAGER_2_SCRUB_INTERVAL
     4'b 1111, // index[3] ECC_MANAGER_2_SCRUB_FIX_COUNT_0
     4'b 1111, // index[4] ECC_MANAGER_2_SCRUB_FIX_COUNT_1
-    4'b 1111, // index[5] ECC_MANAGER_2_WRITE_MASK_DATA_N_0
-    4'b 1111, // index[6] ECC_MANAGER_2_WRITE_MASK_DATA_N_1
-    4'b 0011  // index[7] ECC_MANAGER_2_WRITE_MASK_ECC_N
+    4'b 1111, // index[5] ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_0
+    4'b 1111, // index[6] ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_1
+    4'b 1111, // index[7] ECC_MANAGER_2_WRITE_MASK_DATA_N_0
+    4'b 1111, // index[8] ECC_MANAGER_2_WRITE_MASK_DATA_N_1
+    4'b 0011  // index[9] ECC_MANAGER_2_WRITE_MASK_ECC_N
   };
 
 endpackage

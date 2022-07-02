@@ -59,6 +59,22 @@
         ]
       }
     },
+    { multireg: 
+      { count: "NumBanks",
+        cname: "scrub_uncorrectable_count",
+        name: "scrub_uncorrectable_count",
+        desc: "Uncorrectable mismatches caught by ecc on scrub",
+        swaccess: "rw0c",
+        hwaccess: "hrw",
+        resval: "0",
+        fields: [
+          { bits: "31:0",
+            name: "uncorrectable_mismatches",
+            desc: "Uncorrectable mismatches caught by ecc on scrub"
+          }
+        ]
+      }
+    },
     { multireg:
       { count: "NumBanks",
         cname: "write_mask_data_n",

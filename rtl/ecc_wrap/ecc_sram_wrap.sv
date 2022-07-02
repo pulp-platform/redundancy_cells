@@ -27,6 +27,7 @@ module ecc_sram_wrap #(
 
   input  logic                      scrub_trigger_i, // Set to 1'b0 to disable scrubber
   output logic                      scrubber_fix_o,
+  output logic                      scrub_uncorrectable_o,
 
   input  logic [   DataInWidth-1:0] tcdm_wdata_i,
   input  logic [              31:0] tcdm_add_i,
@@ -239,6 +240,7 @@ module ecc_sram_wrap #(
     
     .scrub_trigger_i ( scrub_trigger_i  ),
     .bit_corrected_o ( scrubber_fix_o   ),
+    .uncorrectable_o ( scrub_uncorrectable_o ),
 
     .intc_req_i      ( bank_req         ),
     .intc_we_i       ( bank_we          ),

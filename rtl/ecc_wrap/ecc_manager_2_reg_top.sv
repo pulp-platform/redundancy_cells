@@ -10,7 +10,7 @@
 module ecc_manager_2_reg_top #(
     parameter type reg_req_t = logic,
     parameter type reg_rsp_t = logic,
-    parameter int AW = 5
+    parameter int AW = 6
 ) (
   input clk_i,
   input rst_ni,
@@ -83,6 +83,12 @@ module ecc_manager_2_reg_top #(
   logic [31:0] scrub_fix_count_1_qs;
   logic [31:0] scrub_fix_count_1_wd;
   logic scrub_fix_count_1_we;
+  logic [31:0] scrub_uncorrectable_count_0_qs;
+  logic [31:0] scrub_uncorrectable_count_0_wd;
+  logic scrub_uncorrectable_count_0_we;
+  logic [31:0] scrub_uncorrectable_count_1_qs;
+  logic [31:0] scrub_uncorrectable_count_1_wd;
+  logic scrub_uncorrectable_count_1_we;
   logic [31:0] write_mask_data_n_0_qs;
   logic [31:0] write_mask_data_n_0_wd;
   logic write_mask_data_n_0_we;
@@ -237,6 +243,62 @@ module ecc_manager_2_reg_top #(
 
 
 
+  // Subregister 0 of Multireg scrub_uncorrectable_count
+  // R[scrub_uncorrectable_count_0]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("W0C"),
+    .RESVAL  (32'h0)
+  ) u_scrub_uncorrectable_count_0 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (scrub_uncorrectable_count_0_we),
+    .wd     (scrub_uncorrectable_count_0_wd),
+
+    // from internal hardware
+    .de     (hw2reg.scrub_uncorrectable_count[0].de),
+    .d      (hw2reg.scrub_uncorrectable_count[0].d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.scrub_uncorrectable_count[0].q ),
+
+    // to register interface (read)
+    .qs     (scrub_uncorrectable_count_0_qs)
+  );
+
+  // Subregister 1 of Multireg scrub_uncorrectable_count
+  // R[scrub_uncorrectable_count_1]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("W0C"),
+    .RESVAL  (32'h0)
+  ) u_scrub_uncorrectable_count_1 (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (scrub_uncorrectable_count_1_we),
+    .wd     (scrub_uncorrectable_count_1_wd),
+
+    // from internal hardware
+    .de     (hw2reg.scrub_uncorrectable_count[1].de),
+    .d      (hw2reg.scrub_uncorrectable_count[1].d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.scrub_uncorrectable_count[1].q ),
+
+    // to register interface (read)
+    .qs     (scrub_uncorrectable_count_1_qs)
+  );
+
+
+
   // Subregister 0 of Multireg write_mask_data_n
   // R[write_mask_data_n_0]: V(False)
 
@@ -351,7 +413,7 @@ module ecc_manager_2_reg_top #(
 
 
 
-  logic [7:0] addr_hit;
+  logic [9:0] addr_hit;
   always_comb begin
     addr_hit = '0;
     addr_hit[0] = (reg_addr == ECC_MANAGER_2_MISMATCH_COUNT_0_OFFSET);
@@ -359,9 +421,11 @@ module ecc_manager_2_reg_top #(
     addr_hit[2] = (reg_addr == ECC_MANAGER_2_SCRUB_INTERVAL_OFFSET);
     addr_hit[3] = (reg_addr == ECC_MANAGER_2_SCRUB_FIX_COUNT_0_OFFSET);
     addr_hit[4] = (reg_addr == ECC_MANAGER_2_SCRUB_FIX_COUNT_1_OFFSET);
-    addr_hit[5] = (reg_addr == ECC_MANAGER_2_WRITE_MASK_DATA_N_0_OFFSET);
-    addr_hit[6] = (reg_addr == ECC_MANAGER_2_WRITE_MASK_DATA_N_1_OFFSET);
-    addr_hit[7] = (reg_addr == ECC_MANAGER_2_WRITE_MASK_ECC_N_OFFSET);
+    addr_hit[5] = (reg_addr == ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_0_OFFSET);
+    addr_hit[6] = (reg_addr == ECC_MANAGER_2_SCRUB_UNCORRECTABLE_COUNT_1_OFFSET);
+    addr_hit[7] = (reg_addr == ECC_MANAGER_2_WRITE_MASK_DATA_N_0_OFFSET);
+    addr_hit[8] = (reg_addr == ECC_MANAGER_2_WRITE_MASK_DATA_N_1_OFFSET);
+    addr_hit[9] = (reg_addr == ECC_MANAGER_2_WRITE_MASK_ECC_N_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -376,7 +440,9 @@ module ecc_manager_2_reg_top #(
                (addr_hit[4] & (|(ECC_MANAGER_2_PERMIT[4] & ~reg_be))) |
                (addr_hit[5] & (|(ECC_MANAGER_2_PERMIT[5] & ~reg_be))) |
                (addr_hit[6] & (|(ECC_MANAGER_2_PERMIT[6] & ~reg_be))) |
-               (addr_hit[7] & (|(ECC_MANAGER_2_PERMIT[7] & ~reg_be)))));
+               (addr_hit[7] & (|(ECC_MANAGER_2_PERMIT[7] & ~reg_be))) |
+               (addr_hit[8] & (|(ECC_MANAGER_2_PERMIT[8] & ~reg_be))) |
+               (addr_hit[9] & (|(ECC_MANAGER_2_PERMIT[9] & ~reg_be)))));
   end
 
   assign mismatch_count_0_we = addr_hit[0] & reg_we & !reg_error;
@@ -394,16 +460,22 @@ module ecc_manager_2_reg_top #(
   assign scrub_fix_count_1_we = addr_hit[4] & reg_we & !reg_error;
   assign scrub_fix_count_1_wd = reg_wdata[31:0];
 
-  assign write_mask_data_n_0_we = addr_hit[5] & reg_we & !reg_error;
+  assign scrub_uncorrectable_count_0_we = addr_hit[5] & reg_we & !reg_error;
+  assign scrub_uncorrectable_count_0_wd = reg_wdata[31:0];
+
+  assign scrub_uncorrectable_count_1_we = addr_hit[6] & reg_we & !reg_error;
+  assign scrub_uncorrectable_count_1_wd = reg_wdata[31:0];
+
+  assign write_mask_data_n_0_we = addr_hit[7] & reg_we & !reg_error;
   assign write_mask_data_n_0_wd = reg_wdata[31:0];
 
-  assign write_mask_data_n_1_we = addr_hit[6] & reg_we & !reg_error;
+  assign write_mask_data_n_1_we = addr_hit[8] & reg_we & !reg_error;
   assign write_mask_data_n_1_wd = reg_wdata[31:0];
 
-  assign write_mask_ecc_n_write_mask_ecc_n_0_we = addr_hit[7] & reg_we & !reg_error;
+  assign write_mask_ecc_n_write_mask_ecc_n_0_we = addr_hit[9] & reg_we & !reg_error;
   assign write_mask_ecc_n_write_mask_ecc_n_0_wd = reg_wdata[6:0];
 
-  assign write_mask_ecc_n_write_mask_ecc_n_1_we = addr_hit[7] & reg_we & !reg_error;
+  assign write_mask_ecc_n_write_mask_ecc_n_1_we = addr_hit[9] & reg_we & !reg_error;
   assign write_mask_ecc_n_write_mask_ecc_n_1_wd = reg_wdata[13:7];
 
   // Read data return
@@ -431,14 +503,22 @@ module ecc_manager_2_reg_top #(
       end
 
       addr_hit[5]: begin
-        reg_rdata_next[31:0] = write_mask_data_n_0_qs;
+        reg_rdata_next[31:0] = scrub_uncorrectable_count_0_qs;
       end
 
       addr_hit[6]: begin
-        reg_rdata_next[31:0] = write_mask_data_n_1_qs;
+        reg_rdata_next[31:0] = scrub_uncorrectable_count_1_qs;
       end
 
       addr_hit[7]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_0_qs;
+      end
+
+      addr_hit[8]: begin
+        reg_rdata_next[31:0] = write_mask_data_n_1_qs;
+      end
+
+      addr_hit[9]: begin
         reg_rdata_next[6:0] = write_mask_ecc_n_write_mask_ecc_n_0_qs;
         reg_rdata_next[13:7] = write_mask_ecc_n_write_mask_ecc_n_1_qs;
       end
