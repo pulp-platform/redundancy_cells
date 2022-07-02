@@ -19,6 +19,7 @@ sources:
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
+  - rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
@@ -29,12 +30,14 @@ sources:
   - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
   - rtl/lowrisc_ecc/prim_secded_pkg.sv
+  - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_2_reg_top.sv
+  - rtl/ecc_wrap/ecc_manager_8_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
@@ -55,6 +58,7 @@ sources:
   - rtl/bitwise_TMR_voter.sv
   - rtl/ecc_wrap/ecc_manager.sv
   - rtl/ecc_wrap/ecc_manager_2.sv
+  - rtl/ecc_wrap/ecc_manager_8.sv
   - rtl/ecc_wrap/ecc_sram_wrap.sv
     # Level 3
   - include_dirs:

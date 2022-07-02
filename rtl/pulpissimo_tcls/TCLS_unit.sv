@@ -222,7 +222,7 @@ module TCLS_unit #(
   assign tcls_single_core_mismatch_o = (TMR_error_detect != 3'b000);
   assign tcls_triple_core_mismatch_o = TMR_error;
 
-  assign resynch_req_o = TMR_error && (red_mode_q != TMR_UNLOAD);
+  assign resynch_req_o = TMR_error && (red_mode_q == TMR_RUN);
 
   assign hw2reg.tcls_config.setback.d         = 1'b0;
   assign hw2reg.tcls_config.setback.de        = 1'b0;

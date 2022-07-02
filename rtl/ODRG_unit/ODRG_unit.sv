@@ -30,6 +30,7 @@ module ODRG_unit #(
 
   output logic                             tcls_triple_core_mismatch_o,
   output logic                             tcls_single_core_mismatch_o,
+  output logic [2:0]                       core_error_o,
   output logic                             resynch_req_o,
   input  logic                             cores_synch_i,
 
@@ -243,7 +244,8 @@ module ODRG_unit #(
   assign tcls_single_core_mismatch_o = (TMR_error_detect != 3'b000);
   assign tcls_triple_core_mismatch_o = TMR_error;
 
-  assign resynch_req_o = (TMR_error_detect != 3'b000) && (red_mode_q == TMR_RUN || red_mode_q == TMR_RELOAD);
+  assign resynch_req_o = (TMR_error_detect != 3'b000) && (red_mode_q == TMR_RUN);
+  assign core_error_o = TMR_error_detect;
 
   assign hw2reg.mode.mode.d            = 1'b0;
   assign hw2reg.mode.mode.de           = 1'b0;
