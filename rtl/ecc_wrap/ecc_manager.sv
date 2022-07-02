@@ -23,6 +23,7 @@ module ecc_manager #(
 
   input  logic [NumBanks-1:0] bank_faults_i,
   input  logic [NumBanks-1:0] scrub_fix_i,
+  input  logic [NumBanks-1:0] scrub_uncorrectable_i,
   output logic [NumBanks-1:0] scrub_trigger_o,
   output logic [NumBanks-1:0][38:0] test_write_mask_no
 );
@@ -54,6 +55,10 @@ module ecc_manager #(
     // Count ECC fixes on scrub
     assign hw2reg.scrub_fix_count[i].d = reg2hw.scrub_fix_count[i].q + 1;
     assign hw2reg.scrub_fix_count[i].de = scrub_fix_i[i];
+
+    // Count uncorrectable scrubs
+    assign hw2reg.scrub_uncorrectable_count[i].d = reg2hw.scrub_uncorrectable_count[i].q + 1;
+    assign hw2reg.scrub_uncorrectable_count[i].de = scrub_uncorrectable_i[i];
 
     // Assign testing mask
     assign test_write_mask_no[i][31:0] = reg2hw.write_mask_data_n[i];

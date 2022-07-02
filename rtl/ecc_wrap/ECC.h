@@ -60,28 +60,53 @@ extern "C" {
 // Correctable mismatches caught by ecc on scrub
 #define ECC_MANAGER_SCRUB_FIX_COUNT_5_REG_OFFSET 0x30
 
+// Uncorrectable mismatches caught by ecc on scrub (common parameters)
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_UNCORRECTABLE_MISMATCHES_FIELD_WIDTH \
+  32
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_UNCORRECTABLE_MISMATCHES_FIELDS_PER_REG \
+  1
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_MULTIREG_COUNT 6
+
+// Uncorrectable mismatches caught by ecc on scrub
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_0_REG_OFFSET 0x34
+
+// Uncorrectable mismatches caught by ecc on scrub
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_1_REG_OFFSET 0x38
+
+// Uncorrectable mismatches caught by ecc on scrub
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_2_REG_OFFSET 0x3c
+
+// Uncorrectable mismatches caught by ecc on scrub
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_3_REG_OFFSET 0x40
+
+// Uncorrectable mismatches caught by ecc on scrub
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_4_REG_OFFSET 0x44
+
+// Uncorrectable mismatches caught by ecc on scrub
+#define ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_5_REG_OFFSET 0x48
+
 // Testing: Inverted write mask for data bits (common parameters)
 #define ECC_MANAGER_WRITE_MASK_DATA_N_WRITE_MASK_DATA_N_FIELD_WIDTH 32
 #define ECC_MANAGER_WRITE_MASK_DATA_N_WRITE_MASK_DATA_N_FIELDS_PER_REG 1
 #define ECC_MANAGER_WRITE_MASK_DATA_N_MULTIREG_COUNT 6
 
 // Testing: Inverted write mask for data bits
-#define ECC_MANAGER_WRITE_MASK_DATA_N_0_REG_OFFSET 0x34
+#define ECC_MANAGER_WRITE_MASK_DATA_N_0_REG_OFFSET 0x4c
 
 // Testing: Inverted write mask for data bits
-#define ECC_MANAGER_WRITE_MASK_DATA_N_1_REG_OFFSET 0x38
+#define ECC_MANAGER_WRITE_MASK_DATA_N_1_REG_OFFSET 0x50
 
 // Testing: Inverted write mask for data bits
-#define ECC_MANAGER_WRITE_MASK_DATA_N_2_REG_OFFSET 0x3c
+#define ECC_MANAGER_WRITE_MASK_DATA_N_2_REG_OFFSET 0x54
 
 // Testing: Inverted write mask for data bits
-#define ECC_MANAGER_WRITE_MASK_DATA_N_3_REG_OFFSET 0x40
+#define ECC_MANAGER_WRITE_MASK_DATA_N_3_REG_OFFSET 0x58
 
 // Testing: Inverted write mask for data bits
-#define ECC_MANAGER_WRITE_MASK_DATA_N_4_REG_OFFSET 0x44
+#define ECC_MANAGER_WRITE_MASK_DATA_N_4_REG_OFFSET 0x5c
 
 // Testing: Inverted write mask for data bits
-#define ECC_MANAGER_WRITE_MASK_DATA_N_5_REG_OFFSET 0x48
+#define ECC_MANAGER_WRITE_MASK_DATA_N_5_REG_OFFSET 0x60
 
 // Testing: Inverted write mask for ECC bits (common parameters)
 #define ECC_MANAGER_WRITE_MASK_ECC_N_WRITE_MASK_ECC_N_FIELD_WIDTH 7
@@ -89,7 +114,7 @@ extern "C" {
 #define ECC_MANAGER_WRITE_MASK_ECC_N_MULTIREG_COUNT 2
 
 // Testing: Inverted write mask for ECC bits
-#define ECC_MANAGER_WRITE_MASK_ECC_N_0_REG_OFFSET 0x4c
+#define ECC_MANAGER_WRITE_MASK_ECC_N_0_REG_OFFSET 0x64
 #define ECC_MANAGER_WRITE_MASK_ECC_N_0_WRITE_MASK_ECC_N_0_MASK 0x7f
 #define ECC_MANAGER_WRITE_MASK_ECC_N_0_WRITE_MASK_ECC_N_0_OFFSET 0
 #define ECC_MANAGER_WRITE_MASK_ECC_N_0_WRITE_MASK_ECC_N_0_FIELD \
@@ -108,7 +133,7 @@ extern "C" {
   ((bitfield_field32_t) { .mask = ECC_MANAGER_WRITE_MASK_ECC_N_0_WRITE_MASK_ECC_N_3_MASK, .index = ECC_MANAGER_WRITE_MASK_ECC_N_0_WRITE_MASK_ECC_N_3_OFFSET })
 
 // Testing: Inverted write mask for ECC bits
-#define ECC_MANAGER_WRITE_MASK_ECC_N_1_REG_OFFSET 0x50
+#define ECC_MANAGER_WRITE_MASK_ECC_N_1_REG_OFFSET 0x68
 #define ECC_MANAGER_WRITE_MASK_ECC_N_1_WRITE_MASK_ECC_N_4_MASK 0x7f
 #define ECC_MANAGER_WRITE_MASK_ECC_N_1_WRITE_MASK_ECC_N_4_OFFSET 0
 #define ECC_MANAGER_WRITE_MASK_ECC_N_1_WRITE_MASK_ECC_N_4_FIELD \
