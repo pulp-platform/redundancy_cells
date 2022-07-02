@@ -23,6 +23,7 @@ module ecc_sram_wrap #(
 ) (
   input  logic                      clk_i,
   input  logic                      rst_ni,
+  input  logic                      test_enable_i,
 
   input  logic                      scrub_trigger_i, // Set to 1'b0 to disable scrubber
   output logic                      scrubber_fix_o,
@@ -39,7 +40,6 @@ module ecc_sram_wrap #(
 
   input  logic [ProtectedWidth-1:0] test_write_mask_ni // Tie to '0 if unused!!!
 );
-  // TODO: - Add memory scrubber
 
   logic [1:0]                    ecc_error;
   logic                          valid_read_d, valid_read_q;
@@ -74,6 +74,13 @@ module ecc_sram_wrap #(
   logic [  BankAddWidth-1:0] bank_scrub_add;
   logic [ProtectedWidth-1:0] bank_scrub_wdata;
   logic [ProtectedWidth-1:0] bank_scrub_rdata;
+
+  logic                      test_req_d, test_req_q;
+  logic [  BankAddWidth-1:0] test_add_d, test_add_q;
+
+  logic                      bank_final_req;
+  logic                      bank_final_we;
+  logic [  BankAddWidth-1:0] bank_final_add;
 
 
   if ( InputECC == 0 ) begin : ECC_0_ASSIGN
@@ -250,6 +257,21 @@ module ecc_sram_wrap #(
     .ecc_err_i       ( '0 )
   );
 
+  always_comb begin : proc_test_req
+    test_req_d     = bank_scrub_req;
+    test_add_d     = bank_scrub_add;
+    bank_final_req = bank_scrub_req;
+    bank_final_we  = bank_scrub_we;
+    bank_final_add = bank_scrub_add;
+    if (test_enable_i) begin
+      bank_final_req = test_req_q;
+      bank_final_we  = 1'b0;
+      bank_final_add = test_add_q;
+      test_req_d     = test_req_q;
+      test_add_d     = test_add_q;
+    end
+  end
+
   tc_sram #(
     .NumWords  ( BankSize       ), // Number of Words in data array
     .DataWidth ( ProtectedWidth ), // Data signal width
@@ -260,16 +282,22 @@ module ecc_sram_wrap #(
 `endif
     .Latency   ( 1              ) // Latency when the read data is available
   ) i_bank (
-    .clk_i,                  // Clock
-    .rst_ni,                 // Asynchronous reset active low
+    .clk_i,                           // Clock
+    .rst_ni,                          // Asynchronous reset active low
 
-    .req_i   (  bank_scrub_req           ), // request
-    .we_i    (  bank_scrub_we            ), // write enable
-    .addr_i  (  bank_scrub_add           ), // request address
-    .wdata_i (  bank_scrub_wdata         ), // write data
+    .req_i   (  bank_final_req     ), // request
+    .we_i    (  bank_final_we      ), // write enable
+    .addr_i  (  bank_final_add     ), // request address
+    .wdata_i (  bank_scrub_wdata   ), // write data
     .be_i    ( ~test_write_mask_ni ), // write byte enable
 
-    .rdata_o (  bank_scrub_rdata         )  // read data
+    .rdata_o (  bank_scrub_rdata   )  // read data
   );
+
+  // These registers are to avoid writes during scan testing. Please ensure these registers are not scanned
+  always_ff @(posedge clk_i) begin : proc_test_req_ff
+    test_req_q <= test_req_d;
+    test_add_q <= test_add_d;
+  end
 
 endmodule
