@@ -68,6 +68,14 @@ module ecc_sram_wrap #(
   logic [ProtectedWidth-1:0] bank_rdata;
 
 
+  logic                      test_req_d, test_req_q;
+  logic [  BankAddWidth-1:0] test_add_d, test_add_q;
+
+  logic                      bank_final_req;
+  logic                      bank_final_we;
+  logic [  BankAddWidth-1:0] bank_final_add;
+
+
   if ( InputECC == 0 ) begin : ECC_0_ASSIGN
     // Loads  -> loads full data
     // Stores ->
@@ -214,6 +222,21 @@ module ecc_sram_wrap #(
     end
   end // ECC_1_ASSIGN
 
+  always_comb begin : proc_test_req
+    test_req_d     = bank_req;
+    test_add_d     = bank_add;
+    bank_final_req = bank_req;
+    bank_final_we  = bank_we;
+    bank_final_add = bank_add;
+    if (test_mode_i) begin
+      bank_final_req = test_req_q;
+      bank_final_we  = 1'b0;
+      bank_final_add = test_add_q;
+      test_req_d     = test_req_q;
+      test_add_d     = test_add_q;
+    end
+  end
+
   tc_sram #(
     .NumWords  ( BankSize       ), // Number of Words in data array
     .DataWidth ( ProtectedWidth ), // Data signal width
@@ -224,17 +247,22 @@ module ecc_sram_wrap #(
 `endif
     .Latency   ( 1              ) // Latency when the read data is available
   ) i_bank (
-    .clk_i,                  // Clock
-    .rst_ni,                 // Asynchronous reset active low
-    .testmode_i (test_mode_i),
-
-    .req_i   (  bank_req           ), // request
-    .we_i    (  bank_we            ), // write enable
-    .addr_i  (  bank_add           ), // request address
+    .clk_i,                           // Clock
+    .rst_ni,                          // Asynchronous reset active low
+    .testmode_i (test_mode_i       ),
+    .req_i   (  bank_final_req     ), // request
+    .we_i    (  bank_final_we      ), // write enable
+    .addr_i  (  bank_final_add     ), // request address
     .wdata_i (  bank_wdata         ), // write data
     .be_i    ( ~test_write_mask_ni ), // write byte enable
 
     .rdata_o (  bank_rdata         )  // read data
   );
+
+  // These registers are to avoid writes during scan testing. Please ensure these registers are not scanned
+  always_ff @(posedge clk_i) begin : proc_test_req_ff
+    test_req_q <= test_req_d;
+    test_add_q <= test_add_d;
+  end
 
 endmodule
