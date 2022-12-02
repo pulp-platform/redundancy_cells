@@ -1,6 +1,6 @@
 package:
   name: redundancy_cells
-  authors: 
+  authors:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
 
 dependencies:
