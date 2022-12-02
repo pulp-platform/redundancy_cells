@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Add ECC correctors
 
 ### Changed
 - Replace vendor.py script with bender vendor for ECC modules
@@ -26,11 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expose additional error logging signals
 - Add scrubber to ECC SRAM wrap
 - Add testing signals for tapeout
+- Add secded ECC corrector
 
 ### Changed
 - Expose  `ecc_sram` ecc error signals
 - Rename cTCLS to ODRG
 - Hide bus ecc behind bender targets, remove related dependencies
+- Update secded testbench to use correctors and fix error injection
 
 ## 0.4.0 - 2022-03-31
 
