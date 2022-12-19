@@ -19,18 +19,45 @@ sources:
   - rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
+  - rtl/lowrisc_ecc/prim_secded_4_1_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_4_1_dec.svq
+  - rtl/lowrisc_ecc/prim_secded_4_1_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_8_4_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_8_4_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_8_4_enc.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_cor.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_16_11_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_16_11_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_16_11_enc.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_cor.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_28_22_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_28_22_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_28_22_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_32_26_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_32_26_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_32_26_enc.sv
   - rtl/lowrisc_ecc/prim_secded_39_32_cor.sv
   - rtl/lowrisc_ecc/prim_secded_39_32_dec.sv
   - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_64_57_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_64_57_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_64_57_enc.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_cor.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_128_120_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_128_120_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_128_120_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_256_247_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_256_247_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_256_247_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_512_502_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_512_502_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_512_502_enc.sv
   - rtl/lowrisc_ecc/prim_secded_pkg.sv
   - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv

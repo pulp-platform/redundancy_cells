@@ -240,7 +240,7 @@ def verify(cfgs):
         log.error("Seed {} must be a 32-bit integer".format(cfgs['seed']))
 
     for cfg in cfgs['cfgs']:
-        if (cfg['k'] <= 1 or cfg['k'] > 120):
+        if (cfg['k'] < 1 or cfg['k'] > 502):
             error += 1
             log.error("Current tool doesn't support the value k (%d)", cfg['k'])
 
