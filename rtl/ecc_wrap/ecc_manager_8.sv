@@ -10,8 +10,8 @@
 // 
 // ECC sram manager (loggs faults, triggers scrubber)
 
-module ecc_manager #(
-  parameter int unsigned NumBanks      = 6,
+module ecc_manager_8 #(
+  parameter int unsigned NumBanks      = 8, // This is like a fixed parameter, I really don't like that...
   parameter type         ecc_mgr_req_t = logic,
   parameter type         ecc_mgr_rsp_t = logic
 ) (
@@ -27,14 +27,14 @@ module ecc_manager #(
   output logic [NumBanks-1:0] scrub_trigger_o,
   output logic [NumBanks-1:0][38:0] test_write_mask_no
 );
-  import ecc_manager_reg_pkg::*;
+  import ecc_manager_8_reg_pkg::*;
 
   logic [NumBanks-1:0][31:0] counter_value;
 
-  ecc_manager_reg2hw_t reg2hw;
-  ecc_manager_hw2reg_t hw2reg;
+  ecc_manager_8_reg2hw_t reg2hw;
+  ecc_manager_8_hw2reg_t hw2reg;
 
-  ecc_manager_reg_top #(
+  ecc_manager_8_reg_top #(
     .reg_req_t ( ecc_mgr_req_t ),
     .reg_rsp_t ( ecc_mgr_rsp_t )
   ) i_registers (

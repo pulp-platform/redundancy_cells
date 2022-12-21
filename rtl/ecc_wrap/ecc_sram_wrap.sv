@@ -14,6 +14,8 @@ module ecc_sram_wrap #(
   parameter  int unsigned BankSize         = 256,
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
+  parameter  bit          EnableTestMask   = 1, // Enables test_write_mask in HW
+                                                // Requries bitwise byte enable in SRAM
   // Set params
   parameter  int unsigned UnprotectedWidth = 32, // This currently only works for 32bit
   parameter  int unsigned ProtectedWidth   = 39, // This currently only works for 39bit
@@ -21,20 +23,26 @@ module ecc_sram_wrap #(
   localparam int unsigned BEInWidth        = UnprotectedWidth/8,
   localparam int unsigned BankAddWidth     = $clog2(BankSize)
 ) (
-  input  logic                   clk_i,
-  input  logic                   rst_ni,
+  input  logic                      clk_i,
+  input  logic                      rst_ni,
+  input  logic                      test_enable_i,
 
-  input  logic [DataInWidth-1:0] tcdm_wdata_i,
-  input  logic [           31:0] tcdm_add_i,
-  input  logic                   tcdm_req_i,
-  input  logic                   tcdm_wen_i,
-  input  logic [  BEInWidth-1:0] tcdm_be_i,
-  output logic [DataInWidth-1:0] tcdm_rdata_o,
-  output logic                   tcdm_gnt_o,
-  output logic                   single_error_o,
-  output logic                   multi_error_o
+  input  logic                      scrub_trigger_i, // Set to 1'b0 to disable scrubber
+  output logic                      scrubber_fix_o,
+  output logic                      scrub_uncorrectable_o,
+
+  input  logic [   DataInWidth-1:0] tcdm_wdata_i,
+  input  logic [              31:0] tcdm_add_i,
+  input  logic                      tcdm_req_i,
+  input  logic                      tcdm_wen_i,
+  input  logic [     BEInWidth-1:0] tcdm_be_i,
+  output logic [   DataInWidth-1:0] tcdm_rdata_o,
+  output logic                      tcdm_gnt_o,
+  output logic                      single_error_o,
+  output logic                      multi_error_o,
+
+  input  logic [ProtectedWidth-1:0] test_write_mask_ni // Tie to '0 if unused!!!
 );
-  // TODO: - Add memory scrubber
 
   logic [1:0]                    ecc_error;
   logic                          valid_read_d, valid_read_q;
@@ -62,10 +70,21 @@ module ecc_sram_wrap #(
   logic                      bank_we;
   logic [  BankAddWidth-1:0] bank_add;
   logic [ProtectedWidth-1:0] bank_wdata;
-  logic                      bank_be;
   logic [ProtectedWidth-1:0] bank_rdata;
 
-  assign bank_be = 1'b1;
+  logic                      bank_scrub_req;
+  logic                      bank_scrub_we;
+  logic [  BankAddWidth-1:0] bank_scrub_add;
+  logic [ProtectedWidth-1:0] bank_scrub_wdata;
+  logic [ProtectedWidth-1:0] bank_scrub_rdata;
+
+  logic                      test_req_d, test_req_q;
+  logic [  BankAddWidth-1:0] test_add_d, test_add_q;
+
+  logic                      bank_final_req;
+  logic                      bank_final_we;
+  logic [  BankAddWidth-1:0] bank_final_add;
+
 
   if ( InputECC == 0 ) begin : ECC_0_ASSIGN
     // Loads  -> loads full data
@@ -213,26 +232,76 @@ module ecc_sram_wrap #(
     end
   end // ECC_1_ASSIGN
 
-  tc_sram #(
-    .NumWords  ( BankSize       ), // Number of Words in data array
-    .DataWidth ( ProtectedWidth ), // Data signal width
-    .ByteWidth ( ProtectedWidth ), // Width of a data byte
-    .NumPorts  ( 1              ), // Number of read and write ports
-`ifndef TARGET_SYNTHESIS
-    .SimInit   ( "zeros"        ),
-`endif
-    .Latency   ( 1              ) // Latency when the read data is available
-  ) i_bank (
-    .clk_i,                  // Clock
-    .rst_ni,                 // Asynchronous reset active low
+  ecc_scrubber #(
+    .BankSize       ( BankSize       ),
+    .UseExternalECC ( 0              ),
+    .DataWidth      ( ProtectedWidth )
+  ) i_scrubber (
+    .clk_i,
+    .rst_ni,
+    
+    .scrub_trigger_i ( scrub_trigger_i  ),
+    .bit_corrected_o ( scrubber_fix_o   ),
+    .uncorrectable_o ( scrub_uncorrectable_o ),
 
-    .req_i   ( bank_req   ), // request
-    .we_i    ( bank_we    ), // write enable
-    .addr_i  ( bank_add   ), // request address
-    .wdata_i ( bank_wdata ), // write data
-    .be_i    ( bank_be    ), // write byte enable
+    .intc_req_i      ( bank_req         ),
+    .intc_we_i       ( bank_we          ),
+    .intc_add_i      ( bank_add         ),
+    .intc_wdata_i    ( bank_wdata       ),
+    .intc_rdata_o    ( bank_rdata       ),
 
-    .rdata_o ( bank_rdata )  // read data
+    .bank_req_o      ( bank_scrub_req   ),
+    .bank_we_o       ( bank_scrub_we    ),
+    .bank_add_o      ( bank_scrub_add   ),
+    .bank_wdata_o    ( bank_scrub_wdata ),
+    .bank_rdata_i    ( bank_scrub_rdata ),
+
+    .ecc_out_o       (),
+    .ecc_in_i        ( '0 ),
+    .ecc_err_i       ( '0 )
   );
+
+  always_comb begin : proc_test_req
+    test_req_d     = bank_scrub_req;
+    test_add_d     = bank_scrub_add;
+    bank_final_req = bank_scrub_req;
+    bank_final_we  = bank_scrub_we;
+    bank_final_add = bank_scrub_add;
+    if (test_enable_i) begin
+      bank_final_req = test_req_q;
+      bank_final_we  = 1'b0;
+      bank_final_add = test_add_q;
+      test_req_d     = test_req_q;
+      test_add_d     = test_add_q;
+    end
+  end
+
+  tc_sram #(
+    .NumWords  ( BankSize                            ), // Number of Words in data array
+    .DataWidth ( ProtectedWidth                      ), // Data signal width
+    .ByteWidth ( EnableTestMask ? 1 : ProtectedWidth ), // Width of a data byte
+    .NumPorts  ( 1                                   ), // Number of read and write ports
+`ifndef TARGET_SYNTHESIS
+    .SimInit   ( "zeros"                             ),
+`endif
+    .Latency   ( 1                                   ) // Latency when the read data is available
+  ) i_bank (
+    .clk_i,                                                   // Clock
+    .rst_ni,                                                  // Asynchronous reset active low
+
+    .req_i   ( bank_final_req                              ), // request
+    .we_i    ( bank_final_we                               ), // write enable
+    .addr_i  ( bank_final_add                              ), // request address
+    .wdata_i ( bank_scrub_wdata                            ), // write data
+    .be_i    ( EnableTestMask ? ~test_write_mask_ni : 1'b1 ), // write byte enable
+
+    .rdata_o (  bank_scrub_rdata                            )  // read data
+  );
+
+  // These registers are to avoid writes during scan testing. Please ensure these registers are not scanned
+  always_ff @(posedge clk_i) begin : proc_test_req_ff
+    test_req_q <= test_req_d;
+    test_add_q <= test_add_d;
+  end
 
 endmodule

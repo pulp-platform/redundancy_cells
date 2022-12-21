@@ -16,6 +16,8 @@ sources:
     # Level 0
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
+  - rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
+  - rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
@@ -32,10 +34,11 @@ sources:
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
+  - rtl/ecc_wrap/ecc_manager_2_reg_top.sv
+  - rtl/ecc_wrap/ecc_manager_8_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_concat_32_64.sv
-  - rtl/ecc_scrubber.sv
-  - rtl/ecc_wrap/ecc_sram_wrap.sv
+  - rtl/ecc_wrap/ecc_scrubber.sv
   - target: axi_ecc # custom ECC for PULP AXI IPs, make sure to include interface IPs when adding this target
     files:
       - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
@@ -58,6 +61,9 @@ sources:
     # Level 2
   - rtl/bitwise_TMR_voter.sv
   - rtl/ecc_wrap/ecc_manager.sv
+  - rtl/ecc_wrap/ecc_manager_2.sv
+  - rtl/ecc_wrap/ecc_manager_8.sv
+  - rtl/ecc_wrap/ecc_sram_wrap.sv
     # Level 3
   - include_dirs:
       - rtl/ODRG_unit
