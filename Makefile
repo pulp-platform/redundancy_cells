@@ -14,7 +14,8 @@
 
 SHELL=bash
 
-REG_PATH = $(shell bender path register_interface)
+BENDER ?= ./bender
+REG_PATH = $(shell $(BENDER) path register_interface)
 # use if you need to hardcode location of regtool
 # REG_PATH = ../register_interface
 REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
