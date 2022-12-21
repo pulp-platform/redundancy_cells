@@ -25,10 +25,12 @@ module TCLS_unit #(
   input logic                              clk_i,
   input logic                              rst_ni,
 
-  input                                    tcls_req_t reg_request,
-  output                                   tcls_rsp_t reg_response,
-  output logic                             tcls_triple_core_mismatch,
-  output logic                             tcls_single_core_mismatch,
+  input                                    tcls_req_t reg_request_i,
+  output                                   tcls_rsp_t reg_response_o,
+
+  output logic                             tcls_triple_core_mismatch_o,
+  output logic                             tcls_single_core_mismatch_o,
+  output logic                             resynch_req_o,
 
   // Ports to connect Interconnect/rest of system
   input logic [ 31:0]                      intc_hart_id_i,
@@ -63,7 +65,7 @@ module TCLS_unit #(
   input logic [NExtPerfCounters-1:0]       intc_perf_counters_i,
 
   // Ports to connect Cores
-  output logic [2:0]                       core_rst_no,
+  output logic [2:0]                       core_setback_o,
 
   output logic [2:0][ 31:0]                core_hart_id_o,
 
@@ -106,9 +108,11 @@ module TCLS_unit #(
    tcls_manager_hw2reg_t hw2reg;
    
    // State signals
-  typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
+  typedef enum logic [1:0] {TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
 
   redundancy_mode_e red_mode_d, red_mode_q;
+
+  logic setback_d, setback_q;
 
   // TMR signals
   logic       TMR_error, main_error, data_error;
@@ -137,6 +141,10 @@ module TCLS_unit #(
   logic [DataWidth-1:0] data_wdata;
   logic [  BEWidth-1:0] data_be;
 
+  assign core_setback_o[0] = setback_q;
+  assign core_setback_o[1] = setback_q;
+  assign core_setback_o[2] = setback_q;
+
   /************************************
    *  Slave Peripheral communication  *
    ************************************/
@@ -147,8 +155,8 @@ module TCLS_unit #(
   ) i_registers (
     .clk_i     ( clk_i            ),
     .rst_ni    ( rst_ni           ),
-    .reg_req_i ( reg_request      ),
-    .reg_rsp_o ( reg_response     ),
+    .reg_req_i ( reg_request_i    ),
+    .reg_rsp_o ( reg_response_o   ),
     .reg2hw    ( reg2hw           ),
     .hw2reg    ( hw2reg           ),
     .devmode_i ( '0               )
@@ -211,56 +219,80 @@ module TCLS_unit #(
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
-  assign tcls_single_core_mismatch = (TMR_error_detect != 3'b000);
-  assign tcls_triple_core_mismatch = TMR_error;
+  assign tcls_single_core_mismatch_o = (TMR_error_detect != 3'b000);
+  assign tcls_triple_core_mismatch_o = TMR_error;
+
+  assign resynch_req_o = TMR_error && (red_mode_q == TMR_RUN);
+
+  assign hw2reg.tcls_config.setback.d         = 1'b0;
+  assign hw2reg.tcls_config.setback.de        = 1'b0;
+  assign hw2reg.tcls_config.reload_setback.d  = 1'b0;
+  assign hw2reg.tcls_config.reload_setback.de = 1'b0;
+  assign hw2reg.tcls_config.force_resynch.d   = 1'b0;
   
   /***********************
    *  FSM for TCLS unit  *
    ***********************/
 
   always_comb begin : proc_fsm
+    setback_d = 1'b0;
     red_mode_d = red_mode_q;
     hw2reg.mismatches_0.de = 1'b0;
     hw2reg.mismatches_1.de = 1'b0;
     hw2reg.mismatches_2.de = 1'b0;
+    hw2reg.tcls_config.force_resynch.de = 1'b0;
+
+    // If forced execute resynchronization
+    if (red_mode_q == TMR_RUN && reg2hw.tcls_config.force_resynch.q) begin
+      hw2reg.tcls_config.force_resynch.de = 1'b1;
+      red_mode_d = TMR_UNLOAD;
+    end
+
+    // If error detected, do resynchronization
     if (red_mode_q == TMR_RUN && TMR_error_detect != 3'b000) begin
       $display("[TCLS] %t - mismatch detected", $realtime);
-      if (TMR_error_detect == 3'b001) hw2reg.mismatches_0.de = 1'b1;
-      if (TMR_error_detect == 3'b010) hw2reg.mismatches_1.de = 1'b1;
-      if (TMR_error_detect == 3'b100) hw2reg.mismatches_2.de = 1'b1;
+      if (TMR_error_detect[0]) hw2reg.mismatches_0.de = 1'b1;
+      if (TMR_error_detect[1]) hw2reg.mismatches_1.de = 1'b1;
+      if (TMR_error_detect[2]) hw2reg.mismatches_2.de = 1'b1;
 
-      if (reg2hw.mode.restore_mode == 0) begin
-        red_mode_d = TMR_UNLOAD;
-      end
+      red_mode_d = TMR_UNLOAD;
     end
+
+    // If unload complete, go to reload (and reset)
     if (red_mode_q == TMR_UNLOAD) begin
-      if (reg2hw.sp_store != '0) begin
+      if (reg2hw.sp_store.q != '0) begin
         red_mode_d = TMR_RELOAD;
+        if (reg2hw.tcls_config.setback.q) begin
+          setback_d = 1'b1;
+        end
       end
     end
+
+    // If reload complete, finish (or reset if error happens during reload)
     if (red_mode_q == TMR_RELOAD) begin
-      if (reg2hw.sp_store == '0) begin
+      if (reg2hw.sp_store.q == '0) begin
         $display("[TCLS] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
+      end else begin
+        if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback.q && reg2hw.tcls_config.reload_setback.q &&
+            !(reg2hw.sp_store.qe && reg_request_i.wdata == '0)) begin
+          setback_d = 1'b1;
+        end
       end
     end
 
-    // Before core startup: set TMR mode from reg2hw.mode.mode
     if (intc_fetch_en_i == 0) begin
       red_mode_d = TMR_RUN;
-    end
-
-    // Assign reset signals - If reset should be triggered in during resynchronization, signal synchronization needs to be ensured.
-    for (int i = 0; i < 3; i++) begin
-      core_rst_no[i] = rst_ni;
     end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
       red_mode_q <= TMR_RUN;
+      setback_q <= 1'b0;
     end else begin
       red_mode_q <= red_mode_d;
+      setback_q <= setback_d;
     end
   end
 
@@ -327,13 +359,13 @@ module TCLS_unit #(
     intc_instr_req_o  = instr_req;
     intc_instr_addr_o = instr_addr;
     
-    for (int i = 0; i < 3; i++) begin
-      core_instr_gnt_o[i]     = intc_instr_gnt_i;
-      core_instr_rdata_o[i] = intc_instr_rdata_i;
-      core_instr_rvalid_o[i]  = intc_instr_rvalid_i;
-      core_instr_err_o[i] = intc_instr_err_i;
-    end
-end
+      for (int i = 0; i < 3; i++) begin
+        core_instr_gnt_o[i]     = intc_instr_gnt_i;
+        core_instr_rdata_o[i] = intc_instr_rdata_i;
+        core_instr_rvalid_o[i]  = intc_instr_rvalid_i;
+        core_instr_err_o[i] = intc_instr_err_i;
+      end
+  end
 
 
 endmodule

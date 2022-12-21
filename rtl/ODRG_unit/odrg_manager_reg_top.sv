@@ -74,9 +74,18 @@ module odrg_manager_reg_top #(
   logic mode_mode_qs;
   logic mode_mode_wd;
   logic mode_mode_we;
-  logic mode_restore_mode_qs;
-  logic mode_restore_mode_wd;
-  logic mode_restore_mode_we;
+  logic mode_delay_resynch_qs;
+  logic mode_delay_resynch_wd;
+  logic mode_delay_resynch_we;
+  logic mode_setback_qs;
+  logic mode_setback_wd;
+  logic mode_setback_we;
+  logic mode_reload_setback_qs;
+  logic mode_reload_setback_wd;
+  logic mode_reload_setback_we;
+  logic mode_force_resynch_qs;
+  logic mode_force_resynch_wd;
+  logic mode_force_resynch_we;
   logic [31:0] mismatches_0_qs;
   logic [31:0] mismatches_0_wd;
   logic mismatches_0_we;
@@ -107,7 +116,7 @@ module odrg_manager_reg_top #(
     .d      (hw2reg.sp_store.d ),
 
     // to internal hardware
-    .qe     (),
+    .qe     (reg2hw.sp_store.qe),
     .q      (reg2hw.sp_store.q ),
 
     // to register interface (read)
@@ -131,8 +140,8 @@ module odrg_manager_reg_top #(
     .wd     (mode_mode_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de     (hw2reg.mode.mode.de),
+    .d      (hw2reg.mode.mode.d ),
 
     // to internal hardware
     .qe     (),
@@ -143,29 +152,107 @@ module odrg_manager_reg_top #(
   );
 
 
-  //   F[restore_mode]: 1:1
+  //   F[delay_resynch]: 1:1
   prim_subreg #(
     .DW      (1),
     .SWACCESS("RW"),
     .RESVAL  (1'h0)
-  ) u_mode_restore_mode (
+  ) u_mode_delay_resynch (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (mode_restore_mode_we),
-    .wd     (mode_restore_mode_wd),
+    .we     (mode_delay_resynch_we),
+    .wd     (mode_delay_resynch_wd),
 
     // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
+    .de     (hw2reg.mode.delay_resynch.de),
+    .d      (hw2reg.mode.delay_resynch.d ),
 
     // to internal hardware
     .qe     (),
-    .q      (reg2hw.mode.restore_mode.q ),
+    .q      (reg2hw.mode.delay_resynch.q ),
 
     // to register interface (read)
-    .qs     (mode_restore_mode_qs)
+    .qs     (mode_delay_resynch_qs)
+  );
+
+
+  //   F[setback]: 2:2
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h0)
+  ) u_mode_setback (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (mode_setback_we),
+    .wd     (mode_setback_wd),
+
+    // from internal hardware
+    .de     (hw2reg.mode.setback.de),
+    .d      (hw2reg.mode.setback.d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.mode.setback.q ),
+
+    // to register interface (read)
+    .qs     (mode_setback_qs)
+  );
+
+
+  //   F[reload_setback]: 3:3
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h0)
+  ) u_mode_reload_setback (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (mode_reload_setback_we),
+    .wd     (mode_reload_setback_wd),
+
+    // from internal hardware
+    .de     (hw2reg.mode.reload_setback.de),
+    .d      (hw2reg.mode.reload_setback.d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.mode.reload_setback.q ),
+
+    // to register interface (read)
+    .qs     (mode_reload_setback_qs)
+  );
+
+
+  //   F[force_resynch]: 4:4
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h0)
+  ) u_mode_force_resynch (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (mode_force_resynch_we),
+    .wd     (mode_force_resynch_wd),
+
+    // from internal hardware
+    .de     (hw2reg.mode.force_resynch.de),
+    .d      (hw2reg.mode.force_resynch.d ),
+
+    // to internal hardware
+    .qe     (),
+    .q      (reg2hw.mode.force_resynch.q ),
+
+    // to register interface (read)
+    .qs     (mode_force_resynch_qs)
   );
 
 
@@ -280,8 +367,17 @@ module odrg_manager_reg_top #(
   assign mode_mode_we = addr_hit[1] & reg_we & !reg_error;
   assign mode_mode_wd = reg_wdata[0];
 
-  assign mode_restore_mode_we = addr_hit[1] & reg_we & !reg_error;
-  assign mode_restore_mode_wd = reg_wdata[1];
+  assign mode_delay_resynch_we = addr_hit[1] & reg_we & !reg_error;
+  assign mode_delay_resynch_wd = reg_wdata[1];
+
+  assign mode_setback_we = addr_hit[1] & reg_we & !reg_error;
+  assign mode_setback_wd = reg_wdata[2];
+
+  assign mode_reload_setback_we = addr_hit[1] & reg_we & !reg_error;
+  assign mode_reload_setback_wd = reg_wdata[3];
+
+  assign mode_force_resynch_we = addr_hit[1] & reg_we & !reg_error;
+  assign mode_force_resynch_wd = reg_wdata[4];
 
   assign mismatches_0_we = addr_hit[2] & reg_we & !reg_error;
   assign mismatches_0_wd = reg_wdata[31:0];
@@ -302,7 +398,10 @@ module odrg_manager_reg_top #(
 
       addr_hit[1]: begin
         reg_rdata_next[0] = mode_mode_qs;
-        reg_rdata_next[1] = mode_restore_mode_qs;
+        reg_rdata_next[1] = mode_delay_resynch_qs;
+        reg_rdata_next[2] = mode_setback_qs;
+        reg_rdata_next[3] = mode_reload_setback_qs;
+        reg_rdata_next[4] = mode_force_resynch_qs;
       end
 
       addr_hit[2]: begin

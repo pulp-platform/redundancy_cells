@@ -12,10 +12,11 @@ extern "C" {
 // Stack Pointer storage register
 #define TCLS_MANAGER_SP_STORE_REG_OFFSET 0x0
 
-// Redundancy Mode configuration
-#define TCLS_MANAGER_MODE_REG_OFFSET 0x4
-#define TCLS_MANAGER_MODE_MODE_BIT 0
-#define TCLS_MANAGER_MODE_RESTORE_MODE_BIT 1
+// Re-synchronization configuration
+#define TCLS_MANAGER_TCLS_CONFIG_REG_OFFSET 0x4
+#define TCLS_MANAGER_TCLS_CONFIG_SETBACK_BIT 0
+#define TCLS_MANAGER_TCLS_CONFIG_RELOAD_SETBACK_BIT 1
+#define TCLS_MANAGER_TCLS_CONFIG_FORCE_RESYNCH_BIT 2
 
 // Mismatch counter of core 0
 #define TCLS_MANAGER_MISMATCHES_0_REG_OFFSET 0x8

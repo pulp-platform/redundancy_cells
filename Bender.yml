@@ -26,6 +26,7 @@ sources:
   - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
   - rtl/lowrisc_ecc/prim_secded_pkg.sv
+  - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
