@@ -7,17 +7,17 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Concatenates two ecc words
 
 module ecc_concat_32_64 #(
-  localparam DATA_IN_WIDTH_A = 39, // 32+secded
-  localparam DATA_IN_WIDTH_B = 39, // 32+secded
-  localparam DATA_OUT_WIDTH  = 72  // 64+secded
+  localparam int unsigned DataInWidthA = 39, // 32+secded
+  localparam int unsigned DataInWidthB = 39, // 32+secded
+  localparam int unsigned DataOutWidth  = 72  // 64+secded
 ) (
-  input  logic [DATA_IN_WIDTH_A-1:0] data_a_i, // data_o[31:0]
-  input  logic [DATA_IN_WIDTH_B-1:0] data_b_i, // data_o[63:32]
-  output logic [DATA_OUT_WIDTH -1:0] data_o
+  input  logic [DataInWidthA-1:0] data_a_i, // data_o[31:0]
+  input  logic [DataInWidthB-1:0] data_b_i, // data_o[63:32]
+  output logic [DataOutWidth -1:0] data_o
 );
 
   // Naiive implementation - decode and encode

@@ -7,9 +7,9 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Triple Modular Redundancy Majority Voter (MV) for a data word
-// 
+//
 // based on https://doi.org/10.1109/VTEST.2000.843880
 
 module TMR_word_voter #(
@@ -19,8 +19,8 @@ module TMR_word_voter #(
   input  logic [DataWidth-1:0] b_i,
   input  logic [DataWidth-1:0] c_i,
   output logic [DataWidth-1:0] majority_o,
-  output logic                 error_o,    // Indicates whether there is a complete mismatch (i.e. all inputs disagree)
-  output logic [          2:0] error_cba_o // Indicates whether input is mismatched to majority
+  output logic                 error_o, // Indicates a complete mismatch (i.e. all inputs disagree)
+  output logic [          2:0] error_cba_o // Indicates which input is mismatched to majority
 );
 
   logic match_ab, match_bc, match_ac;
@@ -32,7 +32,7 @@ module TMR_word_voter #(
   assign error_o  = ~(match_ab | match_bc | match_ac);
   assign mismatch = ~(match_ab & match_bc & match_ac);
 
-  for (genvar i = 0; i < DataWidth; i++) begin
+  for (genvar i = 0; i < DataWidth; i++) begin : gen_majority_bits
     assign majority_o[i] = (match_ac & a_i[i]) | (~match_ac & b_i[i]);
   end
 

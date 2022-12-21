@@ -7,7 +7,7 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Removes SECDED ECC from hci_core_intf
 
 module hci_core_intf_ecc_dec #(
@@ -25,20 +25,20 @@ module hci_core_intf_ecc_dec #(
   // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
 `ifndef TARGET_SYNTHESIS
-  if (bus_in.UW != bus_out.UW+NbEccBits) $fatal("Ensure bus_in UW");
+  if (bus_in.UW != bus_out.UW+NbEccBits) $fatal(1, "Ensure bus_in UW");
 `endif
 
   logic [DW-1:0] data_corrected;
 
-  localparam EccUserWidth = UW + NbEccBits;
+  localparam int unsigned EccUserWidth = UW + NbEccBits;
 
   assign bus_out.req           = bus_in.req;
   assign bus_in.gnt            = bus_out.gnt;
   assign bus_out.add           = bus_in.add;
   assign bus_out.wen           = bus_in.wen;
-  if (DropECC) begin
+  if (DropECC) begin : gen_drop_ecc
     assign bus_out.data        = bus_in.data;
-  end else begin
+  end else begin : gen_full_ecc
     assign bus_out.data        = data_corrected; // remove ECC below
   end
   assign bus_out.user          = bus_in.user[UW-1:0]; // remove ECC below
@@ -51,7 +51,7 @@ module hci_core_intf_ecc_dec #(
   assign bus_in.r_opc          = bus_out.r_opc;
 
 
-  if (DW == 32) begin
+  if (DW == 32) begin : gen_DW32
     prim_secded_39_32_enc ecc_encode (
       .in  ( bus_out.r_data                                    ),
       .out ( {bus_in.r_user[EccUserWidth-1:UW], bus_in.r_data} )
@@ -63,7 +63,7 @@ module hci_core_intf_ecc_dec #(
       .syndrome_o ( syndrome_o                                    ),
       .err_o      ( err_o                                         )
     );
-  end else if (DW == 64) begin
+  end else if (DW == 64) begin : gen_DW64
     prim_secded_72_64_enc ecc_encode (
       .in  ( bus_out.r_data                                    ),
       .out ( {bus_in.r_user[EccUserWidth-1:UW], bus_in.r_data} )
@@ -75,7 +75,7 @@ module hci_core_intf_ecc_dec #(
       .syndrome_o ( syndrome_o                                    ),
       .err_o      ( err_o                                         )
     );
-  end else begin
+  end else begin gen_err
     $fatal(1, "please choose appropriate DW or update the code.");
   end
 

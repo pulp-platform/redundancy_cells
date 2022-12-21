@@ -37,7 +37,7 @@ module triple_core_barrier #(
     .d_o   ( shifted_gnt )
   );
 
-  for (genvar i = 0; i < 3; i++) begin
+  for (genvar i = 0; i < 3; i++) begin : gen_gnt
     assign gnt_o[i] = req_q[i] && shifted_gnt;
   end
 

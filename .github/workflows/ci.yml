@@ -41,6 +41,18 @@ jobs:
             ./rtl
           exclude_paths: |
             ./test
+            ./rtl/*/*_reg_pkg.sv
+            ./rtl/*/*_reg_top.sv
+            ./rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
+            ./rtl/ecc_wrap/ecc_manager_2_reg_top.sv
+            ./rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
+            ./rtl/ecc_wrap/ecc_manager_8_reg_top.sv
+            ./rtl/ecc_wrap/ecc_manager_reg_pkg.sv
+            ./rtl/ecc_wrap/ecc_manager_reg_top.sv
+            ./rtl/ODRG_unit/odrg_manager_reg_pkg.sv
+            ./rtl/ODRG_unit/odrg_manager_reg_top.sv
+            ./rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
+            ./rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
           extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files util/waiver.verible"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reviewdog_reporter: github-check

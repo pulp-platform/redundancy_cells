@@ -7,7 +7,7 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Scrubber for ecc
 //   - iteratively steps through memory bank
 //   - corrects *only* correctable errors
@@ -69,7 +69,7 @@ module ecc_scrubber #(
     bank_we_o    = intc_we_i;
     bank_add_o   = intc_add_i;
     bank_wdata_o = intc_wdata_i;
-    
+
     // If scrubber active and outside is not, do scrub
     if ( (state_q == Read || state_q == Write) && intc_req_i == 1'b0) begin
       bank_we_o    = scrub_we;
@@ -78,11 +78,11 @@ module ecc_scrubber #(
     end
   end
 
-  if (UseExternalECC) begin
+  if (UseExternalECC) begin : gen_external_ecc
     assign ecc_err = ecc_err_i;
     assign ecc_out_o = scrub_rdata;
     assign scrub_wdata = ecc_in_i;
-  end else begin
+  end else begin : gen_internal_ecc
     assign ecc_out_o = '0;
     prim_secded_39_32_dec ecc_decode (
       .in        (scrub_rdata),

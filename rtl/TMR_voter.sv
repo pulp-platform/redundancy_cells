@@ -7,15 +7,15 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Triple Modular Redundancy Majority Voter (MV) for a single bit
-// 
+//
 // Classical_MV: standard and & or gates
 // KP_MV:        Kshirsagar and Patrikar MV [https://doi.org/10.1016/j.microrel.2009.08.001]
 // BN_MV:        Ban and Naviner MV         [https://doi.org/10.1109/NEWCAS.2010.5603933]
 
 module TMR_voter #(
-  parameter VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
+  parameter int unsigned VoterType = 2 // 0: Classical_MV, 1: KP_MV, 2: BN_MV
 ) (
   input  logic a_i,
   input  logic b_i,
@@ -37,7 +37,7 @@ module TMR_voter #(
     assign majority_o = n ? c_i : b_i;
   end else begin : gen_unsupported
 `ifndef TARGET_SYNTHESIS
-    $fatal("Please select a valid VoterType.\n");
+    $fatal(1, "Please select a valid VoterType.\n");
 `endif
   end
 

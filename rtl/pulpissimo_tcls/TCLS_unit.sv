@@ -42,7 +42,7 @@ module TCLS_unit #(
   output logic                             intc_irq_x_ack_o,
   output logic [ 4:0]                      intc_irq_x_ack_id_o,
 
-   
+
   input logic                              intc_instr_err_i,
   output logic                             intc_instr_req_o,
   input logic                              intc_instr_gnt_i,
@@ -69,14 +69,14 @@ module TCLS_unit #(
 
   output logic [2:0][ 31:0]                core_hart_id_o,
 
-   
+
   output logic [2:0]                       core_fetch_en_o,
   output logic [2:0][ 31:0]                core_boot_addr_o,
 
   output logic [2:0][ 31:0]                core_irq_x_o,
   input logic [2:0]                        core_irq_x_ack_i,
   input logic [2:0][ 4:0]                  core_irq_x_ack_id_i,
-  
+
   output logic [2:0]                       core_instr_err_o,
   input logic [2:0]                        core_instr_req_i,
   output logic [2:0]                       core_instr_gnt_o,
@@ -101,13 +101,13 @@ module TCLS_unit #(
   // APU/SHARED_FPU not implemented
 );
 
-   import tcls_manager_reg_pkg::* ;
+  import tcls_manager_reg_pkg::* ;
 
-  
-   tcls_manager_reg2hw_t reg2hw;
-   tcls_manager_hw2reg_t hw2reg;
-   
-   // State signals
+
+  tcls_manager_reg2hw_t reg2hw;
+  tcls_manager_hw2reg_t hw2reg;
+
+  // State signals
   typedef enum logic [1:0] {TMR_RUN, TMR_UNLOAD, TMR_RELOAD} redundancy_mode_e;
 
   redundancy_mode_e red_mode_d, red_mode_q;
@@ -118,15 +118,15 @@ module TCLS_unit #(
   logic       TMR_error, main_error, data_error;
   logic [2:0] TMR_error_detect, main_error_cba, data_error_cba;
 
-  localparam MAIN_TMR_WIDTH = 1      + 5          + 1        + 32        + 1;
-  //                          irq_ack  irq_ack_id   instr_req  instr_addr  data_req
-  logic      [MAIN_TMR_WIDTH-1:0] main_tmr_out;
-  logic [2:0][MAIN_TMR_WIDTH-1:0] main_tmr_in;
+  localparam int unsigned MainTmrWidth = 1      + 5          + 1        + 32        + 1;
+  //                                     irq_ack  irq_ack_id   instr_req  instr_addr  data_req
+  logic      [MainTmrWidth-1:0] main_tmr_out;
+  logic [2:0][MainTmrWidth-1:0] main_tmr_in;
 
-  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth;
-  //                          data_addr  data_we  data_wdata  data_be 
-  logic      [DATA_TMR_WIDTH-1:0] data_tmr_out;
-  logic [2:0][DATA_TMR_WIDTH-1:0] data_tmr_in;
+  localparam int unsigned DataTmrWidth = 32      + 1       + DataWidth + BEWidth;
+  //                                     data_addr  data_we  data_wdata  data_be
+  logic      [DataTmrWidth-1:0] data_tmr_out;
+  logic [2:0][DataTmrWidth-1:0] data_tmr_in;
 
 
   logic                 irq_ack;
@@ -173,7 +173,7 @@ module TCLS_unit #(
    ****************/
   // TMR voters are separated for data, as this only needs to be compared when the core reads or writes data
 
-  for (genvar i = 0; i < 3; i++) begin
+  for (genvar i = 0; i < 3; i++) begin : gen_main_concat
     assign main_tmr_in[i] = {core_irq_x_ack_i[i], core_irq_x_ack_id_i[i],
         core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i]};
   end
@@ -182,7 +182,7 @@ module TCLS_unit #(
       instr_req, instr_addr, data_req } = main_tmr_out;
 
   bitwise_TMR_voter #(
-    .DataWidth( MAIN_TMR_WIDTH ),
+    .DataWidth( MainTmrWidth ),
     .VoterType( 0              )
   ) main_voter (
     .a_i         ( main_tmr_in[0] ),
@@ -193,14 +193,15 @@ module TCLS_unit #(
     .error_cba_o ( main_error_cba )
   );
 
-  for (genvar i = 0; i < 3; i++) begin
-    assign data_tmr_in[i] = {core_data_addr_i[i], core_data_we_i[i], core_data_wdata_i[i], core_data_be_i[i]};
+  for (genvar i = 0; i < 3; i++) begin : gen_data_concat
+    assign data_tmr_in[i] = {core_data_addr_i[i], core_data_we_i[i], core_data_wdata_i[i],
+                             core_data_be_i[i]};
   end
 
   assign {data_addr, data_we, data_wdata, data_be} = data_tmr_out;
-  
+
   bitwise_TMR_voter #(
-    .DataWidth( DATA_TMR_WIDTH ),
+    .DataWidth( DataTmrWidth ),
     .VoterType( 0              )
   ) data_voter (
     .a_i         ( data_tmr_in[0] ),
@@ -229,7 +230,7 @@ module TCLS_unit #(
   assign hw2reg.tcls_config.reload_setback.d  = 1'b0;
   assign hw2reg.tcls_config.reload_setback.de = 1'b0;
   assign hw2reg.tcls_config.force_resynch.d   = 1'b0;
-  
+
   /***********************
    *  FSM for TCLS unit  *
    ***********************/
@@ -274,7 +275,8 @@ module TCLS_unit #(
         $display("[TCLS] %t - mismatch restored", $realtime);
         red_mode_d = TMR_RUN;
       end else begin
-        if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback.q && reg2hw.tcls_config.reload_setback.q &&
+        if (TMR_error_detect != 3'b000 && reg2hw.tcls_config.setback.q &&
+            reg2hw.tcls_config.reload_setback.q &&
             !(reg2hw.sp_store.qe && reg_request_i.wdata == '0)) begin
           setback_d = 1'b1;
         end
@@ -303,12 +305,12 @@ module TCLS_unit #(
   always_comb begin : proc_irq_assign
     intc_irq_x_ack_o    = irq_ack;
     intc_irq_x_ack_id_o = irq_ack_id;
-    
+
     for (int i = 0; i < 3; i++) begin
       core_irq_x_o[i] = intc_irq_x_i;
     end
   end
-    
+
 
   /*********************
    *  CTRL signal MUX  *
@@ -322,14 +324,15 @@ module TCLS_unit #(
        core_hart_id_o[i]          = intc_hart_id_i;
 
        core_fetch_en_o[i]         = intc_fetch_en_i; // May need config on state transition
-       core_boot_addr_o[i]        = intc_boot_addr_i; // May need special value when restoring from tcls error
+       core_boot_addr_o[i]        = intc_boot_addr_i; // May need special
+                                                      // value when restoring from tcls error
        core_debug_req_o[i]        = intc_debug_req_i;
 
        core_perf_counters_o[i]    = intc_perf_counters_i;
      end
-     
+
    end // block: proc_ctrl_assign
- 
+
 
   /******************
    *  Data bus MUX  *
@@ -341,14 +344,14 @@ module TCLS_unit #(
     intc_data_we_o    = data_we;
     intc_data_wdata_o = data_wdata;
     intc_data_be_o    = data_be;
-    
+
     for (int i = 0; i < 3; i++) begin
       core_data_gnt_o[i]     = intc_data_gnt_i;
       core_data_rdata_o[i] = intc_data_rdata_i;
       core_data_rvalid_o[i] = intc_data_rvalid_i;
       core_data_err_o[i] = intc_data_err_i;
     end
-     
+
   end
 
   /*******************
@@ -358,7 +361,7 @@ module TCLS_unit #(
   always_comb begin : proc_instr_assign
     intc_instr_req_o  = instr_req;
     intc_instr_addr_o = instr_addr;
-    
+
       for (int i = 0; i < 3; i++) begin
         core_instr_gnt_o[i]     = intc_instr_gnt_i;
         core_instr_rdata_o[i] = intc_instr_rdata_i;
