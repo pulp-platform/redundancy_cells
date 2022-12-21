@@ -14,6 +14,8 @@ module ecc_sram_wrap #(
   parameter  int unsigned BankSize         = 256,
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
+  parameter  bit          EnableTestMask   = 1, // Enables test_write_mask in HW
+                                                // Requries bitwise byte enable in SRAM
   // Set params
   parameter  int unsigned UnprotectedWidth = 32, // This currently only works for 32bit
   parameter  int unsigned ProtectedWidth   = 39, // This currently only works for 39bit
@@ -275,25 +277,25 @@ module ecc_sram_wrap #(
   end
 
   tc_sram #(
-    .NumWords  ( BankSize       ), // Number of Words in data array
-    .DataWidth ( ProtectedWidth ), // Data signal width
-    .ByteWidth ( 1              ), // Width of a data byte
-    .NumPorts  ( 1              ), // Number of read and write ports
+    .NumWords  ( BankSize                            ), // Number of Words in data array
+    .DataWidth ( ProtectedWidth                      ), // Data signal width
+    .ByteWidth ( EnableTestMask ? 1 : ProtectedWidth ), // Width of a data byte
+    .NumPorts  ( 1                                   ), // Number of read and write ports
 `ifndef TARGET_SYNTHESIS
-    .SimInit   ( "zeros"        ),
+    .SimInit   ( "zeros"                             ),
 `endif
-    .Latency   ( 1              ) // Latency when the read data is available
+    .Latency   ( 1                                   ) // Latency when the read data is available
   ) i_bank (
-    .clk_i,                           // Clock
-    .rst_ni,                          // Asynchronous reset active low
+    .clk_i,                                                   // Clock
+    .rst_ni,                                                  // Asynchronous reset active low
 
-    .req_i   (  bank_final_req     ), // request
-    .we_i    (  bank_final_we      ), // write enable
-    .addr_i  (  bank_final_add     ), // request address
-    .wdata_i (  bank_scrub_wdata   ), // write data
-    .be_i    ( ~test_write_mask_ni ), // write byte enable
+    .req_i   ( bank_final_req                              ), // request
+    .we_i    ( bank_final_we                               ), // write enable
+    .addr_i  ( bank_final_add                              ), // request address
+    .wdata_i ( bank_scrub_wdata                            ), // write data
+    .be_i    ( EnableTestMask ? ~test_write_mask_ni : 1'b1 ), // write byte enable
 
-    .rdata_o (  bank_scrub_rdata   )  // read data
+    .rdata_o (  bank_scrub_rdata                            )  // read data
   );
 
   // These registers are to avoid writes during scan testing. Please ensure these registers are not scanned
