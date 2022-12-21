@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add `pulpissimo_tcls` permanently voted TCLS configuration
 - Add `ecc_manager` to log and errors
+- Add resynchronization to ODRG and TCLS
+- Expose additional error logging signals
+- Add ECC manager to track errors in SRAM
+- Add scrubber to ECC SRAM wrap
+- Add testing signals for tapeout
 
 ### Changed
 - Expose  `ecc_sram` ecc error signals
 - Rename cTCLS to ODRG
+- Hide bus ecc behind bender targets, remove related dependencies
 
 ## 0.4.0 - 2022-03-31
 
