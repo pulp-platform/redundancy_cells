@@ -5,8 +5,6 @@ package:
 
 dependencies:
   tech_cells_generic:  { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.3 }
-  axi:                 { git: "https://github.com/pulp-platform/axi.git", version: 0.29.1 }
-  hci:                 { git: "https://github.com/pulp-platform/hci.git", version: 1.0.8 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.0 }
   register_interface:  { git: "https://github.com/pulp-platform/register_interface.git", version: 0.3.1 }
   common_cells:        { git: "https://github.com/pulp-platform/common_cells.git", version: 1.24.0 }
@@ -37,18 +35,24 @@ sources:
   - rtl/ecc_concat_32_64.sv
   - rtl/ecc_scrubber.sv
   - rtl/ecc_wrap/ecc_sram_wrap.sv
-  - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
-  - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
-  - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
-  - rtl/BUS_enc_dec/hci_core_intf_ecc_enc.sv
-  - rtl/BUS_enc_dec/hci_mem_intf_ecc_dec.sv
-  - rtl/BUS_enc_dec/hci_mem_intf_ecc_enc.sv
-  - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_dec.sv
-  - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_enc.sv
-  - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_dec.sv
-  - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
-  - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
-  - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
+  - target: axi_ecc # custom ECC for PULP AXI IPs, make sure to include interface IPs when adding this target
+    files:
+      - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
+      - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
+  - target: hci_ecc # custom ECC for PULP HCI IPs, make sure to include interface IPs when adding this target
+    files:
+      - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
+      - rtl/BUS_enc_dec/hci_core_intf_ecc_enc.sv
+      - rtl/BUS_enc_dec/hci_mem_intf_ecc_dec.sv
+      - rtl/BUS_enc_dec/hci_mem_intf_ecc_enc.sv
+  - target: pulp_ecc # custom ECC for PULP (pulp_soc) interface IPs, make sure to include interface IPs when adding this target
+    files:
+      - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_dec.sv
+      - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_enc.sv
+      - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_dec.sv
+      - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
+      - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
+      - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
