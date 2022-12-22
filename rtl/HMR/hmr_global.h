@@ -1,0 +1,56 @@
+// Generated register defines for HMR_registers
+
+#ifndef _HMR_REGISTERS_REG_DEFS_
+#define _HMR_REGISTERS_REG_DEFS_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#define HMR_REGISTERS_PARAM_NUM_CORES 12
+
+#define HMR_REGISTERS_PARAM_NUM_D_M_R_GROUPS 6
+
+#define HMR_REGISTERS_PARAM_NUM_T_M_R_GROUPS 4
+
+// Register width
+#define HMR_REGISTERS_PARAM_REG_WIDTH 32
+
+// Available Configurations from implemented hardware.
+#define HMR_REGISTERS_AVAIL_CONFIG_REG_OFFSET 0x0
+#define HMR_REGISTERS_AVAIL_CONFIG_INDEPENDENT_BIT 0
+#define HMR_REGISTERS_AVAIL_CONFIG_DUAL_BIT 1
+#define HMR_REGISTERS_AVAIL_CONFIG_TRIPLE_BIT 2
+
+// Enabled cores, based on the configuration. Can be used for barriers.
+#define HMR_REGISTERS_CORES_EN_REG_OFFSET 0x4
+#define HMR_REGISTERS_CORES_EN_CORES_EN_MASK 0xfff
+#define HMR_REGISTERS_CORES_EN_CORES_EN_OFFSET 0
+#define HMR_REGISTERS_CORES_EN_CORES_EN_FIELD \
+  ((bitfield_field32_t) { .mask = HMR_REGISTERS_CORES_EN_CORES_EN_MASK, .index = HMR_REGISTERS_CORES_EN_CORES_EN_OFFSET })
+
+// DMR configuration enable, on bit per DMR group.
+#define HMR_REGISTERS_DMR_ENABLE_REG_OFFSET 0x8
+#define HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_MASK 0x3f
+#define HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_OFFSET 0
+#define HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_FIELD \
+  ((bitfield_field32_t) { .mask = HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_MASK, .index = HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_OFFSET })
+
+// TMR configuration enable, one bit per TMR group.
+#define HMR_REGISTERS_TMR_ENABLE_REG_OFFSET 0xc
+#define HMR_REGISTERS_TMR_ENABLE_TMR_ENABLE_MASK 0xf
+#define HMR_REGISTERS_TMR_ENABLE_TMR_ENABLE_OFFSET 0
+#define HMR_REGISTERS_TMR_ENABLE_TMR_ENABLE_FIELD \
+  ((bitfield_field32_t) { .mask = HMR_REGISTERS_TMR_ENABLE_TMR_ENABLE_MASK, .index = HMR_REGISTERS_TMR_ENABLE_TMR_ENABLE_OFFSET })
+
+// TMR configuration bits.
+#define HMR_REGISTERS_TMR_CONFIG_REG_OFFSET 0x10
+#define HMR_REGISTERS_TMR_CONFIG_DELAY_RESYNCH_BIT 0
+#define HMR_REGISTERS_TMR_CONFIG_SETBACK_BIT 1
+#define HMR_REGISTERS_TMR_CONFIG_RELOAD_SETBACK_BIT 2
+#define HMR_REGISTERS_TMR_CONFIG_FORCE_RESYNCH_BIT 3
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+#endif  // _HMR_REGISTERS_REG_DEFS_
+// End generated register defines for HMR_registers
