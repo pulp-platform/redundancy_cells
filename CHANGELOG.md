@@ -6,12 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.5.0 - 2022-12-21
+
 ### Added
 - Add `pulpissimo_tcls` permanently voted TCLS configuration
 - Add `ecc_manager` to log and errors
 - Add resynchronization to ODRG and TCLS
 - Expose additional error logging signals
-- Add ECC manager to track errors in SRAM
 - Add scrubber to ECC SRAM wrap
 - Add testing signals for tapeout
 

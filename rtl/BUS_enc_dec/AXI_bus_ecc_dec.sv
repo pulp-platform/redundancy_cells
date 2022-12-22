@@ -7,7 +7,7 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Removes SECDED ECC from AXI_BUS
 
 module AXI_bus_ecc_dec #(
@@ -16,7 +16,8 @@ module AXI_bus_ecc_dec #(
   parameter  int unsigned AxiDataWidth = 32, // currently only 32 or 64 bit supported
   parameter  int unsigned AxiIdWidth   = 0, // irrelevant here
   parameter  int unsigned AxiUserWidth = 1, // USER width excluding ECC bits
-  localparam int unsigned NbEccBits    = ( AxiDataWidth == 32 ) ? 7 : 8   // currently 7bit for DW=32, 8bit for DW=64
+  localparam int unsigned NbEccBits    = ( AxiDataWidth == 32 ) ? 7 : 8 // 7bit for DW=32
+                                                                        // 8bit for DW=64
 ) (
   AXI_BUS.Slave                bus_in,  // data_width=AXI_DW, user_width+=NbEccBits
   AXI_BUS.Master               bus_out, // data_width=AXI_DW
@@ -26,12 +27,13 @@ module AXI_bus_ecc_dec #(
   // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
 `ifndef TARGET_SYNTHESIS
-  if (bus_in.AXI_USER_WIDTH != bus_out.AXI_USER_WIDTH+NbEccBits) $fatal("Ensure bus_in AXI_USER_WIDTH");
+  if (bus_in.AXI_USER_WIDTH != bus_out.AXI_USER_WIDTH+NbEccBits)
+    $fatal(1, "Ensure bus_in AXI_USER_WIDTH");
 `endif
 
   logic [AxiDataWidth-1:0] data_corrected;
 
-  localparam EccUserWidth = AxiUserWidth + NbEccBits;
+  localparam int unsigned EccUserWidth = AxiUserWidth + NbEccBits;
 
   assign bus_out.aw_id     = bus_in.aw_id;
   assign bus_out.aw_addr   = bus_in.aw_addr;
@@ -49,9 +51,9 @@ module AXI_bus_ecc_dec #(
   assign bus_in.aw_ready   = bus_out.aw_ready;
 
 
-  if (DropECC) begin
+  if (DropECC) begin : gen_drop_ecc
     assign bus_out.w_data  = bus_in.w_data;
-  end else begin
+  end else begin : gen_full_ecc
     assign bus_out.wdata   = data_corrected; // remove ECC below
   end
   assign bus_out.w_strb    = bus_in.w_strb;
@@ -88,7 +90,7 @@ module AXI_bus_ecc_dec #(
   assign bus_in.r_valid                  = bus_out.r_valid;
   assign bus_out.r_ready                 = bus_in.r_ready;
 
-  if (AxiDataWidth == 32) begin
+  if (AxiDataWidth == 32) begin : gen_DW32
     prim_secded_39_32_enc ecc_encode (
       .in  ( bus_out.r_data                                              ),
       .out ( {bus_in.r_user[EccUserWidth-1:AxiUserWidth], bus_in.r_data} )
@@ -100,7 +102,7 @@ module AXI_bus_ecc_dec #(
       .syndrome_o ( syndrome_o                                                  ),
       .err_o      ( err_o                                                       )
     );
-  end else if (AxiDataWidth == 64) begin
+  end else if (AxiDataWidth == 64) begin : gen_DW64
     prim_secded_72_64_enc ecc_encode (
       .in  ( bus_out.r_data                                              ),
       .out ( {bus_in.r_user[EccUserWidth-1:AxiUserWidth], bus_in.r_data} )
@@ -112,7 +114,7 @@ module AXI_bus_ecc_dec #(
       .syndrome_o ( syndrome_o                                                  ),
       .err_o      ( err_o                                                       )
     );
-  end else begin
+  end else begin : gen_err
     $fatal(1, "please choose appropriate AxiDataWidth or update the code.");
   end
 

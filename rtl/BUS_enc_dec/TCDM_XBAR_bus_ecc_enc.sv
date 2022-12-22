@@ -7,7 +7,7 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Adds SECDED ECC to TCDM_XBAR_BUS
 
 module TCDM_XBAR_bus_ecc_enc #(
@@ -20,8 +20,8 @@ module TCDM_XBAR_bus_ecc_enc #(
   output logic [  1:0] err_o
 );
 `ifndef TARGET_SYNTHESIS
-  if (bus_in.DATA_WIDTH != 32) $fatal("Ensure bus_in DATA_WIDTH");
-  if (bus_out.DATA_WIDTH != 39) $fatal("Ensure bus_out DATA_WIDTH");
+  if (bus_in.DATA_WIDTH != 32) $fatal(1, "Ensure bus_in DATA_WIDTH");
+  if (bus_out.DATA_WIDTH != 39) $fatal(1, "Ensure bus_out DATA_WIDTH");
 `endif
 
   logic [DataWidth-1:0] data_corrected;
@@ -34,9 +34,9 @@ module TCDM_XBAR_bus_ecc_enc #(
   assign bus_in.gnt       = bus_out.gnt;
   assign bus_in.r_opc     = bus_out.r_opc;
   assign bus_in.r_valid   = bus_out.r_valid;
-  if (DropECC) begin
+  if (DropECC) begin : gen_drop_ecc
     assign bus_in.r_rdata = bus_out.r_rdata[DataWidth-1:0];
-  end else begin
+  end else begin : gen_full_ecc
     assign bus_in.r_rdata = data_corrected; // remove ECC below
   end
 

@@ -129,15 +129,15 @@ module ODRG_unit #(
   logic       TMR_error, main_error, data_error;
   logic [2:0] TMR_error_detect, main_error_cba, data_error_cba;
 
-  localparam MAIN_TMR_WIDTH = 1   + 1      + 5         + 1        + 32        + 1;
-  //                          busy  irq_ack  irq_ack_id  instr_req  instr_addr  data_req
-  logic      [MAIN_TMR_WIDTH-1:0] main_tmr_out;
-  logic [2:0][MAIN_TMR_WIDTH-1:0] main_tmr_in;
+  localparam int unsigned MainTmrWidth = 1   + 1      + 5         + 1        + 32        + 1;
+  //                                     busy  irq_ack  irq_ack_id  instr_req  instr_addr  data_req
+  logic      [MainTmrWidth-1:0] main_tmr_out;
+  logic [2:0][MainTmrWidth-1:0] main_tmr_in;
 
-  localparam DATA_TMR_WIDTH = 32      + 1       + DataWidth + BEWidth + UserWidth;
-  //                          data_add  data_wen  data_wdata  data_be   data_user
-  logic      [DATA_TMR_WIDTH-1:0] data_tmr_out;
-  logic [2:0][DATA_TMR_WIDTH-1:0] data_tmr_in;
+  localparam int unsigned DataTmrWidth = 32      + 1       + DataWidth + BEWidth + UserWidth;
+  //                                     data_add  data_wen  data_wdata  data_be   data_user
+  logic      [DataTmrWidth-1:0] data_tmr_out;
+  logic [2:0][DataTmrWidth-1:0] data_tmr_in;
 
   logic                 core_busy;
 
@@ -184,9 +184,10 @@ module ODRG_unit #(
   /****************
    *  TMR Voters  *
    ****************/
-  // TMR voters are separated for data, as this only needs to be compared when the core reads or writes data
+  // TMR voters are separated for data,
+  // as this only needs to be compared when the core reads or writes data
 
-  for (genvar i = 0; i < 3; i++) begin
+  for (genvar i = 0; i < 3; i++) begin : gen_main_concat
     assign main_tmr_in[i] = {core_core_busy_i[i], core_irq_ack_i[i], core_irq_ack_id_i[i],
         core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i]};
   end
@@ -195,7 +196,7 @@ module ODRG_unit #(
       instr_req, instr_addr, data_req } = main_tmr_out;
 
   bitwise_TMR_voter #(
-    .DataWidth( MAIN_TMR_WIDTH ),
+    .DataWidth( MainTmrWidth ),
     .VoterType( 0              )
   ) main_voter (
     .a_i         ( main_tmr_in[0] ),
@@ -206,23 +207,25 @@ module ODRG_unit #(
     .error_cba_o ( main_error_cba )
   );
 
-  for (genvar i = 0; i < 3; i++) begin
-    if (UserWidth > 0) begin
-      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i], core_data_user_i[i]};
-    end else begin
-      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i]};
+  for (genvar i = 0; i < 3; i++) begin : gen_data_concat
+    if (UserWidth > 0) begin : gen_data_with_user
+      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i],
+                               core_data_be_i[i], core_data_user_i[i]};
+    end else begin : gen_data_without_user
+      assign data_tmr_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i],
+                               core_data_be_i[i]};
     end
   end
 
-  if (UserWidth > 0) begin
+  if (UserWidth > 0) begin : gen_out_with_user
     assign {data_add, data_wen, data_wdata, data_be, data_user} = data_tmr_out;
-  end else begin
+  end else begin : gen_out_without_user
     assign {data_add, data_wen, data_wdata, data_be} = data_tmr_out;
     assign data_user = '0;
   end
 
   bitwise_TMR_voter #(
-    .DataWidth( DATA_TMR_WIDTH ),
+    .DataWidth( DataTmrWidth ),
     .VoterType( 0              )
   ) data_voter (
     .a_i         ( data_tmr_in[0] ),
@@ -236,8 +239,8 @@ module ODRG_unit #(
   always_comb begin : proc_TMR_error
     TMR_error        = main_error;
     TMR_error_detect = main_error_cba;
-    if (data_req) begin
-      TMR_error        = main_error | data_error; // TODO: check for triple mismatch across both domains
+    if (data_req) begin : gen_tmr_error
+      TMR_error        = main_error | data_error; // TODO: check for triple mismatch across both
       TMR_error_detect = main_error_cba | data_error_cba;
     end
   end
@@ -415,7 +418,8 @@ module ODRG_unit #(
 
         core_clock_en_o[i]         = intc_clock_en_i[0];
         core_fetch_en_o[i]         = intc_fetch_en_i[0]; // May need config on state transition
-        core_boot_addr_o[i]        = intc_boot_addr_i[0]; // May need special value when restoring from tcls error
+        core_boot_addr_o[i]        = intc_boot_addr_i[0]; // May need special value
+                                                          // when restoring from error
         core_debug_req_o[i]        = intc_debug_req_i[0];
 
         core_perf_counters_o[i]    = intc_perf_counters_i[0];
@@ -453,7 +457,7 @@ module ODRG_unit #(
       intc_data_wdata_o[0]  = data_wdata;
       intc_data_user_o[0]   = data_user;
       intc_data_be_o[0]     = data_be;
-      
+
       intc_data_req_o[1]    = '0;
       intc_data_req_o[2]    = '0;
 

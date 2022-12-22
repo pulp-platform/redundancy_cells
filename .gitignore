@@ -1,5 +1,6 @@
 /.bender
 /Bender.lock
+/bender
 compile.tcl
 modelsim.ini
 /working_dir

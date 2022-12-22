@@ -7,7 +7,7 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Adapts bus to sram adding ecc bits
 
 module ecc_sram_wrap #(
@@ -55,14 +55,17 @@ module ecc_sram_wrap #(
     end
   end
 
-  assign valid_read_d = tcdm_req_i && tcdm_gnt_o && (tcdm_wen_i || (tcdm_be_i != {BEInWidth{1'b1}}));
+  assign valid_read_d = tcdm_req_i && tcdm_gnt_o &&
+                        (tcdm_wen_i || (tcdm_be_i != {BEInWidth{1'b1}}));
   assign single_error_o = ecc_error[0] && valid_read_q;
   assign multi_error_o  = ecc_error[1] && valid_read_q;
 
 `ifndef TARGET_SYNTHESIS
   always @(posedge clk_i) begin
-    if ((ecc_error[0] && valid_read_q) == 1) $display("[ECC] %t - single error detected", $realtime);
-    if ((ecc_error[1] && valid_read_q) == 1) $display("[ECC] %t - multi error detected", $realtime);
+    if ((ecc_error[0] && valid_read_q) == 1)
+      $display("[ECC] %t - single error detected", $realtime);
+    if ((ecc_error[1] && valid_read_q) == 1)
+      $display("[ECC] %t - multi error detected", $realtime);
   end
 `endif
 
@@ -86,13 +89,13 @@ module ecc_sram_wrap #(
   logic [  BankAddWidth-1:0] bank_final_add;
 
 
-  if ( InputECC == 0 ) begin : ECC_0_ASSIGN
+  if ( InputECC == 0 ) begin : gen_ECC_0_ASSIGN
     // Loads  -> loads full data
     // Stores ->
     //   If BE_in == 1111: adds ECC and stores directly
     //   If BE_in != 1111: loads stored and buffers input (responds success to store command)
     //                     re-calculates ECC and stores correctly
-    
+
     logic [DataInWidth-1:0] to_store;
     logic [DataInWidth-1:0] loaded;
     logic [DataInWidth-1:0] be_selector;
@@ -117,10 +120,12 @@ module ecc_sram_wrap #(
     );
 
     assign tcdm_rdata_o   = loaded;
-    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2]; // Address input differentiates by byte, memory by word, ensure correct access
+    // Address input differentiates by byte, memory by word, ensure correct access
+    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
     assign input_buffer_d = tcdm_wdata_i;
     assign be_buffer_d    = tcdm_be_i;
-    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
+                             {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
     always_comb begin : proc_load_and_store_comb
       store_state_d =  NORMAL;
@@ -157,8 +162,8 @@ module ecc_sram_wrap #(
       end
     end
   end // ECC_0_ASSIGN
-  else if (InputECC == 1 ) begin : ECC_1_ASSIGN
-    
+  else if (InputECC == 1 ) begin : gen_ECC_1_ASSIGN
+
     typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
     store_state_e store_state_d, store_state_q;
 
@@ -175,7 +180,8 @@ module ecc_sram_wrap #(
     assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
     assign input_buffer_d = tcdm_wdata_i;
     assign be_buffer_d    = tcdm_be_i;
-    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},{8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
+                             {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
     prim_secded_39_32_dec ld_decode (
       .in        (bank_rdata),
@@ -239,7 +245,7 @@ module ecc_sram_wrap #(
   ) i_scrubber (
     .clk_i,
     .rst_ni,
-    
+
     .scrub_trigger_i ( scrub_trigger_i  ),
     .bit_corrected_o ( scrubber_fix_o   ),
     .uncorrectable_o ( scrub_uncorrectable_o ),
@@ -298,7 +304,8 @@ module ecc_sram_wrap #(
     .rdata_o (  bank_scrub_rdata                            )  // read data
   );
 
-  // These registers are to avoid writes during scan testing. Please ensure these registers are not scanned
+  // These registers are to avoid writes during scan testing.
+  // Please ensure these registers are not scanned
   always_ff @(posedge clk_i) begin : proc_test_req_ff
     test_req_q <= test_req_d;
     test_add_q <= test_add_d;

@@ -7,14 +7,14 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Removes SECDED ECC from hci_mem_intf
 
 module hci_mem_intf_ecc_dec #(
   parameter  bit          DropECC   = 0,
   parameter  int unsigned DW        = 32,
   parameter  int unsigned UW        = 0,
-  localparam int unsigned NbEccBits = ( DW == 32 ) ? 7 : 8   // currently 7bit for DW=32, 8bit for DW=64
+  localparam int unsigned NbEccBits = ( DW == 32 ) ? 7 : 8 // 7bit for DW=32, 8bit for DW=64
 ) (
   hci_mem_intf.slave           bus_in,     // DW=DW, UW+=NbEccBits
   hci_mem_intf.master          bus_out,    // DW=DW, UW=UW
@@ -25,36 +25,36 @@ module hci_mem_intf_ecc_dec #(
   // ECC is added to the higher bits of USER signals, calculated from data bits.
   // No management of failed ECC correction is done here.
 `ifndef TARGET_SYNTHESIS
-  if (bus_in.UW != bus_out.UW+NbEccBits) $fatal("Ensure bus_in UW");
+  if (bus_in.UW != bus_out.UW+NbEccBits) $fatal(1, "Ensure bus_in UW");
 `endif
 
   logic [DW-1:0] data_corrected;
 
-  localparam EccUserWidth = UW + NbEccBits;
+  localparam int unsigned EccUserWidth = UW + NbEccBits;
 
   assign bus_out.req           = bus_in.req;
   assign bus_in.gnt            = bus_out.gnt;
   assign bus_out.add           = bus_in.add;
   assign bus_out.wen           = bus_in.wen;
-  if (DropECC) begin
+  if (DropECC) begin : gen_drop_ecc
     assign bus_out.data        = bus_in.data;
-  end else begin
+  end else begin : gen_full_ecc
     assign bus_out.data        = data_corrected; // remove ECC below
   end
-  if (UW > 0) begin
+  if (UW > 0) begin : gen_user
     assign bus_out.user        = bus_in.user[UW-1:0]; // remove ECC below
-  end else begin
+  end else begin : gen_no_user
     assign bus_out.user        = '0;
   end
   assign bus_out.be            = bus_in.be;
   // assign bus_in.r_data         = bus_out.r_data; // add ECC below
-  if (UW > 0) begin
+  if (UW > 0) begin : gen_r_user
     assign bus_in.r_user[UW-1:0] = bus_out.r_user[UW-1:0]; // add ECC below
   end
   assign bus_in.r_valid        = bus_out.r_valid;
 
 
-  if (DW == 32) begin
+  if (DW == 32) begin : gen_DW32
     prim_secded_39_32_enc ecc_encode (
       .in  ( bus_out.r_data                                     ),
       .out ( {bus_in.r_user[EccUserWidth-1:UW], bus_in.r_data } )
@@ -66,7 +66,7 @@ module hci_mem_intf_ecc_dec #(
       .syndrome_o ( syndrome_o                                     ),
       .err_o      ( err_o                                          )
     );
-  end else if (DW == 64) begin
+  end else if (DW == 64) begin : gen_DW64
     prim_secded_72_64_enc ecc_encode (
       .in  ( bus_out.r_data                                     ),
       .out ( {bus_in.r_user[EccUserWidth-1:UW], bus_in.r_data } )
@@ -78,7 +78,7 @@ module hci_mem_intf_ecc_dec #(
       .syndrome_o ( syndrome_o                                     ),
       .err_o      ( err_o                                          )
     );
-  end else begin
+  end else begin : gen_err
     $fatal(1, "please choose appropriate DW or update the code.");
   end
 

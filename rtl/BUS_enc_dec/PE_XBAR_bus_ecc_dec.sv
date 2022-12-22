@@ -7,7 +7,7 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // Removes SECDED ECC from PE_XBAR_BUS
 
 module PE_XBAR_bus_ecc_dec #(
@@ -20,8 +20,8 @@ module PE_XBAR_bus_ecc_dec #(
   output logic [    1:0] err_o
 );
 `ifndef TARGET_SYNTHESIS
-  if (bus_in.DATA_WIDTH != 39) $fatal("Ensure bus_in DATA_WIDTH");
-  if (bus_out.DATA_WIDTH != 32) $fatal("Ensure bus_out DATA_WIDTH");
+  if (bus_in.DATA_WIDTH != 39) $fatal(1, "Ensure bus_in DATA_WIDTH");
+  if (bus_out.DATA_WIDTH != 32) $fatal(1, "Ensure bus_out DATA_WIDTH");
 `endif
 
   logic [DataWidth-1:0] data_corrected;
@@ -31,9 +31,9 @@ module PE_XBAR_bus_ecc_dec #(
   assign bus_out.wen     = bus_in.wen;
   assign bus_out.be      = bus_in.be;
   assign bus_out.id      = bus_in.id;
-  if (DropECC) begin
+  if (DropECC) begin : gen_drop_ecc
     assign bus_out.wdata = bus_in.wdata[DataWidth-1:0];
-  end else begin
+  end else begin : gen_full_ecc
     assign bus_out.wdata = data_corrected; // remove ECC below
   end
 

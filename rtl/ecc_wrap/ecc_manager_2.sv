@@ -7,11 +7,11 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-// 
+//
 // ECC sram manager (loggs faults, triggers scrubber)
 
 module ecc_manager_2 #(
-  parameter int unsigned NumBanks      = 2, // This is like a fixed parameter, I really don't like that...
+  parameter int unsigned NumBanks      = 2, // This is like a fixed parameter, to be improved
   parameter type         ecc_mgr_req_t = logic,
   parameter type         ecc_mgr_rsp_t = logic
 ) (
@@ -65,7 +65,8 @@ module ecc_manager_2 #(
     assign test_write_mask_no[i][38:32] = reg2hw.write_mask_ecc_n[i];
 
     // Instantiate scrub trigger counter
-    assign scrub_trigger_o[i] = (reg2hw.scrub_interval.q != '0) && (counter_value[i] == reg2hw.scrub_interval.q);
+    assign scrub_trigger_o[i] = (reg2hw.scrub_interval.q != '0) &&
+                                (counter_value[i] == reg2hw.scrub_interval.q);
     counter #(
       .WIDTH           ( 32   ),
       .STICKY_OVERFLOW ( 1'b0 )

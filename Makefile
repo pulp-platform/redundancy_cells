@@ -14,7 +14,8 @@
 
 SHELL=bash
 
-REG_PATH = $(shell bender path register_interface)
+BENDER ?= ./bender
+REG_PATH = $(shell $(BENDER) path register_interface)
 # use if you need to hardcode location of regtool
 # REG_PATH = ../register_interface
 REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
@@ -27,7 +28,7 @@ TARGET_DIR_ODRG = rtl/ODRG_unit
 TARGET_DIR_TCLS = rtl/pulpissimo_tcls
 TARGET_DIR_ECC = rtl/ecc_wrap
 
-# .PHONY: gen_ODRG
+.PHONY: gen_ODRG gen_TCLS gen_ecc_registers gen_ECC
 gen_ODRG:
 	python $(REG_TOOL) $(HJSON_ODRG) -t $(TARGET_DIR_ODRG) -r
 	python $(REG_TOOL) $(HJSON_ODRG) -d > $(TARGET_DIR_ODRG)/doc.html
@@ -49,3 +50,14 @@ gen_ecc_registers:
 gen_ECC:
 	./util/vendor.py util/lowrisc_opentitan.vendor.hjson
 	cd util/lowrisc_opentitan && ./util/design/secded_gen.py --no_fpv --outdir ../../rtl/lowrisc_ecc
+
+bender:
+ifeq (,$(wildcard ./bender))
+	curl --proto '=https' --tlsv1.2 -sSf https://pulp-platform.github.io/bender/init \
+		| bash -s -- 0.26.1
+	touch bender
+endif
+
+.PHONY: bender-rm
+bender-rm:
+	rm -f bender
