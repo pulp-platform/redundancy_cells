@@ -24,6 +24,7 @@ sources:
   - rtl/hsiao_ecc/hsiao_ecc_cor.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
+  - rtl/DMR_checker.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
@@ -91,6 +92,18 @@ sources:
       - test/tb_tmr_voter_detect.sv
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
+
+  - files:
+    - rtl/HMR/hmr_registers_reg_pkg.sv
+    - rtl/HMR/hmr_core_regs_reg_pkg.sv
+    - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
+    - rtl/HMR/hmr_tmr_regs_reg_pkg.sv
+    - rtl/HMR/hmr_registers_reg_top.sv
+    - rtl/HMR/hmr_core_regs_reg_top.sv
+    - rtl/HMR/hmr_dmr_regs_reg_top.sv
+    - rtl/HMR/hmr_tmr_regs_reg_top.sv
+    - rtl/HMR/hmr_tmr_ctrl.sv
+    - rtl/HMR/HMR_wrap.sv
 
 vendor_package:
   - name: lowrisc_opentitan
