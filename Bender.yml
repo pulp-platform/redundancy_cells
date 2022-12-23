@@ -2,6 +2,7 @@ package:
   name: redundancy_cells
   authors:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
+    - "Luca Rufer <lrufer@student.ethz.ch>"
 
 dependencies:
   tech_cells_generic:  { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.3 }
@@ -9,12 +10,15 @@ dependencies:
   register_interface:  { git: "https://github.com/pulp-platform/register_interface.git", version: 0.3.1 }
   common_cells:        { git: "https://github.com/pulp-platform/common_cells.git", version: 1.24.0 }
 
+export_include_dirs:
+  - rtl/ECC_reg/include
 sources:
     # Source files grouped in levels. Files in level 0 have no dependencies on files in this
     # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
+  - rtl/ECC_reg/hamming.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
@@ -88,9 +92,12 @@ sources:
       - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
       - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
       - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
+  - rtl/ECC_reg/ecc_enc.sv
+  - rtl/ECC_reg/ecc_cor.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
+  - rtl/ECC_reg/ecc_reg.sv
   - rtl/ecc_wrap/ecc_manager.sv
   - rtl/ecc_wrap/ecc_manager_2.sv
   - rtl/ecc_wrap/ecc_manager_8.sv
@@ -106,6 +113,8 @@ sources:
       - rtl/pulpissimo_tcls/TCLS_unit.sv
   - target: test
     files:
+      - test/tb_ecc_enc_cor.sv
+      - test/tb_ecc_reg.sv
       - test/tb_ecc_scrubber.sv
       - test/tb_ecc_secded.sv
       - test/tb_ecc_sram.sv

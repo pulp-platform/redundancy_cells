@@ -6,5 +6,6 @@ modelsim.ini
 /working_dir
 /work
 vsim.log
+vsim.wlf
 vcom.log
 transcript
