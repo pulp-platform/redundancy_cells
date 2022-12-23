@@ -11,12 +11,14 @@
 // Hybrid modular redundancy wrapping unit
 
 module HMR_wrap #(
-  parameter int unsigned NumCores     = 0,
-  parameter bit          DMRSupported = 1'b1,
-  parameter bit          DMRFixed     = 1'b0,
-  parameter bit          TMRSupported = 1'b1,
-  parameter bit          TMRFixed     = 1'b0,
-  parameter bit          SeparateData = 1'b1,
+  parameter int unsigned NumCores       = 0,
+  parameter bit          DMRSupported   = 1'b1,
+  parameter bit          DMRFixed       = 1'b0,
+  parameter bit          TMRSupported   = 1'b1,
+  parameter bit          TMRFixed       = 1'b0,
+  parameter bit          SeparateData   = 1'b1,
+  parameter bit          BackupRegfile  = 1'b0,
+  parameter bit          InterleaveGrps = 1'b1, // alternative is sequential grouping
 
   parameter int unsigned InstrDataWidth = 32,
   parameter int unsigned DataWidth      = 32,
@@ -24,16 +26,28 @@ module HMR_wrap #(
   parameter int unsigned UserWidth      = 0,
   parameter int unsigned NumExtPerf     = 5,
 
-  parameter type         reg_req_t    = logic,
-  parameter type         reg_resp_t   = logic,
-  parameter int unsigned NumSysCores  = DMRFixed ? NumCores/2 : TMRFixed ? NumCores/3 : NumCores
+  parameter type         reg_req_t      = logic,
+  parameter type         reg_resp_t     = logic,
+  parameter int unsigned NumTMRGroups   = NumCores/3,
+  parameter int unsigned NumTMRCores    = NumTMRGroups * 3,
+  parameter int unsigned NumTMRLeftover = NumCores - NumTMRCores,
+  parameter int unsigned NumDMRGroups   = NumCores/2,
+  parameter int unsigned NumDMRCores    = NumDMRGroups * 2,
+  parameter int unsigned NumDMRLeftover = NumCores - NumDMRCores,
+  parameter int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRCores : NumCores
 ) (
   input  logic      clk_i,
   input  logic      rst_ni,
 
   // Port to configuration unit
   input  reg_req_t  reg_request_i,
-  output reg_resp_t reg_response_o
+  output reg_resp_t reg_response_o,
+
+  // TMR signals
+  output logic [NumTMRGroups-1:0] tmr_failure_o,
+  output logic [ NumSysCores-1:0] tmr_error_o,
+  output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
+  input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
 
   // TODO other required signals
 
@@ -120,12 +134,8 @@ module HMR_wrap #(
 
   if (TMRFixed && DMRFixed) $fatal(1, "Cannot fix both TMR and DMR!");
 
-  localparam int unsigned NumTMRGroups   = NumCores/3;
-  localparam int unsigned NumTMRCores    = NumTMRGroups * 3
-  localparam int unsigned NumTMRLeftover = NumCores - NumTMRCores;
-  localparam int unsigned NumDMRGroups   = NumCores/2;
-  localparam int unsigned NumDMRCores    = NumDMRGroups * 2;
-  localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores;
+  typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} tmr_mode_e;
+  localparam tmr_mode_e DefaultTMRMode = NON_TMR;
 
   localparam int unsigned CtrlConcatWidth = 1   + 1      + 5         + 1    + 32    + 1;
   //                                        busy  irq_ack  irq_ack_id  i_req  i_addr  d_req
@@ -141,6 +151,10 @@ module HMR_wrap #(
   logic [    NumCores-1:0][DataConcatWidth-1:0] data_concat_in;
   logic [NumTMRGroups-1:0][DataConcatWidth-1:0] data_tmr_out;
   logic [NumDMRGroups-1:0][DataConcatWidth-1:0] data_dmr_out;
+
+  logic [NumTMRGroups-1:0] tmr_failure, tmr_failure_main, tmr_failure_data;
+  logic [NumTMRGroups-1:0][2:0] tmr_error, tmr_error_main, tmr_error_data;
+  logic [NumTMRGroups-1:0] tmr_single_mismatch;
 
   logic [NumTMRGroups-1:0]                 tmr_core_busy_out;
   logic [NumTMRGroups-1:0]                 tmr_irq_ack_out;
@@ -180,48 +194,73 @@ module HMR_wrap #(
     end
   end
 
-  // TODO: management unit
+  /****************
+   *  TMR Voters  *
+   ****************/
 
-  if (TMRSupported || TMRFixed) begin
-    /****************
-     *  TMR Voters  *
-     ****************/
-    for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_voters
+  if (TMRSupported || TMRFixed) begin : gen_tmr_voters
+    for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_voter
+      assign tmr_failure[i]         = tmr_data_req_out[i] ?
+                          tmr_failure_main | tmr_failure_data : tmr_failure_main;
+      assign tmr_error[i*3+:3]      = tmr_data_req_out[i] ?
+                          tmr_error_main[i*3+:3] | tmr_error_data[i*3+:3] : tmr_error_main[i*3+:3];
+      assign tmr_single_mismatch[i] = tmr_error[i*3+:3] != 3'b000;
+
       bitwise_TMR_voter #(
         .DataWidth( MainConcatWidth ),
         .VoterType( 0 )
       ) i_main_voter (
-        .a_i        ( main_concat_in[i*3  ] ),
-        .b_i        ( main_concat_in[i*3+1] ),
-        .c_i        ( main_concat_in[i*3+2] ),
+        .a_i        ( main_concat_in[InterleaveGrps ? i                  : i*3  ] ),
+        .b_i        ( main_concat_in[InterleaveGrps ? i +   NumTMRGroups : i*3+1] ),
+        .c_i        ( main_concat_in[InterleaveGrps ? i + 2*NumTMRGroups : i*3+2] ),
         .majority_o ( main_tmr_out  [i    ] ),
-        .error_o    (),
-        .error_cba_o()
+        .error_o    ( tmr_failure_main[i]   ),
+        .error_cba_o( tmr_error_main[i    ] )
       );
       if (SeparateData) begin : gen_data_voter
         bitwise_TMR_voter #(
           .DataWidth( DataConcatWidth ),
           .VoterType( 0 )
         ) i_main_voter (
-          .a_i        ( data_concat_in[i*3  ] ),
-          .b_i        ( data_concat_in[i*3+1] ),
-          .c_i        ( data_concat_in[i*3+2] ),
+          .a_i        ( data_concat_in[InterleaveGrps ? i                  : i*3  ] ),
+          .b_i        ( data_concat_in[InterleaveGrps ? i +   NumTMRGroups : i*3+1] ),
+          .c_i        ( data_concat_in[InterleaveGrps ? i + 2*NumTMRGroups : i*3+2] ),
           .majority_o ( data_tmr_out  [i    ] ),
-          .error_o    (),
-          .error_cba_o()
+          .error_o    ( tmr_failure_data[i]   ),
+          .error_cba_o( tmr_error_data[i    ] )
         );
 
         assign {tmr_core_busy_out[i], tmr_irq_ack_out[i], tmr_irq_ack_id_out[i],
                tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i]} = main_tmr_out[i];
         assign {tmr_data_add_out[i], tmr_data_wen_out[i], tmr_data_wdata_out[i],
                tmr_data_be_out[i], tmr_data_user_out[i]} = data_tmr_out[i];
-      end else begin : gen_out_assign
+      end else begin : gen_data_in_main
+        assign tmr_failure_data[i] = 1'b0;
+        assign tmr_error_data[i] = 3'b000;
         assign {tmr_core_busy_out[i], tmr_irq_ack_out[i], tmr_irq_ack_id_out[i],
                tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i],
                tmr_data_add_out[i], tmr_data_wen_out[i], tmr_data_wdata_out[i],
                tmr_data_be_out[i], tmr_data_user_out[i]} = main_tmr_out[i];
       end
     end
+    if (NumTMRLeftover > 0) begin : gen_tmr_leftover_error
+      assign tmr_error_main[NumCores-1-:NumTMRLeftover] = '0;
+      assign tmr_error_data[NumCores-1-:NumTMRLeftover] = '0;
+      assign tmr_error     [NumCores-1-:NumTMRLeftover] = '0;
+    end
+  end else begin : gen_no_tmr_voted
+    assign tmr_error_main   = '0;
+    assign tmr_error_data   = '0;
+    assign tmr_error        = '0;
+    assign tmr_failure_main = '0;
+    assign tmr_failure_data = '0;
+    assign tmr_failure      = '0;
+    assign main_tmr_out = '0;
+    assign data_tmr_out = '0;
+    assign {tmr_core_busy_out, tmr_irq_ack_out, tmr_irq_ack_id_out,
+           tmr_instr_req_out, tmr_instr_addr_out, tmr_data_req_out,
+           tmr_data_add_out, tmr_data_wen_out, tmr_data_wdata_out,
+           tmr_data_be_out, tmr_data_user_out} = '0;
   end
 
   // Assign output signals
@@ -231,8 +270,283 @@ module HMR_wrap #(
     // TODO
 
   end else if (TMRSupported || TMRFixed) begin : gen_TMR_only
+    if (TMRFixed && NumCores % 3 != 0) $warning("Extra cores added not properly handled!");
+    tmr_mode_e [NumTMRGroups-1:0] red_mode_d, red_mode_q;
 
-    // TODO
+    import odrg_manager_reg_pkg::*;
+    odrg_manager_reg2hw_t [NumTMRGroups-1:0] reg2hw;
+    odrg_manager_hw2reg_t [NumTMRGroups-1:0] hw2reg;
+
+    reg_req_t  [NumTMRGroups-1:0] tmr_req;
+    reg_resp_t [NumTMRGroups-1:0] tmr_resp;
+
+    localparam TMRSelWidth = $clog2(NumTMRGroups);
+
+    /*******************
+     *  Register File  *
+     *******************/
+    reg_demux #(
+      .NoPorts    ( NumTMRGroups ),
+      .req_t      ( reg_req_t    ),
+      .rsp_t      ( reg_resp_t   )
+    ) i_reg_demux (
+      .clk_i,
+      .rst_ni,
+      .in_select_i( reg_request_i.addr[8+TMRSelWidth-1:8] ),
+      .in_req_i   ( reg_request_i                         ),
+      .in_rsp_o   ( reg_response_o                        ),
+      .out_req_o  ( tmr_req                               ),
+      .out_rsp_i  ( tmr_resp                              )
+    );
+
+    for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
+      odrg_manager_reg_top #(
+        .reg_req_t( reg_req_t ),
+        .reg_rsp_t( reg_resp_t )
+      ) i_registers (
+        .clk_i,
+        .rst_ni,
+        .reg_req_i( tmr_req [i] ),
+        .reg_rsp_o( tmr_resp[i] ),
+        .reg2hw   ( reg2hw  [i] ),
+        .hw2reg   ( hw2reg  [i] ),
+        .devmode_i( 1'b0        )
+      );
+
+      assign hw2reg[i].mode.mode.d            = 1'b0;
+      assign hw2reg[i].mode.mode.de           = 1'b0;
+      assign hw2reg[i].mode.delay_resynch.d   = 1'b0;
+      assign hw2reg[i].mode.delay_resynch.de  = 1'b0;
+      assign hw2reg[i].mode.setback.d         = 1'b0;
+      assign hw2reg[i].mode.setback.de        = 1'b0;
+      assign hw2reg[i].mode.reload_setback.d  = 1'b0;
+      assign hw2reg[i].mode.reload_setback.de = 1'b0;
+      assign hw2reg[i].mode.force_resynch.d   = 1'b0;
+
+      /***********************
+       *  FSM for ODRG unit  *
+       ***********************/
+      always_comb begin : proc_fsm
+        setback_d[i] = 1'b0;
+        red_mode_d[i] = red_mode_q[i];
+        hw2reg[i].mismatches_0.de = 1'b0;
+        hw2reg[i].mismatches_1.de = 1'b0;
+        hw2reg[i].mismatches_2.de = 1'b0;
+        hw2reg[i].mode.force_resynch.de = 1'b0;
+
+        // If forced execute resynchronization
+        if (red_mode_q[i] == TMR_RUN && reg2hw[i].mode.force_resynch.q) begin
+          hw2reg[i].mode.force_resynch.de = 1'b1;
+          if (reg2hw[i].mode.delay_resynch == 0) begin
+            red_mode_d[i] = TMR_UNLOAD;
+            // TODO: buffer the restoration until delay_resynch is disabled
+          end
+        end
+
+        // If error detected, do resynchronization
+        if (red_mode_q[i] == TMR_RUN && tmr_single_mismatch[i]) begin
+          $display("[ODRG] %t - mismatch detected", $realtime);
+          if (tmr_error[i][0]) hw2reg[i].mismatches_0.de = 1'b1;
+          if (tmr_error[i][1]) hw2reg[i].mismatches_1.de = 1'b1;
+          if (tmr_error[i][2]) hw2reg[i].mismatches_2.de = 1'b1;
+
+          if (reg2hw[i].mode.delay_resynch == 0) begin
+            red_mode_d[i] = TMR_UNLOAD;
+            // TODO: buffer the restoration until delay_resynch is disabled
+          end
+        end
+
+        // If unload complete, go to reload (and reset)
+        if (red_mode_q[i] == TMR_UNLOAD) begin
+          if (reg2hw[i].sp_store.q != '0) begin
+            red_mode_d[i] = TMR_RELOAD;
+            if (reg2hw[i].mode.setback.q) begin
+              setback_d[i] = 1'b1;
+            end
+          end
+        end
+
+        // If reload complete, finish (or reset if error happens during reload)
+        if (red_mode_q[i] == TMR_RELOAD) begin
+          if (reg2hw[i].sp_store == '0) begin
+            $display("[ODRG] %t - mismatch restored", $realtime);
+            red_mode_d[i] = TMR_RUN;
+          end else begin
+            if ((tmr_single_mismatch[i] || tmr_failure[i]) && reg2hw[i].mode.setback.q &&
+                reg2hw[i].mode.reload_setback.q &&
+                !(reg2hw[i].sp_store.qe && tmr_req[i].wdata == '0)) begin
+              setback_d[i] = 1'b1;
+            end
+          end
+        end
+
+        // Before core startup: set TMR mode from reg2hw.mode.mode
+        if (!TMRFixed) begin
+          if (sys_fetch_en_i[InterleaveGrps ? i : 3*i] == 0 && core_core_busy_i[InterleaveGrps ? i : 3*i] == 0) begin
+            if (reg2hw[i].mode.mode == 1) begin
+              red_mode_d[i] = NON_TMR;
+            end else begin
+              red_mode_d[i] = TMR_RUN;
+            end
+          end
+          // split single-error tolerant mode to performance mode anytime (but require correct core state)
+          if (red_mode_q[i] == TMR_RUN) begin
+            if (reg2hw[i].mode.mode == 1) begin
+              red_mode_d[i] = NON_TMR;
+            end
+          end
+          // Set TMR mode on external signal that cores are synchronized
+          if (red_mode_q[i] == NON_TMR && tmr_cores_synch_i[i]) begin
+            if (reg2hw[i].mode.mode == 0) begin
+              red_mode_d[i] = TMR_RUN;
+            end
+          end
+        end
+      end
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
+      if(!rst_ni) begin
+        red_mode_q <= {NumTMRGroups{DefaultTMRMode}};
+      end else begin
+        red_mode_d <= red_mode_q;
+      end
+    end
+
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
+      localparam SysCoreIndex = TMRFixed ? i/3 : InterleaveGrps ? i%NumTMRGroups : i-(i%3);
+      if (i < NumTMRCores && (TMRFixed || red_mode_q[InterleaveGrps ? i%NumTMRGroups : i/3] != NON_TMR)) begin : gen_tmr_mode
+
+        // CTRL
+        assign core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
+        assign core_cluster_id_o   [i] = sys_cluster_id_i   [SysCoreIndex];
+
+        assign core_clock_en_o     [i] = sys_clock_en_i     [SysCoreIndex];
+        assign core_fetch_en_o     [i] = sys_fetch_en_i     [SysCoreIndex];
+        assign core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
+
+        assign core_debug_req_o    [i] = sys_debug_req_i    [SysCoreIndex];
+        assign core_perf_counters_o[i] = sys_perf_counters_i[SysCoreIndex];
+
+        // IRQ
+        assign core_irq_req_o      [i] = sys_irq_req_i      [SysCoreIndex];
+        assign core_irq_id_o       [i] = sys_irq_id_i       [SysCoreIndex];
+
+        // INSTR
+        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
+        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
+        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[SysCoreIndex];
+        assign core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
+
+        // DATA
+        assign core_data_gnt_o     [i] = sys_data_gnt_i     [SysCoreIndex];
+        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
+        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
+        assign core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
+        assign core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
+        assign core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
+
+      end else begin : gen_independent_mode
+
+        // CTRL
+        assign core_core_id_o      [i] = sys_core_id_i      [i];
+        assign core_cluster_id_o   [i] = sys_cluster_id_i   [i];
+
+        assign core_clock_en_o     [i] = sys_clock_en_i     [i];
+        assign core_fetch_en_o     [i] = sys_fetch_en_i     [i];
+        assign core_boot_addr_o    [i] = sys_boot_addr_i    [i];
+
+        assign core_debug_req_o    [i] = sys_debug_req_i    [i];
+        assign core_perf_counters_o[i] = sys_perf_counters_i[i];
+
+        // IRQ
+        assign core_irq_req_o      [i] = sys_irq_req_i      [i];
+        assign core_irq_id_o       [i] = sys_irq_id_i       [i];
+
+        // INSTR
+        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
+        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+        assign core_instr_err_o    [i] = sys_instr_err_i    [i];
+
+        // DATA
+        assign core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
+        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
+        assign core_data_r_user_o  [i] = sys_data_r_user_i  [i];
+        assign core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+        assign core_data_err_o     [i] = sys_data_err_i     [i];
+
+      end
+    end
+
+    for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
+      localparam CoreCoreIndex = TMRFixed ? i : InterleaveGrps ? i : i/3;
+      if ((TMRFixed && i < NumTMRGroups) || (i < NumTMRCores && red_mode_q[InterleaveGrps ? i%NumTMRGroups : i-(i%3)] != NON_TMR)) begin : gen_tmr_mode
+        if (TMRFixed || (InterleaveGrps && i < NumTMRGroups) || (!InterleaveGrps && i%3 == 0)) begin : gen_is_tmr
+          
+          // CTRL
+          assign sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
+
+          // IRQ
+          assign sys_irq_ack_o       [i] = core_irq_ack_i   [CoreCoreIndex];
+          assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[CoreCoreIndex];
+
+          // INSTR
+          assign sys_instr_req_o     [i] = core_instr_req_i [CoreCoreIndex];
+          assign sys_instr_addr_o    [i] = core_instr_addr_i[CoreCoreIndex];
+
+          // DATA
+          assign sys_data_req_o      [i] = core_data_req_i  [CoreCoreIndex];
+          assign sys_data_add_o      [i] = core_data_add_i  [CoreCoreIndex];
+          assign sys_data_wen_o      [i] = core_data_wen_i  [CoreCoreIndex];
+          assign sys_data_wdata_o    [i] = core_data_wdata_i[CoreCoreIndex];
+          assign sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
+          assign sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
+
+        end else begin : gen_disable_core // Assign disable
+
+          // CTLR
+          assign sys_core_busy_o     [i] = '0;
+
+          // IRQ
+          assign sys_irq_ack_o       [i] = '0;
+          assign sys_irq_ack_id_o    [i] = '0;
+
+          // INSTR
+          assign sys_instr_req_o     [i] = '0;
+          assign sys_instr_addr_o    [i] = '0;
+
+          // DATA
+          assign sys_data_req_o      [i] = '0;
+          assign sys_data_add_o      [i] = '0;
+          assign sys_data_wen_o      [i] = '0;
+          assign sys_data_wdata_o    [i] = '0;
+          assign sys_data_user_o     [i] = '0;
+          assign sys_data_be_o       [i] = '0;
+
+        end
+      end else begin : gen_independent_mode
+        // CTRL
+        assign sys_core_busy_o     [i] = core_core_busy_i [i];
+
+        // IRQ
+        assign sys_irq_ack_o       [i] = core_irq_ack_i   [i];
+        assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
+
+        // INSTR
+        assign sys_instr_req_o     [i] = core_instr_req_i [i];
+        assign sys_instr_addr_o    [i] = core_instr_addr_i[i];
+
+        // DATA
+        assign sys_data_req_o      [i] = core_data_req_i  [i];
+        assign sys_data_add_o      [i] = core_data_add_i  [i];
+        assign sys_data_wen_o      [i] = core_data_wen_i  [i];
+        assign sys_data_wdata_o    [i] = core_data_wdata_i[i];
+        assign sys_data_user_o     [i] = core_data_user_i [i];
+        assign sys_data_be_o       [i] = core_data_be_i   [i];
+      end
+    end
 
   end else if (DMRSupported || DMRFixed) begin : gen_DMR_only
 
@@ -242,6 +556,7 @@ module HMR_wrap #(
     // Direct assignment, disable all
     assign core_setback_o       = '0;
     
+    // CTRL
     assign core_core_id_o       = sys_core_id_i;
     assign core_cluster_id_o    = sys_cluster_id_i;
 
@@ -249,12 +564,17 @@ module HMR_wrap #(
     assign core_fetch_en_o      = sys_fetch_en_i;
     assign core_boot_addr_o     = sys_boot_addr_i;
     assign sys_core_busy_o      = core_core_busy_i;
+    
+    assign core_debug_req_o     = sys_debug_req_i;
+    assign core_perf_counters_o = sys_perf_counters_i;
 
+    // IRQ
     assign core_irq_req_o       = sys_irq_req_i;
     assign sys_irq_ack_o        = core_irq_ack_i;
     assign core_irq_id_o        = sys_irq_id_i;
     assign sys_irq_ack_id_o     = core_irq_ack_id_i;
 
+    // INSTR
     assign sys_instr_req_o      = core_instr_req_i;
     assign core_instr_gnt_o     = sys_instr_gnt_i;
     assign sys_instr_addr_o     = core_instr_addr_i;
@@ -262,8 +582,7 @@ module HMR_wrap #(
     assign core_instr_r_valid_o = sys_instr_r_valid_i;
     assign core_instr_err_o     = sys_instr_err_i;
 
-    assign core_debug_req_o     = sys_debug_req_i;
-
+    // DATA
     assign sys_data_req_o       = core_data_req_i;
     assign sys_data_add_o       = core_data_add_i;
     assign sys_data_wen_o       = core_data_wen_i;
@@ -276,8 +595,6 @@ module HMR_wrap #(
     assign core_data_r_user_o   = sys_data_r_user_i;
     assign core_data_r_valid_o  = sys_data_r_valid_i;
     assign core_data_err_o      = sys_data_err_i;
-
-    assign core_perf_counters_o = sys_perf_counters_i;
   end
 
 endmodule
