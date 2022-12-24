@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Add secded ECC corrector
+- Add encoder and corrector with parameterizable data width and code
+- Add ECC protected register
+
+### Changed
+- Update secded testbench to use correctors and fix error injection
+
 ## 0.5.0 - 2022-12-21
 
 ### Added
@@ -15,13 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expose additional error logging signals
 - Add scrubber to ECC SRAM wrap
 - Add testing signals for tapeout
-- Add secded ECC corrector
 
 ### Changed
 - Expose  `ecc_sram` ecc error signals
 - Rename cTCLS to ODRG
 - Hide bus ecc behind bender targets, remove related dependencies
-- Update secded testbench to use correctors and fix error injection
 
 ## 0.4.0 - 2022-03-31
 
