@@ -16,48 +16,63 @@ set -e
 
 [ ! -z "$VSIM" ] || VSIM=vsim
 
+# Test Settings
 VSIM_LOGFILE=vsim.log
 MAX_DATA_WIDTH=502
+RunCycles=100
+Codes=("0 0 NoECC" "0 1 SED-Parity" "1 0 SEC-Hamming" "0 2 DED-Hamming" "1 2 SECDED-Hsiao" "0 3 TED-Hsiao")
+num_codes=${#Codes[@]}
 
+# Remove the old logfile
 rm -f $VSIM_LOGFILE
 
-bender script vsim -t test -t rtl > compile.tcl
-
+# Compile the Testbench
 echo "Compiling Testbench..."
+bender script vsim -t test -t rtl > compile.tcl
 "$VSIM" -c -do 'source compile.tcl; quit' >> $VSIM_LOGFILE 2>&1
 tail -3 $VSIM_LOGFILE
 echo ""
 
+# Test Encode and Decode
 echo "Testing Encode and Decode"
-for ECC_Select in "0 0 NoECC" "0 1 SED-Parity" "1 0 SEC-Hamming" "0 2 DED-Hamming" "1 2 SECDED-Hsiao" "0 3 TED-Hsiao"
+test_nr=0
+num_tests=$num_codes
+
+for i in $(seq 0 $((num_codes-1)))
 do
-  ECC_Params=( $ECC_Select );
+  Code=${Codes[i]}
+  ECC_Params=( $Code );
   NumErrorCorrect=${ECC_Params[0]};
   NumErrorDetect=${ECC_Params[1]};
   CodeName=${ECC_Params[2]}
 
-  echo "Testing Code: $CodeName"
-  echo "run -all; quit" | vsim -voptargs=+acc -c -GMaxDataWidth=$MAX_DATA_WIDTH -GNumErrorCorrect=$NumErrorCorrect -GNumErrorDetect=$NumErrorDetect tb_ecc_enc_cor_multi >> $VSIM_LOGFILE 2>&1
+  ((++test_nr))
+  echo "Testing Code: $CodeName ($test_nr of $num_tests)"
+  echo "run -all; quit" | vsim -voptargs=+acc -c -GMaxDataWidth=$MAX_DATA_WIDTH -GNumErrorCorrect=$NumErrorCorrect -GNumErrorDetect=$NumErrorDetect -GRunCycles=$RunCycles tb_ecc_enc_cor_multi >> $VSIM_LOGFILE 2>&1
   tail -4 $VSIM_LOGFILE
   echo ""
 done
 
 echo "Testing ECC protected FFs"
+test_nr=0
+num_tests=$((2*2*2*num_codes))
 for SelfCorrect in 0 1
 do
   for Encode in 0 1
   do
     for Decode in 0 1
     do
-      for ECC_Select in "0 0 NoECC" "0 1 SED-Parity" "1 0 SEC-Hamming" "0 2 DED-Hamming" "1 2 SECDED-Hsiao" "0 3 TED-Hsiao"
+      for i in $(seq 0 $((num_codes-1)))
       do
-        ECC_Params=( $ECC_Select );
+        Code=${Codes[i]}
+        ECC_Params=( $Code );
         NumErrorCorrect=${ECC_Params[0]};
         NumErrorDetect=${ECC_Params[1]};
         CodeName=${ECC_Params[2]}
 
-        echo "Testing Code: $CodeName, Decode=$Decode, Encode=$Encode, SelfCorrect=$SelfCorrect"
-        vsim -c -voptargs=+acc -GMaxDataWidth=$MAX_DATA_WIDTH -GNumErrorCorrect=$NumErrorCorrect -GNumErrorDetect=$NumErrorDetect -GDecode=$Decode -GEncode=$Encode -GSelfCorrect=$SelfCorrect tb_ecc_reg_multi -do test_run.tcl >> $VSIM_LOGFILE 2>&1
+        ((++test_nr))
+        echo "Testing Code: $CodeName, Decode=$Decode, Encode=$Encode, SelfCorrect=$SelfCorrect ($test_nr of $num_tests)"
+        vsim -c -voptargs=+acc -GMaxDataWidth=$MAX_DATA_WIDTH -GNumErrorCorrect=$NumErrorCorrect -GNumErrorDetect=$NumErrorDetect -GDecode=$Decode -GEncode=$Encode -GSelfCorrect=$SelfCorrect -GRunCycles=$RunCycles tb_ecc_reg_multi -do test_run.tcl >> $VSIM_LOGFILE 2>&1
 
         echo "DataWidth=$DataWidth, Code=$CodeName, "
         tail -4 $VSIM_LOGFILE
