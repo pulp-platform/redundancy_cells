@@ -1,5 +1,5 @@
 diff --git a/secded_cfg.hjson b/secded_cfg.hjson
-index d1aba6d..5de93ce 100644
+index d1aba6db1..5de93ce7d 100644
 --- a/secded_cfg.hjson
 +++ b/secded_cfg.hjson
 @@ -2,6 +2,7 @@
