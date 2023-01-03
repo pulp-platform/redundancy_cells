@@ -144,12 +144,15 @@ end
  *   Flip-Flop   *
  *****************/
 
+logic rst;
+assign rst = ~rst_ni;
+
 if ( HasReset &&  AsynchronousReset &&  ActiveLowReset && ~HasLoad) begin
   `FF(data_q, data_d, reset_value_encoded, clk_i, rst_ni)
 end else if ( HasReset &&  AsynchronousReset && ~ActiveLowReset && ~HasLoad) begin
-  `FFAR(data_q, data_d, reset_value_encoded, clk_i, ~rst_ni)
+  `FFAR(data_q, data_d, reset_value_encoded, clk_i, rst)
 end else if ( HasReset && ~AsynchronousReset && ~ActiveLowReset && ~HasLoad) begin
-  `FFSR(data_q, data_d, reset_value_encoded, clk_i, ~rst_ni)
+  `FFSR(data_q, data_d, reset_value_encoded, clk_i, rst)
 end else if ( HasReset && ~AsynchronousReset &&  ActiveLowReset && ~HasLoad) begin
  `FFSRN(data_q, data_d, reset_value_encoded, clk_i, rst_ni)
 end else if ( ~HasReset && ~HasLoad) begin
@@ -157,9 +160,9 @@ end else if ( ~HasReset && ~HasLoad) begin
 end else if ( HasReset &&  AsynchronousReset &&  ActiveLowReset && HasLoad) begin
  `FFL(data_q, data_d, load_en_i, reset_value_encoded, clk_i, rst_ni)
 end else if ( HasReset &&  AsynchronousReset && ~ActiveLowReset && HasLoad) begin
- `FFLAR(data_q, data_d, load_en_i, reset_value_encoded, clk_i, ~rst_ni)
+ `FFLAR(data_q, data_d, load_en_i, reset_value_encoded, clk_i, rst)
 end else if ( HasReset && ~AsynchronousReset && ~ActiveLowReset && HasLoad) begin
- `FFLSR(data_q, data_d, load_en_i, reset_value_encoded, clk_i, ~rst_ni)
+ `FFLSR(data_q, data_d, load_en_i, reset_value_encoded, clk_i, rst)
 end else if ( HasReset && ~AsynchronousReset &&  ActiveLowReset && HasLoad) begin
  `FFLSRN(data_q, data_d, load_en_i, reset_value_encoded, clk_i, rst_ni)
 end else if ( ~HasReset && HasLoad) begin
