@@ -36,8 +36,7 @@
 //                      signals to see if the output is valid or not. When decode
 //                      is disabled, 'data_o' consists of both the data bits and
 //                      the ecc bits. If the user is only interested in the data
-//                      bits, only the lower DataWidth bits shall be used, and
-//                      the upper bits can be disregarded.
+//                      bits, the parameter 'OutputECCBits' can be set to 0.
 // SelfCorrect: if enabled: The register will automatically correct the stored
 //                          data according to the 'NumErrorCorrect' parameter.
 //                          The correction will be done automatically in one
@@ -69,6 +68,7 @@ module ecc_reg #(
   parameter bit Encode = 1,
   parameter bit Decode = 1,
   parameter bit SelfCorrect = 1,
+  parameter bit OutputECCBits = 1,
   // FF Settings
   parameter bit HasReset = 1,
   parameter bit AsynchronousReset = 1,
@@ -77,14 +77,15 @@ module ecc_reg #(
   // Dependent Parameters, do not change
   parameter int unsigned EccDist = `ECC_DIST(NumErrorCorrect, NumErrorDetect),
   parameter int          EccWidth = `ECC_WIDTH(DataWidth, EccDist),
-  parameter int unsigned InputWidth  = DataWidth + (Encode ? 0 : EccWidth),
-  parameter int unsigned OutputWidth = DataWidth + (Decode ? 0 : EccWidth)
+  parameter int unsigned InputWidth  = DataWidth + (Encode                    ? 0 : EccWidth),
+  parameter int unsigned OutputWidth = DataWidth + ((Decode | !OutputECCBits) ? 0 : EccWidth)
 ) (
   // clock and reset inputs
   input  logic                  clk_i,
   input  logic                  rst_ni,
   // data ports
   input  logic[ InputWidth-1:0] data_i,
+  input  logic[ InputWidth-1:0] reset_value_i,
   output logic[OutputWidth-1:0] data_o,
   // ECC ports
   output logic                  error_correctable_o,
@@ -97,9 +98,10 @@ module ecc_reg #(
  *     Encode     *
  ******************/
 
-logic [EccWidth+DataWidth-1:0] data_encoded;
+logic [EccWidth+DataWidth-1:0] data_encoded, reset_value_encoded;
 
 if ( Encode ) begin : enc
+  // Encode the incomming data
   ecc_enc #(
     .DataWidth       ( DataWidth       ),
     .NumErrorDetect  ( NumErrorDetect  ),
@@ -108,8 +110,18 @@ if ( Encode ) begin : enc
     .data_i (data_i      ),
     .data_o (data_encoded)
   );
+  // Encode the reset value
+  ecc_enc #(
+    .DataWidth       ( DataWidth       ),
+    .NumErrorDetect  ( NumErrorDetect  ),
+    .NumErrorCorrect ( NumErrorCorrect )
+  ) i_enc_rst_val (
+    .data_i (reset_value_i      ),
+    .data_o (reset_value_encoded)
+  );
 end else begin : no_enc
   assign data_encoded = data_i;
+  assign reset_value_encoded = reset_value_i;
 end
 
 /*******************
@@ -133,23 +145,23 @@ end
  *****************/
 
 if ( HasReset &&  AsynchronousReset &&  ActiveLowReset && ~HasLoad) begin
-  `FF(data_q, data_d, '0, clk_i, rst_ni)
+  `FF(data_q, data_d, reset_value_encoded, clk_i, rst_ni)
 end else if ( HasReset &&  AsynchronousReset && ~ActiveLowReset && ~HasLoad) begin
-  `FFAR(data_q, data_d, '0, clk_i, ~rst_ni)
+  `FFAR(data_q, data_d, reset_value_encoded, clk_i, ~rst_ni)
 end else if ( HasReset && ~AsynchronousReset && ~ActiveLowReset && ~HasLoad) begin
-  `FFSR(data_q, data_d, '0, clk_i, ~rst_ni)
+  `FFSR(data_q, data_d, reset_value_encoded, clk_i, ~rst_ni)
 end else if ( HasReset && ~AsynchronousReset &&  ActiveLowReset && ~HasLoad) begin
- `FFSRN(data_q, data_d, '0, clk_i, rst_ni)
+ `FFSRN(data_q, data_d, reset_value_encoded, clk_i, rst_ni)
 end else if ( ~HasReset && ~HasLoad) begin
  `FFNR(data_q, data_d, clk_i)
 end else if ( HasReset &&  AsynchronousReset &&  ActiveLowReset && HasLoad) begin
- `FFL(data_q, data_d, load_en_i, '0, clk_i, rst_ni)
+ `FFL(data_q, data_d, load_en_i, reset_value_encoded, clk_i, rst_ni)
 end else if ( HasReset &&  AsynchronousReset && ~ActiveLowReset && HasLoad) begin
- `FFLAR(data_q, data_d, load_en_i, '0, clk_i, ~rst_ni)
+ `FFLAR(data_q, data_d, load_en_i, reset_value_encoded, clk_i, ~rst_ni)
 end else if ( HasReset && ~AsynchronousReset && ~ActiveLowReset && HasLoad) begin
- `FFLSR(data_q, data_d, load_en_i, '0, clk_i, ~rst_ni)
+ `FFLSR(data_q, data_d, load_en_i, reset_value_encoded, clk_i, ~rst_ni)
 end else if ( HasReset && ~AsynchronousReset &&  ActiveLowReset && HasLoad) begin
- `FFLSRN(data_q, data_d, load_en_i, '0, clk_i, rst_ni)
+ `FFLSRN(data_q, data_d, load_en_i, reset_value_encoded, clk_i, rst_ni)
 end else if ( ~HasReset && HasLoad) begin
  `FFLNR(data_q, data_d, load_en_i, clk_i)
 end
@@ -179,7 +191,11 @@ ecc_cor #(
 if(Decode) begin
   assign data_o = data_corrected;
 end else begin
-  assign data_o = data_q;
+  if(OutputECCBits) begin
+    assign data_o = data_q;
+  end else begin
+    assign data_o = data_q[DataWidth-1:0];
+  end
 end
 
 // pragma translate_off
