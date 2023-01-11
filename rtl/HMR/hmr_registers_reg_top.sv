@@ -8,12 +8,12 @@
 `include "common_cells/assertions.svh"
 
 module hmr_registers_reg_top #(
-    parameter type reg_req_t = logic,
-    parameter type reg_rsp_t = logic,
-    parameter int AW = 9
+  parameter type reg_req_t = logic,
+  parameter type reg_rsp_t = logic,
+  parameter int AW = 9
 ) (
-  input clk_i,
-  input rst_ni,
+  input logic clk_i,
+  input logic rst_ni,
   input  reg_req_t reg_req_i,
   output reg_rsp_t reg_rsp_o,
   // To HW
@@ -69,261 +69,174 @@ module hmr_registers_reg_top #(
   // Format: <reg>_<field>_{wd|we|qs}
   //        or <reg>_{wd|we|qs} if field == 1 or 0
   logic avail_config_independent_qs;
+  logic avail_config_independent_re;
   logic avail_config_dual_qs;
+  logic avail_config_dual_re;
   logic avail_config_triple_qs;
+  logic avail_config_triple_re;
   logic [5:0] dmr_enable_qs;
   logic [5:0] dmr_enable_wd;
   logic dmr_enable_we;
+  logic dmr_enable_re;
   logic [3:0] tmr_enable_qs;
   logic [3:0] tmr_enable_wd;
   logic tmr_enable_we;
+  logic tmr_enable_re;
   logic tmr_config_delay_resynch_qs;
   logic tmr_config_delay_resynch_wd;
   logic tmr_config_delay_resynch_we;
+  logic tmr_config_delay_resynch_re;
   logic tmr_config_setback_qs;
   logic tmr_config_setback_wd;
   logic tmr_config_setback_we;
+  logic tmr_config_setback_re;
   logic tmr_config_reload_setback_qs;
   logic tmr_config_reload_setback_wd;
   logic tmr_config_reload_setback_we;
+  logic tmr_config_reload_setback_re;
   logic tmr_config_force_resynch_qs;
   logic tmr_config_force_resynch_wd;
   logic tmr_config_force_resynch_we;
+  logic tmr_config_force_resynch_re;
 
   // Register instances
-  // R[avail_config]: V(False)
+  // R[avail_config]: V(True)
 
   //   F[independent]: 0:0
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RO"),
-    .RESVAL  (1'h0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_avail_config_independent (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
+    .re     (avail_config_independent_re),
     .we     (1'b0),
-    .wd     ('0  ),
-
-    // from internal hardware
-    .de     (hw2reg.avail_config.independent.de),
-    .d      (hw2reg.avail_config.independent.d ),
-
-    // to internal hardware
+    .wd     ('0),
+    .d      (hw2reg.avail_config.independent.d),
+    .qre    (),
     .qe     (),
     .q      (),
-
-    // to register interface (read)
     .qs     (avail_config_independent_qs)
   );
 
 
   //   F[dual]: 1:1
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RO"),
-    .RESVAL  (1'h0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_avail_config_dual (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
+    .re     (avail_config_dual_re),
     .we     (1'b0),
-    .wd     ('0  ),
-
-    // from internal hardware
-    .de     (hw2reg.avail_config.dual.de),
-    .d      (hw2reg.avail_config.dual.d ),
-
-    // to internal hardware
+    .wd     ('0),
+    .d      (hw2reg.avail_config.dual.d),
+    .qre    (),
     .qe     (),
     .q      (),
-
-    // to register interface (read)
     .qs     (avail_config_dual_qs)
   );
 
 
   //   F[triple]: 2:2
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RO"),
-    .RESVAL  (1'h0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_avail_config_triple (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
+    .re     (avail_config_triple_re),
     .we     (1'b0),
-    .wd     ('0  ),
-
-    // from internal hardware
-    .de     (hw2reg.avail_config.triple.de),
-    .d      (hw2reg.avail_config.triple.d ),
-
-    // to internal hardware
+    .wd     ('0),
+    .d      (hw2reg.avail_config.triple.d),
+    .qre    (),
     .qe     (),
     .q      (),
-
-    // to register interface (read)
     .qs     (avail_config_triple_qs)
   );
 
 
-  // R[dmr_enable]: V(False)
+  // R[dmr_enable]: V(True)
 
-  prim_subreg #(
-    .DW      (6),
-    .SWACCESS("RW"),
-    .RESVAL  (6'h0)
+  prim_subreg_ext #(
+    .DW    (6)
   ) u_dmr_enable (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
+    .re     (dmr_enable_re),
     .we     (dmr_enable_we),
     .wd     (dmr_enable_wd),
-
-    // from internal hardware
-    .de     (hw2reg.dmr_enable.de),
-    .d      (hw2reg.dmr_enable.d ),
-
-    // to internal hardware
+    .d      (hw2reg.dmr_enable.d),
+    .qre    (),
     .qe     (reg2hw.dmr_enable.qe),
     .q      (reg2hw.dmr_enable.q ),
-
-    // to register interface (read)
     .qs     (dmr_enable_qs)
   );
 
 
-  // R[tmr_enable]: V(False)
+  // R[tmr_enable]: V(True)
 
-  prim_subreg #(
-    .DW      (4),
-    .SWACCESS("RW"),
-    .RESVAL  (4'h0)
+  prim_subreg_ext #(
+    .DW    (4)
   ) u_tmr_enable (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
+    .re     (tmr_enable_re),
     .we     (tmr_enable_we),
     .wd     (tmr_enable_wd),
-
-    // from internal hardware
-    .de     (1'b0),
-    .d      ('0  ),
-
-    // to internal hardware
+    .d      (hw2reg.tmr_enable.d),
+    .qre    (),
     .qe     (reg2hw.tmr_enable.qe),
     .q      (reg2hw.tmr_enable.q ),
-
-    // to register interface (read)
     .qs     (tmr_enable_qs)
   );
 
 
-  // R[tmr_config]: V(False)
+  // R[tmr_config]: V(True)
 
   //   F[delay_resynch]: 0:0
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RW"),
-    .RESVAL  (1'h0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_tmr_config_delay_resynch (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
+    .re     (tmr_config_delay_resynch_re),
     .we     (tmr_config_delay_resynch_we),
     .wd     (tmr_config_delay_resynch_wd),
-
-    // from internal hardware
-    .de     (hw2reg.tmr_config.delay_resynch.de),
-    .d      (hw2reg.tmr_config.delay_resynch.d ),
-
-    // to internal hardware
+    .d      (hw2reg.tmr_config.delay_resynch.d),
+    .qre    (),
     .qe     (reg2hw.tmr_config.delay_resynch.qe),
     .q      (reg2hw.tmr_config.delay_resynch.q ),
-
-    // to register interface (read)
     .qs     (tmr_config_delay_resynch_qs)
   );
 
 
   //   F[setback]: 1:1
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RW"),
-    .RESVAL  (1'h1)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_tmr_config_setback (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
+    .re     (tmr_config_setback_re),
     .we     (tmr_config_setback_we),
     .wd     (tmr_config_setback_wd),
-
-    // from internal hardware
-    .de     (hw2reg.tmr_config.setback.de),
-    .d      (hw2reg.tmr_config.setback.d ),
-
-    // to internal hardware
+    .d      (hw2reg.tmr_config.setback.d),
+    .qre    (),
     .qe     (reg2hw.tmr_config.setback.qe),
     .q      (reg2hw.tmr_config.setback.q ),
-
-    // to register interface (read)
     .qs     (tmr_config_setback_qs)
   );
 
 
   //   F[reload_setback]: 2:2
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RW"),
-    .RESVAL  (1'h1)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_tmr_config_reload_setback (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
+    .re     (tmr_config_reload_setback_re),
     .we     (tmr_config_reload_setback_we),
     .wd     (tmr_config_reload_setback_wd),
-
-    // from internal hardware
-    .de     (hw2reg.tmr_config.reload_setback.de),
-    .d      (hw2reg.tmr_config.reload_setback.d ),
-
-    // to internal hardware
+    .d      (hw2reg.tmr_config.reload_setback.d),
+    .qre    (),
     .qe     (reg2hw.tmr_config.reload_setback.qe),
     .q      (reg2hw.tmr_config.reload_setback.q ),
-
-    // to register interface (read)
     .qs     (tmr_config_reload_setback_qs)
   );
 
 
   //   F[force_resynch]: 3:3
-  prim_subreg #(
-    .DW      (1),
-    .SWACCESS("RW"),
-    .RESVAL  (1'h0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_tmr_config_force_resynch (
-    .clk_i   (clk_i    ),
-    .rst_ni  (rst_ni  ),
-
-    // from register interface
+    .re     (tmr_config_force_resynch_re),
     .we     (tmr_config_force_resynch_we),
     .wd     (tmr_config_force_resynch_wd),
-
-    // from internal hardware
-    .de     (hw2reg.tmr_config.force_resynch.de),
-    .d      (hw2reg.tmr_config.force_resynch.d ),
-
-    // to internal hardware
+    .d      (hw2reg.tmr_config.force_resynch.d),
+    .qre    (),
     .qe     (reg2hw.tmr_config.force_resynch.qe),
     .q      (reg2hw.tmr_config.force_resynch.q ),
-
-    // to register interface (read)
     .qs     (tmr_config_force_resynch_qs)
   );
 
@@ -350,23 +263,35 @@ module hmr_registers_reg_top #(
                (addr_hit[3] & (|(HMR_REGISTERS_PERMIT[3] & ~reg_be)))));
   end
 
+  assign avail_config_independent_re = addr_hit[0] & reg_re & !reg_error;
+
+  assign avail_config_dual_re = addr_hit[0] & reg_re & !reg_error;
+
+  assign avail_config_triple_re = addr_hit[0] & reg_re & !reg_error;
+
   assign dmr_enable_we = addr_hit[1] & reg_we & !reg_error;
   assign dmr_enable_wd = reg_wdata[5:0];
+  assign dmr_enable_re = addr_hit[1] & reg_re & !reg_error;
 
   assign tmr_enable_we = addr_hit[2] & reg_we & !reg_error;
   assign tmr_enable_wd = reg_wdata[3:0];
+  assign tmr_enable_re = addr_hit[2] & reg_re & !reg_error;
 
   assign tmr_config_delay_resynch_we = addr_hit[3] & reg_we & !reg_error;
   assign tmr_config_delay_resynch_wd = reg_wdata[0];
+  assign tmr_config_delay_resynch_re = addr_hit[3] & reg_re & !reg_error;
 
   assign tmr_config_setback_we = addr_hit[3] & reg_we & !reg_error;
   assign tmr_config_setback_wd = reg_wdata[1];
+  assign tmr_config_setback_re = addr_hit[3] & reg_re & !reg_error;
 
   assign tmr_config_reload_setback_we = addr_hit[3] & reg_we & !reg_error;
   assign tmr_config_reload_setback_wd = reg_wdata[2];
+  assign tmr_config_reload_setback_re = addr_hit[3] & reg_re & !reg_error;
 
   assign tmr_config_force_resynch_we = addr_hit[3] & reg_we & !reg_error;
   assign tmr_config_force_resynch_wd = reg_wdata[3];
+  assign tmr_config_force_resynch_re = addr_hit[3] & reg_re & !reg_error;
 
   // Read data return
   always_comb begin
@@ -412,3 +337,55 @@ module hmr_registers_reg_top #(
   `ASSERT(en2addrHit, (reg_we || reg_re) |-> $onehot0(addr_hit))
 
 endmodule
+
+module hmr_registers_reg_top_intf
+#(
+  parameter int AW = 9,
+  localparam int DW = 32
+) (
+  input logic clk_i,
+  input logic rst_ni,
+  REG_BUS.in  regbus_slave,
+  // To HW
+  output hmr_registers_reg_pkg::hmr_registers_reg2hw_t reg2hw, // Write
+  input  hmr_registers_reg_pkg::hmr_registers_hw2reg_t hw2reg, // Read
+  // Config
+  input devmode_i // If 1, explicit error return for unmapped register access
+);
+ localparam int unsigned STRB_WIDTH = DW/8;
+
+`include "register_interface/typedef.svh"
+`include "register_interface/assign.svh"
+
+  // Define structs for reg_bus
+  typedef logic [AW-1:0] addr_t;
+  typedef logic [DW-1:0] data_t;
+  typedef logic [STRB_WIDTH-1:0] strb_t;
+  `REG_BUS_TYPEDEF_ALL(reg_bus, addr_t, data_t, strb_t)
+
+  reg_bus_req_t s_reg_req;
+  reg_bus_rsp_t s_reg_rsp;
+  
+  // Assign SV interface to structs
+  `REG_BUS_ASSIGN_TO_REQ(s_reg_req, regbus_slave)
+  `REG_BUS_ASSIGN_FROM_RSP(regbus_slave, s_reg_rsp)
+
+  
+
+  hmr_registers_reg_top #(
+    .reg_req_t(reg_bus_req_t),
+    .reg_rsp_t(reg_bus_rsp_t),
+    .AW(AW)
+  ) i_regs (
+    .clk_i,
+    .rst_ni,
+    .reg_req_i(s_reg_req),
+    .reg_rsp_o(s_reg_rsp),
+    .reg2hw, // Write
+    .hw2reg, // Read
+    .devmode_i
+  );
+  
+endmodule
+
+

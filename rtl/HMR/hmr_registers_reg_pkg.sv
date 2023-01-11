@@ -50,39 +50,35 @@ package hmr_registers_reg_pkg;
   typedef struct packed {
     struct packed {
       logic        d;
-      logic        de;
     } independent;
     struct packed {
       logic        d;
-      logic        de;
     } dual;
     struct packed {
       logic        d;
-      logic        de;
     } triple;
   } hmr_registers_hw2reg_avail_config_reg_t;
 
   typedef struct packed {
     logic [5:0]  d;
-    logic        de;
   } hmr_registers_hw2reg_dmr_enable_reg_t;
+
+  typedef struct packed {
+    logic [3:0]  d;
+  } hmr_registers_hw2reg_tmr_enable_reg_t;
 
   typedef struct packed {
     struct packed {
       logic        d;
-      logic        de;
     } delay_resynch;
     struct packed {
       logic        d;
-      logic        de;
     } setback;
     struct packed {
       logic        d;
-      logic        de;
     } reload_setback;
     struct packed {
       logic        d;
-      logic        de;
     } force_resynch;
   } hmr_registers_hw2reg_tmr_config_reg_t;
 
@@ -95,9 +91,10 @@ package hmr_registers_reg_pkg;
 
   // HW -> register type
   typedef struct packed {
-    hmr_registers_hw2reg_avail_config_reg_t avail_config; // [20:15]
-    hmr_registers_hw2reg_dmr_enable_reg_t dmr_enable; // [14:8]
-    hmr_registers_hw2reg_tmr_config_reg_t tmr_config; // [7:0]
+    hmr_registers_hw2reg_avail_config_reg_t avail_config; // [16:14]
+    hmr_registers_hw2reg_dmr_enable_reg_t dmr_enable; // [13:8]
+    hmr_registers_hw2reg_tmr_enable_reg_t tmr_enable; // [7:4]
+    hmr_registers_hw2reg_tmr_config_reg_t tmr_config; // [3:0]
   } hmr_registers_hw2reg_t;
 
   // Register offsets
@@ -105,6 +102,18 @@ package hmr_registers_reg_pkg;
   parameter logic [BlockAw-1:0] HMR_REGISTERS_DMR_ENABLE_OFFSET = 9'h 4;
   parameter logic [BlockAw-1:0] HMR_REGISTERS_TMR_ENABLE_OFFSET = 9'h 8;
   parameter logic [BlockAw-1:0] HMR_REGISTERS_TMR_CONFIG_OFFSET = 9'h c;
+
+  // Reset values for hwext registers and their fields
+  parameter logic [2:0] HMR_REGISTERS_AVAIL_CONFIG_RESVAL = 3'h 0;
+  parameter logic [5:0] HMR_REGISTERS_DMR_ENABLE_RESVAL = 6'h 0;
+  parameter logic [5:0] HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_RESVAL = 6'h 0;
+  parameter logic [3:0] HMR_REGISTERS_TMR_ENABLE_RESVAL = 4'h 0;
+  parameter logic [3:0] HMR_REGISTERS_TMR_ENABLE_TMR_ENABLE_RESVAL = 4'h 0;
+  parameter logic [3:0] HMR_REGISTERS_TMR_CONFIG_RESVAL = 4'h 6;
+  parameter logic [0:0] HMR_REGISTERS_TMR_CONFIG_DELAY_RESYNCH_RESVAL = 1'h 0;
+  parameter logic [0:0] HMR_REGISTERS_TMR_CONFIG_SETBACK_RESVAL = 1'h 1;
+  parameter logic [0:0] HMR_REGISTERS_TMR_CONFIG_RELOAD_SETBACK_RESVAL = 1'h 1;
+  parameter logic [0:0] HMR_REGISTERS_TMR_CONFIG_FORCE_RESYNCH_RESVAL = 1'h 0;
 
   // Register index
   typedef enum int {

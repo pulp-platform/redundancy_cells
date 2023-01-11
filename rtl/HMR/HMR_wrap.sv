@@ -194,6 +194,65 @@ module HMR_wrap #(
     end
   end
 
+  /***************************
+   *  HMR Control Registers  *
+   ***************************/
+
+  localparam NumRegPorts = 1 + (TMRSupported || TMRFixed ? NumTMRGroups : 0) + (DMRSupported || DMRFixed ? NumDMRGroups : 0);
+
+  reg_req_t  [NumRegPorts-1:0] register_reqs;
+  reg_resp_t [NumRegPorts-1:0] register_resps;
+
+  reg_demux #(
+    .NoPorts    ( NumRegPorts ),
+    .req_t      ( reg_req_t    ),
+    .rsp_t      ( reg_resp_t   )
+  ) i_reg_demux (
+    .clk_i,
+    .rst_ni,
+    .in_select_i( /* TODO */ ),
+    .in_req_i   ( reg_request_i                         ),
+    .in_rsp_o   ( reg_response_o                        ),
+    .out_req_o  ( register_reqs                         ),
+    .out_rsp_i  ( register_resps                        )
+  );
+
+  hmr_registers_reg_pkg::hmr_registers_hw2reg_t hmr_hw2reg;
+  hmr_registers_reg_pkg::hmr_registers_reg2hw_t hmr_reg2hw;
+
+  hmr_registers_reg_top #(
+    .reg_req_t( reg_req_t  ),
+    .reg_rsp_t( reg_resp_t )
+  ) i_hmr_registers (
+    .clk_i,
+    .rst_ni,
+    .hw2reg   (hmr_hw2reg),
+    .reg2hw   (hmr_reg2hw),
+    .reg_req_i(register_reqs[0] ),
+    .reg_rsp_o(register_resps[0]),
+    .devmode_i('0)
+  );
+
+  assign hmr_hw2reg.avail_config.independent.d = ~(TMRFixed | DMRFixed);
+  assign hmr_hw2reg.avail_config.independent.de = 1'b1;
+  assign hmr_hw2reg.avail_config.dual.d = DMRFixed | DMRSupported;
+  assign hmr_hw2reg.avail_config.dual.de = 1'b1;
+  assign hmr_hw2reg.avail_config.triple.d = TMRFixed | TMRSupported;
+  assign hmr_hw2reg.avail_config.triple.de = 1'b1;
+
+  assign hmr_hw2reg.dmr_enable.d = '0;
+  assign hmr_hw2reg.tmr_enable.d = '0;
+
+  assign hmr_hw2reg.tmr_config.delay_resynch.d = '0;
+  assign hmr_hw2reg.tmr_config.delay_resynch.de = '0;
+  assign hmr_hw2reg.tmr_config.setback.de = '0;
+  assign hmr_hw2reg.tmr_config.setback.d = '0;
+  assign hmr_hw2reg.tmr_config.reload_setback.de = '0;
+  assign hmr_hw2reg.tmr_config.reload_setback.d  = '0;
+  assign hmr_hw2reg.tmr_config.force_resynch.de = '0;
+  assign hmr_hw2reg.tmr_config.force_resynch.d = '0;
+
+
   /****************
    *  TMR Voters  *
    ****************/
@@ -285,19 +344,19 @@ module HMR_wrap #(
     /*******************
      *  Register File  *
      *******************/
-    reg_demux #(
-      .NoPorts    ( NumTMRGroups ),
-      .req_t      ( reg_req_t    ),
-      .rsp_t      ( reg_resp_t   )
-    ) i_reg_demux (
-      .clk_i,
-      .rst_ni,
-      .in_select_i( reg_request_i.addr[8+TMRSelWidth-1:8] ),
-      .in_req_i   ( reg_request_i                         ),
-      .in_rsp_o   ( reg_response_o                        ),
-      .out_req_o  ( tmr_req                               ),
-      .out_rsp_i  ( tmr_resp                              )
-    );
+    // reg_demux #(
+    //   .NoPorts    ( NumTMRGroups ),
+    //   .req_t      ( reg_req_t    ),
+    //   .rsp_t      ( reg_resp_t   )
+    // ) i_reg_demux (
+    //   .clk_i,
+    //   .rst_ni,
+    //   .in_select_i( reg_request_i.addr[8+TMRSelWidth-1:8] ),
+    //   .in_req_i   ( reg_request_i                         ),
+    //   .in_rsp_o   ( reg_response_o                        ),
+    //   .out_req_o  ( tmr_req                               ),
+    //   .out_rsp_i  ( tmr_resp                              )
+    // );
 
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
       odrg_manager_reg_top #(
@@ -306,8 +365,8 @@ module HMR_wrap #(
       ) i_registers (
         .clk_i,
         .rst_ni,
-        .reg_req_i( tmr_req [i] ),
-        .reg_rsp_o( tmr_resp[i] ),
+        .reg_req_i( register_reqs [1+i] ),
+        .reg_rsp_o( register_resps[1+i] ),
         .reg2hw   ( reg2hw  [i] ),
         .hw2reg   ( hw2reg  [i] ),
         .devmode_i( 1'b0        )
