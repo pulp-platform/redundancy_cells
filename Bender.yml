@@ -18,6 +18,7 @@ sources:
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
+  - rtl/ECC_reg/dmr_io_tmr_reg.sv
   - rtl/ECC_reg/hamming.sv
   - rtl/ECC_reg/tmr_reg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
