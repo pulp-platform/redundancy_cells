@@ -36,98 +36,104 @@ module HMR_wrap #(
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
   localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRCores : NumCores
 ) (
-  input  logic      clk_i,
+  input  logic      clk_i ,
   input  logic      rst_ni,
 
   // Port to configuration unit
-  input  reg_req_t  reg_request_i,
+  input  reg_req_t  reg_request_i ,
   output reg_resp_t reg_response_o,
 
   // TMR signals
-  output logic [NumTMRGroups-1:0] tmr_failure_o,
-  output logic [ NumSysCores-1:0] tmr_error_o,
+  output logic [NumTMRGroups-1:0] tmr_failure_o    ,
+  output logic [ NumSysCores-1:0] tmr_error_o      ,
   output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
   input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
+
+  // DMR signals
+  output logic [NumDMRGroups-1:0] dmr_failure_o    ,
+  output logic [ NumSysCores-1:0] dmr_error_o      ,
+  output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
+  input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
   // TODO other required signals
 
   // Ports connecting to System
-  input  logic [NumSysCores-1:0][           3:0] sys_core_id_i,
-  input  logic [NumSysCores-1:0][           5:0] sys_cluster_id_i,
-
-  input  logic [NumSysCores-1:0]                 sys_clock_en_i,
-  input  logic [NumSysCores-1:0]                 sys_fetch_en_i,
-  input  logic [NumSysCores-1:0][          31:0] sys_boot_addr_i,
-  output logic [NumSysCores-1:0]                 sys_core_busy_o,
-
-  input  logic [NumSysCores-1:0]                 sys_irq_req_i,
-  output logic [NumSysCores-1:0]                 sys_irq_ack_o,
-  input  logic [NumSysCores-1:0][           4:0] sys_irq_id_i,
-  output logic [NumSysCores-1:0][           4:0] sys_irq_ack_id_o,
-
-  output logic [NumSysCores-1:0]                 sys_instr_req_o,
-  input  logic [NumSysCores-1:0]                 sys_instr_gnt_i,
-  output logic [NumSysCores-1:0][          31:0] sys_instr_addr_o,
+  input  logic [NumSysCores-1:0][           3:0]     sys_core_id_i      ,
+  input  logic [NumSysCores-1:0][           5:0]     sys_cluster_id_i   ,
+                                                                        
+  input  logic [NumSysCores-1:0]                     sys_clock_en_i     ,
+  input  logic [NumSysCores-1:0]                     sys_fetch_en_i     ,
+  input  logic [NumSysCores-1:0][          31:0]     sys_boot_addr_i    ,
+  output logic [NumSysCores-1:0]                     sys_core_busy_o    ,
+                                                                        
+  input  logic [NumSysCores-1:0]                     sys_irq_req_i      ,
+  output logic [NumSysCores-1:0]                     sys_irq_ack_o      ,
+  input  logic [NumSysCores-1:0][           4:0]     sys_irq_id_i       ,
+  output logic [NumSysCores-1:0][           4:0]     sys_irq_ack_id_o   ,
+                                                     
+  output logic [NumSysCores-1:0]                     sys_instr_req_o    ,
+  input  logic [NumSysCores-1:0]                     sys_instr_gnt_i    ,
+  output logic [NumSysCores-1:0][          31:0]     sys_instr_addr_o   ,
   input  logic [NumSysCores-1:0][InstrDataWidth-1:0] sys_instr_r_rdata_i,
-  input  logic [NumSysCores-1:0]                 sys_instr_r_valid_i,
-  input  logic [NumSysCores-1:0]                 sys_instr_err_i,
-
-  input  logic [NumSysCores-1:0]                 sys_debug_req_i,
-
-  output logic [NumSysCores-1:0]                 sys_data_req_o,
-  output logic [NumSysCores-1:0][          31:0] sys_data_add_o,
-  output logic [NumSysCores-1:0]                 sys_data_wen_o,
-  output logic [NumSysCores-1:0][ DataWidth-1:0] sys_data_wdata_o,
-  output logic [NumSysCores-1:0][ UserWidth-1:0] sys_data_user_o,
-  output logic [NumSysCores-1:0][   BeWidth-1:0] sys_data_be_o,
-  input  logic [NumSysCores-1:0]                 sys_data_gnt_i,
-  input  logic [NumSysCores-1:0]                 sys_data_r_opc_i,
-  input  logic [NumSysCores-1:0][ DataWidth-1:0] sys_data_r_rdata_i,
-  input  logic [NumSysCores-1:0][ UserWidth-1:0] sys_data_r_user_i,
-  input  logic [NumSysCores-1:0]                 sys_data_r_valid_i,
-  input  logic [NumSysCores-1:0]                 sys_data_err_i,
-
-  input  logic [NumSysCores-1:0][NumExtPerf-1:0] sys_perf_counters_i,
+  input  logic [NumSysCores-1:0]                     sys_instr_r_valid_i,
+  input  logic [NumSysCores-1:0]                     sys_instr_err_i    ,
+                                                     
+  input  logic [NumSysCores-1:0]                     sys_debug_req_i    ,
+                                                     
+  output logic [NumSysCores-1:0]                     sys_data_req_o     ,
+  output logic [NumSysCores-1:0][          31:0]     sys_data_add_o     ,
+  output logic [NumSysCores-1:0]                     sys_data_wen_o     ,
+  output logic [NumSysCores-1:0][ DataWidth-1:0]     sys_data_wdata_o   ,
+  output logic [NumSysCores-1:0][ UserWidth-1:0]     sys_data_user_o    ,
+  output logic [NumSysCores-1:0][   BeWidth-1:0]     sys_data_be_o      ,
+  input  logic [NumSysCores-1:0]                     sys_data_gnt_i     ,
+  input  logic [NumSysCores-1:0]                     sys_data_r_opc_i   ,
+  input  logic [NumSysCores-1:0][ DataWidth-1:0]     sys_data_r_rdata_i ,
+  input  logic [NumSysCores-1:0][ UserWidth-1:0]     sys_data_r_user_i  ,
+  input  logic [NumSysCores-1:0]                     sys_data_r_valid_i ,
+  input  logic [NumSysCores-1:0]                     sys_data_err_i     ,
+                                                     
+  input  logic [NumSysCores-1:0][NumExtPerf-1:0]     sys_perf_counters_i,
 
   // Ports connecting to the cores
-  output logic [   NumCores-1:0]                 core_setback_o,
-
-  output logic [   NumCores-1:0][           3:0] core_core_id_o,
-  output logic [   NumCores-1:0][           5:0] core_cluster_id_o,
-
-  output logic [   NumCores-1:0]                 core_clock_en_o,
-  output logic [   NumCores-1:0]                 core_fetch_en_o,
-  output logic [   NumCores-1:0][          31:0] core_boot_addr_o,
-  input  logic [   NumCores-1:0]                 core_core_busy_i,
-
-  output logic [   NumCores-1:0]                 core_irq_req_o,
-  input  logic [   NumCores-1:0]                 core_irq_ack_i,
-  output logic [   NumCores-1:0][           4:0] core_irq_id_o,
-  input  logic [   NumCores-1:0][           4:0] core_irq_ack_id_i,
-
-  input  logic [   NumCores-1:0]                 core_instr_req_i,
-  output logic [   NumCores-1:0]                 core_instr_gnt_o,
-  input  logic [   NumCores-1:0][          31:0] core_instr_addr_i,
+  output logic [   NumCores-1:0]                     core_setback_o      ,
+                                                                         
+  output logic [   NumCores-1:0][           3:0]     core_core_id_o      ,
+  output logic [   NumCores-1:0][           5:0]     core_cluster_id_o   ,
+                                                                         
+  output logic [   NumCores-1:0]                     core_clock_en_o     ,
+  output logic [   NumCores-1:0]                     core_fetch_en_o     ,
+  output logic [   NumCores-1:0][          31:0]     core_boot_addr_o    ,
+  input  logic [   NumCores-1:0]                     core_core_busy_i    ,
+                                                                         
+  output logic [   NumCores-1:0]                     core_irq_req_o      ,
+  input  logic [   NumCores-1:0]                     core_irq_ack_i      ,
+  output logic [   NumCores-1:0][           4:0]     core_irq_id_o       ,
+  input  logic [   NumCores-1:0][           4:0]     core_irq_ack_id_i   ,
+                                                                         
+  input  logic [   NumCores-1:0]                     core_instr_req_i    ,
+  output logic [   NumCores-1:0]                     core_instr_gnt_o    ,
+  input  logic [   NumCores-1:0][          31:0]     core_instr_addr_i   ,
   output logic [   NumCores-1:0][InstrDataWidth-1:0] core_instr_r_rdata_o,
-  output logic [   NumCores-1:0]                 core_instr_r_valid_o,
-  output logic [   NumCores-1:0]                 core_instr_err_o,
-
-  output logic [   NumCores-1:0]                 core_debug_req_o,
-
-  input  logic [   NumCores-1:0]                 core_data_req_i,
-  input  logic [   NumCores-1:0][          31:0] core_data_add_i,
-  input  logic [   NumCores-1:0]                 core_data_wen_i,
-  input  logic [   NumCores-1:0][ DataWidth-1:0] core_data_wdata_i,
-  input  logic [   NumCores-1:0][ UserWidth-1:0] core_data_user_i,
-  input  logic [   NumCores-1:0][   BeWidth-1:0] core_data_be_i,
-  output logic [   NumCores-1:0]                 core_data_gnt_o,
-  output logic [   NumCores-1:0]                 core_data_r_opc_o,
-  output logic [   NumCores-1:0][ DataWidth-1:0] core_data_r_rdata_o,
-  output logic [   NumCores-1:0][ UserWidth-1:0] core_data_r_user_o,
-  output logic [   NumCores-1:0]                 core_data_r_valid_o,
-  output logic [   NumCores-1:0]                 core_data_err_o,
-
-  output logic [   NumCores-1:0][NumExtPerf-1:0] core_perf_counters_o
+  output logic [   NumCores-1:0]                     core_instr_r_valid_o,
+  output logic [   NumCores-1:0]                     core_instr_err_o    ,
+                                                     
+  output logic [   NumCores-1:0]                     core_debug_req_o    ,
+                                                     
+  input  logic [   NumCores-1:0]                     core_data_req_i     ,
+  input  logic [   NumCores-1:0][          31:0]     core_data_add_i     ,
+  input  logic [   NumCores-1:0]                     core_data_wen_i     ,
+  input  logic [   NumCores-1:0][ DataWidth-1:0]     core_data_wdata_i   ,
+  input  logic [   NumCores-1:0][ UserWidth-1:0]     core_data_user_i    ,
+  input  logic [   NumCores-1:0][   BeWidth-1:0]     core_data_be_i      ,
+  output logic [   NumCores-1:0]                     core_data_gnt_o     ,
+  output logic [   NumCores-1:0]                     core_data_r_opc_o   ,
+  output logic [   NumCores-1:0][ DataWidth-1:0]     core_data_r_rdata_o ,
+  output logic [   NumCores-1:0][ UserWidth-1:0]     core_data_r_user_o  ,
+  output logic [   NumCores-1:0]                     core_data_r_valid_o ,
+  output logic [   NumCores-1:0]                     core_data_err_o     ,
+                                                     
+  output logic [   NumCores-1:0][NumExtPerf-1:0]     core_perf_counters_o
 
   // APU/SHARED_FPU not implemented
 );
