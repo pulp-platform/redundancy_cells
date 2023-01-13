@@ -139,7 +139,7 @@ module HMR_wrap #(
 
   localparam int unsigned CtrlConcatWidth = 1   + 1      + 5         + 1    + 32    + 1;
   //                                        busy  irq_ack  irq_ack_id  i_req  i_addr  d_req
-  localparam int unsigned DataConcatWidth = 32      + 1       + DataWidth + BEWidth + UserWidth;
+  localparam int unsigned DataConcatWidth = 32      + 1       + DataWidth + BeWidth + UserWidth;
   //                                        data_add  data_wen  data_wdata  data_be   data_user
   localparam int unsigned MainConcatWidth = SeparateData ? CtrlConcatWidth : 
                                             CtrlConcatWidth + DataConcatWidth;
@@ -234,22 +234,22 @@ module HMR_wrap #(
   );
 
   assign hmr_hw2reg.avail_config.independent.d = ~(TMRFixed | DMRFixed);
-  assign hmr_hw2reg.avail_config.independent.de = 1'b1;
+  // assign hmr_hw2reg.avail_config.independent.de = 1'b1;
   assign hmr_hw2reg.avail_config.dual.d = DMRFixed | DMRSupported;
-  assign hmr_hw2reg.avail_config.dual.de = 1'b1;
+  // assign hmr_hw2reg.avail_config.dual.de = 1'b1;
   assign hmr_hw2reg.avail_config.triple.d = TMRFixed | TMRSupported;
-  assign hmr_hw2reg.avail_config.triple.de = 1'b1;
+  // assign hmr_hw2reg.avail_config.triple.de = 1'b1;
 
   assign hmr_hw2reg.dmr_enable.d = '0;
   assign hmr_hw2reg.tmr_enable.d = '0;
 
   assign hmr_hw2reg.tmr_config.delay_resynch.d = '0;
-  assign hmr_hw2reg.tmr_config.delay_resynch.de = '0;
-  assign hmr_hw2reg.tmr_config.setback.de = '0;
+  // assign hmr_hw2reg.tmr_config.delay_resynch.de = '0;
+  // assign hmr_hw2reg.tmr_config.setback.de = '0;
   assign hmr_hw2reg.tmr_config.setback.d = '0;
-  assign hmr_hw2reg.tmr_config.reload_setback.de = '0;
+  // assign hmr_hw2reg.tmr_config.reload_setback.de = '0;
   assign hmr_hw2reg.tmr_config.reload_setback.d  = '0;
-  assign hmr_hw2reg.tmr_config.force_resynch.de = '0;
+  // assign hmr_hw2reg.tmr_config.force_resynch.de = '0;
   assign hmr_hw2reg.tmr_config.force_resynch.d = '0;
 
 
@@ -261,9 +261,9 @@ module HMR_wrap #(
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_voter
       assign tmr_failure[i]         = tmr_data_req_out[i] ?
                           tmr_failure_main | tmr_failure_data : tmr_failure_main;
-      assign tmr_error[i*3+:3]      = tmr_data_req_out[i] ?
-                          tmr_error_main[i*3+:3] | tmr_error_data[i*3+:3] : tmr_error_main[i*3+:3];
-      assign tmr_single_mismatch[i] = tmr_error[i*3+:3] != 3'b000;
+      assign tmr_error[i]      = tmr_data_req_out[i] ?
+                          tmr_error_main[i] | tmr_error_data[i] : tmr_error_main[i];
+      assign tmr_single_mismatch[i] = tmr_error[i] != 3'b000;
 
       bitwise_TMR_voter #(
         .DataWidth( MainConcatWidth ),
@@ -303,9 +303,9 @@ module HMR_wrap #(
       end
     end
     if (NumTMRLeftover > 0) begin : gen_tmr_leftover_error
-      assign tmr_error_main[NumCores-1-:NumTMRLeftover] = '0;
-      assign tmr_error_data[NumCores-1-:NumTMRLeftover] = '0;
-      assign tmr_error     [NumCores-1-:NumTMRLeftover] = '0;
+      // assign tmr_error_main[NumCores-1-:NumTMRLeftover] = '0;
+      // assign tmr_error_data[NumCores-1-:NumTMRLeftover] = '0;
+      // assign tmr_error     [NumCores-1-:NumTMRLeftover] = '0;
     end
   end else begin : gen_no_tmr_voted
     assign tmr_error_main   = '0;
@@ -338,6 +338,8 @@ module HMR_wrap #(
 
     reg_req_t  [NumTMRGroups-1:0] tmr_req;
     reg_resp_t [NumTMRGroups-1:0] tmr_resp;
+
+    logic [NumTMRGroups-1:0] setback_d;
 
     localparam TMRSelWidth = $clog2(NumTMRGroups);
 
@@ -468,142 +470,146 @@ module HMR_wrap #(
       if(!rst_ni) begin
         red_mode_q <= {NumTMRGroups{DefaultTMRMode}};
       end else begin
-        red_mode_d <= red_mode_q;
+        red_mode_q <= red_mode_d;
       end
     end
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = TMRFixed ? i/3 : InterleaveGrps ? i%NumTMRGroups : i-(i%3);
-      if (i < NumTMRCores && (TMRFixed || red_mode_q[InterleaveGrps ? i%NumTMRGroups : i/3] != NON_TMR)) begin : gen_tmr_mode
+      always_comb begin
+        if (i < NumTMRCores && (TMRFixed || red_mode_q[InterleaveGrps ? i%NumTMRGroups : i/3] != NON_TMR)) begin : tmr_mode
 
-        // CTRL
-        assign core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
-        assign core_cluster_id_o   [i] = sys_cluster_id_i   [SysCoreIndex];
+          // CTRL
+          core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
+          core_cluster_id_o   [i] = sys_cluster_id_i   [SysCoreIndex];
 
-        assign core_clock_en_o     [i] = sys_clock_en_i     [SysCoreIndex];
-        assign core_fetch_en_o     [i] = sys_fetch_en_i     [SysCoreIndex];
-        assign core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
+          core_clock_en_o     [i] = sys_clock_en_i     [SysCoreIndex];
+          core_fetch_en_o     [i] = sys_fetch_en_i     [SysCoreIndex];
+          core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
 
-        assign core_debug_req_o    [i] = sys_debug_req_i    [SysCoreIndex];
-        assign core_perf_counters_o[i] = sys_perf_counters_i[SysCoreIndex];
+          core_debug_req_o    [i] = sys_debug_req_i    [SysCoreIndex];
+          core_perf_counters_o[i] = sys_perf_counters_i[SysCoreIndex];
 
-        // IRQ
-        assign core_irq_req_o      [i] = sys_irq_req_i      [SysCoreIndex];
-        assign core_irq_id_o       [i] = sys_irq_id_i       [SysCoreIndex];
+          // IRQ
+          core_irq_req_o      [i] = sys_irq_req_i      [SysCoreIndex];
+          core_irq_id_o       [i] = sys_irq_id_i       [SysCoreIndex];
 
-        // INSTR
-        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
-        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
-        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[SysCoreIndex];
-        assign core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
+          // INSTR
+          core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
+          core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
+          core_instr_r_valid_o[i] = sys_instr_r_valid_i[SysCoreIndex];
+          core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
 
-        // DATA
-        assign core_data_gnt_o     [i] = sys_data_gnt_i     [SysCoreIndex];
-        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
-        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
-        assign core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
-        assign core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
-        assign core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
+          // DATA
+          core_data_gnt_o     [i] = sys_data_gnt_i     [SysCoreIndex];
+          core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
+          core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
+          core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
+          core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
+          core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
 
-      end else begin : gen_independent_mode
+        end else begin : independent_mode
 
-        // CTRL
-        assign core_core_id_o      [i] = sys_core_id_i      [i];
-        assign core_cluster_id_o   [i] = sys_cluster_id_i   [i];
+          // CTRL
+          core_core_id_o      [i] = sys_core_id_i      [i];
+          core_cluster_id_o   [i] = sys_cluster_id_i   [i];
 
-        assign core_clock_en_o     [i] = sys_clock_en_i     [i];
-        assign core_fetch_en_o     [i] = sys_fetch_en_i     [i];
-        assign core_boot_addr_o    [i] = sys_boot_addr_i    [i];
+          core_clock_en_o     [i] = sys_clock_en_i     [i];
+          core_fetch_en_o     [i] = sys_fetch_en_i     [i];
+          core_boot_addr_o    [i] = sys_boot_addr_i    [i];
 
-        assign core_debug_req_o    [i] = sys_debug_req_i    [i];
-        assign core_perf_counters_o[i] = sys_perf_counters_i[i];
+          core_debug_req_o    [i] = sys_debug_req_i    [i];
+          core_perf_counters_o[i] = sys_perf_counters_i[i];
 
-        // IRQ
-        assign core_irq_req_o      [i] = sys_irq_req_i      [i];
-        assign core_irq_id_o       [i] = sys_irq_id_i       [i];
+          // IRQ
+          core_irq_req_o      [i] = sys_irq_req_i      [i];
+          core_irq_id_o       [i] = sys_irq_id_i       [i];
 
-        // INSTR
-        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
-        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
-        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
-        assign core_instr_err_o    [i] = sys_instr_err_i    [i];
+          // INSTR
+          core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+          core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
+          core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+          core_instr_err_o    [i] = sys_instr_err_i    [i];
 
-        // DATA
-        assign core_data_gnt_o     [i] = sys_data_gnt_i     [i];
-        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
-        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
-        assign core_data_r_user_o  [i] = sys_data_r_user_i  [i];
-        assign core_data_r_valid_o [i] = sys_data_r_valid_i [i];
-        assign core_data_err_o     [i] = sys_data_err_i     [i];
+          // DATA
+          core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+          core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
+          core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
+          core_data_r_user_o  [i] = sys_data_r_user_i  [i];
+          core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+          core_data_err_o     [i] = sys_data_err_i     [i];
 
+        end
       end
     end
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = TMRFixed ? i : InterleaveGrps ? i : i/3;
-      if ((TMRFixed && i < NumTMRGroups) || (i < NumTMRCores && red_mode_q[InterleaveGrps ? i%NumTMRGroups : i-(i%3)] != NON_TMR)) begin : gen_tmr_mode
-        if (TMRFixed || (InterleaveGrps && i < NumTMRGroups) || (!InterleaveGrps && i%3 == 0)) begin : gen_is_tmr
-          
+      localparam CoreCoreIndex = TMRFixed ? i : i/3;
+      always_comb begin
+        if ((TMRFixed && i < NumTMRGroups) || (i < NumTMRCores && red_mode_q[InterleaveGrps ? i%NumTMRGroups : i-(i%3)] != NON_TMR)) begin : tmr_mode
+          if (TMRFixed || (InterleaveGrps && i < NumTMRGroups) || (!InterleaveGrps && i%3 == 0)) begin : is_tmr
+            
+            // CTRL
+            sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
+
+            // IRQ
+            sys_irq_ack_o       [i] = core_irq_ack_i   [CoreCoreIndex];
+            sys_irq_ack_id_o    [i] = core_irq_ack_id_i[CoreCoreIndex];
+
+            // INSTR
+            sys_instr_req_o     [i] = core_instr_req_i [CoreCoreIndex];
+            sys_instr_addr_o    [i] = core_instr_addr_i[CoreCoreIndex];
+
+            // DATA
+            sys_data_req_o      [i] = core_data_req_i  [CoreCoreIndex];
+            sys_data_add_o      [i] = core_data_add_i  [CoreCoreIndex];
+            sys_data_wen_o      [i] = core_data_wen_i  [CoreCoreIndex];
+            sys_data_wdata_o    [i] = core_data_wdata_i[CoreCoreIndex];
+            sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
+            sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
+
+          end else begin : disable_core // Assign disable
+
+            // CTLR
+            sys_core_busy_o     [i] = '0;
+
+            // IRQ
+            sys_irq_ack_o       [i] = '0;
+            sys_irq_ack_id_o    [i] = '0;
+
+            // INSTR
+            sys_instr_req_o     [i] = '0;
+            sys_instr_addr_o    [i] = '0;
+
+            // DATA
+            sys_data_req_o      [i] = '0;
+            sys_data_add_o      [i] = '0;
+            sys_data_wen_o      [i] = '0;
+            sys_data_wdata_o    [i] = '0;
+            sys_data_user_o     [i] = '0;
+            sys_data_be_o       [i] = '0;
+
+          end
+        end else begin : independent_mode
           // CTRL
-          assign sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
+          sys_core_busy_o     [i] = core_core_busy_i [i];
 
           // IRQ
-          assign sys_irq_ack_o       [i] = core_irq_ack_i   [CoreCoreIndex];
-          assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[CoreCoreIndex];
+          sys_irq_ack_o       [i] = core_irq_ack_i   [i];
+          sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
 
           // INSTR
-          assign sys_instr_req_o     [i] = core_instr_req_i [CoreCoreIndex];
-          assign sys_instr_addr_o    [i] = core_instr_addr_i[CoreCoreIndex];
+          sys_instr_req_o     [i] = core_instr_req_i [i];
+          sys_instr_addr_o    [i] = core_instr_addr_i[i];
 
           // DATA
-          assign sys_data_req_o      [i] = core_data_req_i  [CoreCoreIndex];
-          assign sys_data_add_o      [i] = core_data_add_i  [CoreCoreIndex];
-          assign sys_data_wen_o      [i] = core_data_wen_i  [CoreCoreIndex];
-          assign sys_data_wdata_o    [i] = core_data_wdata_i[CoreCoreIndex];
-          assign sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
-          assign sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
-
-        end else begin : gen_disable_core // Assign disable
-
-          // CTLR
-          assign sys_core_busy_o     [i] = '0;
-
-          // IRQ
-          assign sys_irq_ack_o       [i] = '0;
-          assign sys_irq_ack_id_o    [i] = '0;
-
-          // INSTR
-          assign sys_instr_req_o     [i] = '0;
-          assign sys_instr_addr_o    [i] = '0;
-
-          // DATA
-          assign sys_data_req_o      [i] = '0;
-          assign sys_data_add_o      [i] = '0;
-          assign sys_data_wen_o      [i] = '0;
-          assign sys_data_wdata_o    [i] = '0;
-          assign sys_data_user_o     [i] = '0;
-          assign sys_data_be_o       [i] = '0;
-
+          sys_data_req_o      [i] = core_data_req_i  [i];
+          sys_data_add_o      [i] = core_data_add_i  [i];
+          sys_data_wen_o      [i] = core_data_wen_i  [i];
+          sys_data_wdata_o    [i] = core_data_wdata_i[i];
+          sys_data_user_o     [i] = core_data_user_i [i];
+          sys_data_be_o       [i] = core_data_be_i   [i];
         end
-      end else begin : gen_independent_mode
-        // CTRL
-        assign sys_core_busy_o     [i] = core_core_busy_i [i];
-
-        // IRQ
-        assign sys_irq_ack_o       [i] = core_irq_ack_i   [i];
-        assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
-
-        // INSTR
-        assign sys_instr_req_o     [i] = core_instr_req_i [i];
-        assign sys_instr_addr_o    [i] = core_instr_addr_i[i];
-
-        // DATA
-        assign sys_data_req_o      [i] = core_data_req_i  [i];
-        assign sys_data_add_o      [i] = core_data_add_i  [i];
-        assign sys_data_wen_o      [i] = core_data_wen_i  [i];
-        assign sys_data_wdata_o    [i] = core_data_wdata_i[i];
-        assign sys_data_user_o     [i] = core_data_user_i [i];
-        assign sys_data_be_o       [i] = core_data_be_i   [i];
       end
     end
 

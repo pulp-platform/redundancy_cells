@@ -83,3 +83,10 @@ sources:
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
 
+  - files:
+      - rtl/HMR/hmr_registers_reg_pkg.sv
+      - rtl/HMR/hmr_core_regs_reg_pkg.sv
+      - rtl/HMR/hmr_registers_reg_top.sv
+      - rtl/HMR/hmr_core_regs_reg_top.sv
+      - rtl/HMR/HMR_wrap.sv
+
