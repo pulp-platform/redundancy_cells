@@ -11,30 +11,30 @@
 // Hybrid modular redundancy wrapping unit
 
 module HMR_wrap #(
-  parameter int unsigned NumCores       = 0,
-  parameter bit          DMRSupported   = 1'b1,
-  parameter bit          DMRFixed       = 1'b0,
-  parameter bit          TMRSupported   = 1'b1,
-  parameter bit          TMRFixed       = 1'b0,
-  parameter bit          SeparateData   = 1'b1,
-  parameter bit          BackupRegfile  = 1'b0,
-  parameter bit          InterleaveGrps = 1'b1, // alternative is sequential grouping
-
-  parameter int unsigned InstrDataWidth = 32,
-  parameter int unsigned DataWidth      = 32,
-  parameter int unsigned BeWidth        = 4,
-  parameter int unsigned UserWidth      = 0,
-  parameter int unsigned NumExtPerf     = 5,
-
-  parameter type         reg_req_t      = logic,
-  parameter type         reg_resp_t     = logic,
-  parameter int unsigned NumTMRGroups   = NumCores/3,
-  parameter int unsigned NumTMRCores    = NumTMRGroups * 3,
-  parameter int unsigned NumTMRLeftover = NumCores - NumTMRCores,
-  parameter int unsigned NumDMRGroups   = NumCores/2,
-  parameter int unsigned NumDMRCores    = NumDMRGroups * 2,
-  parameter int unsigned NumDMRLeftover = NumCores - NumDMRCores,
-  parameter int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRCores : NumCores
+  // Wrapper parameters
+  parameter  int unsigned NumCores       = 0,
+  parameter  bit          DMRSupported   = 1'b1,
+  parameter  bit          DMRFixed       = 1'b0,
+  parameter  bit          TMRSupported   = 1'b1,
+  parameter  bit          TMRFixed       = 1'b0,
+  parameter  bit          SeparateData   = 1'b1,
+  parameter  bit          BackupRegfile  = 1'b0,
+  parameter  bit          InterleaveGrps = 1'b1, // alternative is sequential grouping
+  parameter  int unsigned InstrDataWidth = 32,
+  parameter  int unsigned DataWidth      = 32,
+  parameter  int unsigned BeWidth        = 4,
+  parameter  int unsigned UserWidth      = 0,
+  parameter  int unsigned NumExtPerf     = 5,
+  parameter  type         reg_req_t      = logic,
+  parameter  type         reg_resp_t     = logic,
+  // Local parameters depending on the above ones
+  localparam int unsigned NumTMRGroups   = NumCores/3,
+  localparam int unsigned NumTMRCores    = NumTMRGroups * 3,
+  localparam int unsigned NumTMRLeftover = NumCores - NumTMRCores,
+  localparam int unsigned NumDMRGroups   = NumCores/2,
+  localparam int unsigned NumDMRCores    = NumDMRGroups * 2,
+  localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
+  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRCores : NumCores
 ) (
   input  logic      clk_i,
   input  logic      rst_ni,
