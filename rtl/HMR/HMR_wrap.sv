@@ -133,35 +133,23 @@ module HMR_wrap #(
 );
 
   function int tmr_group_id (int core_id);
-    if (InterleaveGrps) begin
-      return core_id % NumTMRGroups;
-    end else begin
-      return (core_id/3);
-    end
+    if (InterleaveGrps) return core_id % NumTMRGroups;
+    else                return (core_id/3);
   endfunction
 
   function int tmr_core_id (int group_id, int core_offset);
-    if (InterleaveGrps) begin
-      return group_id + core_offset * NumTMRGroups;
-    end else begin
-      return (group_id * 3) + core_offset;
-    end
+    if (InterleaveGrps) return group_id + core_offset * NumTMRGroups;
+    else                return (group_id * 3) + core_offset;
   endfunction
 
   function int dmr_group_id (int core_id);
-    if (InterleaveGrps) begin
-      return core_id % NumDMRGroups;
-    end else begin
-      return (core_id/2);
-    end
+    if (InterleaveGrps) return core_id % NumDMRGroups;
+    else                return (core_id/2);
   endfunction
 
   function int dmr_core_id (int group_id, int core_offset);
-    if (InterleaveGrps) begin
-      return group_id + core_offset * NumDMRGroups;
-    end else begin
-      return (group_id * 2) + core_offset;
-    end
+    if (InterleaveGrps) return group_id + core_offset * NumDMRGroups;
+    else                return (group_id * 2) + core_offset;
   endfunction
 
   if (TMRFixed && DMRFixed) $fatal(1, "Cannot fix both TMR and DMR!");
@@ -431,9 +419,9 @@ module HMR_wrap #(
 
     localparam TMRSelWidth = $clog2(NumTMRGroups);
 
-    /*******************
-     *  Register File  *
-     *******************/
+    /***************
+     *  Registers  *
+     ***************/
     reg_demux #(
       .NoPorts    ( NumTMRGroups ),
       .req_t      ( reg_req_t    ),
@@ -666,26 +654,24 @@ module HMR_wrap #(
       end else begin
         if (i >= NumTMRGroups) begin : independent_stragglers
           // CTRL
-          assign sys_core_busy_o     [i] = core_core_busy_i [i];
+          assign sys_core_busy_o     [i] = core_core_busy_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // IRQ
-          assign sys_irq_ack_o       [i] = core_irq_ack_i   [i];
-          assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
+          assign sys_irq_ack_o       [i] = core_irq_ack_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // INSTR
-          assign sys_instr_req_o     [i] = core_instr_req_i [i];
-          assign sys_instr_addr_o    [i] = core_instr_addr_i[i];
+          assign sys_instr_req_o     [i] = core_instr_req_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_instr_addr_o    [i] = core_instr_addr_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // DATA
-          assign sys_data_req_o      [i] = core_data_req_i  [i];
-          assign sys_data_add_o      [i] = core_data_add_i  [i];
-          assign sys_data_wen_o      [i] = core_data_wen_i  [i];
-          assign sys_data_wdata_o    [i] = core_data_wdata_i[i];
-          assign sys_data_user_o     [i] = core_data_user_i [i];
-          assign sys_data_be_o       [i] = core_data_be_i   [i];
+          assign sys_data_req_o      [i] = core_data_req_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_add_o      [i] = core_data_add_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_wen_o      [i] = core_data_wen_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_wdata_o    [i] = core_data_wdata_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_user_o     [i] = core_data_user_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_be_o       [i] = core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin
-
-
           always_comb begin
             if ((red_mode_q[tmr_group_id(i)] != NON_TMR)) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
