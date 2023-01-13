@@ -12,7 +12,7 @@ package hmr_registers_reg_pkg;
   parameter int NumTMRGroups = 4;
 
   // Address widths within the block
-  parameter int BlockAw = 9;
+  parameter int BlockAw = 5;
 
   ////////////////////////////
   // Typedefs for registers //
@@ -60,6 +60,10 @@ package hmr_registers_reg_pkg;
   } hmr_registers_hw2reg_avail_config_reg_t;
 
   typedef struct packed {
+    logic [11:0] d;
+  } hmr_registers_hw2reg_cores_en_reg_t;
+
+  typedef struct packed {
     logic [5:0]  d;
   } hmr_registers_hw2reg_dmr_enable_reg_t;
 
@@ -91,20 +95,23 @@ package hmr_registers_reg_pkg;
 
   // HW -> register type
   typedef struct packed {
-    hmr_registers_hw2reg_avail_config_reg_t avail_config; // [16:14]
+    hmr_registers_hw2reg_avail_config_reg_t avail_config; // [28:26]
+    hmr_registers_hw2reg_cores_en_reg_t cores_en; // [25:14]
     hmr_registers_hw2reg_dmr_enable_reg_t dmr_enable; // [13:8]
     hmr_registers_hw2reg_tmr_enable_reg_t tmr_enable; // [7:4]
     hmr_registers_hw2reg_tmr_config_reg_t tmr_config; // [3:0]
   } hmr_registers_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] HMR_REGISTERS_AVAIL_CONFIG_OFFSET = 9'h 0;
-  parameter logic [BlockAw-1:0] HMR_REGISTERS_DMR_ENABLE_OFFSET = 9'h 4;
-  parameter logic [BlockAw-1:0] HMR_REGISTERS_TMR_ENABLE_OFFSET = 9'h 8;
-  parameter logic [BlockAw-1:0] HMR_REGISTERS_TMR_CONFIG_OFFSET = 9'h c;
+  parameter logic [BlockAw-1:0] HMR_REGISTERS_AVAIL_CONFIG_OFFSET = 5'h 0;
+  parameter logic [BlockAw-1:0] HMR_REGISTERS_CORES_EN_OFFSET = 5'h 4;
+  parameter logic [BlockAw-1:0] HMR_REGISTERS_DMR_ENABLE_OFFSET = 5'h 8;
+  parameter logic [BlockAw-1:0] HMR_REGISTERS_TMR_ENABLE_OFFSET = 5'h c;
+  parameter logic [BlockAw-1:0] HMR_REGISTERS_TMR_CONFIG_OFFSET = 5'h 10;
 
   // Reset values for hwext registers and their fields
   parameter logic [2:0] HMR_REGISTERS_AVAIL_CONFIG_RESVAL = 3'h 0;
+  parameter logic [11:0] HMR_REGISTERS_CORES_EN_RESVAL = 12'h 0;
   parameter logic [5:0] HMR_REGISTERS_DMR_ENABLE_RESVAL = 6'h 0;
   parameter logic [5:0] HMR_REGISTERS_DMR_ENABLE_DMR_ENABLE_RESVAL = 6'h 0;
   parameter logic [3:0] HMR_REGISTERS_TMR_ENABLE_RESVAL = 4'h 0;
@@ -118,17 +125,19 @@ package hmr_registers_reg_pkg;
   // Register index
   typedef enum int {
     HMR_REGISTERS_AVAIL_CONFIG,
+    HMR_REGISTERS_CORES_EN,
     HMR_REGISTERS_DMR_ENABLE,
     HMR_REGISTERS_TMR_ENABLE,
     HMR_REGISTERS_TMR_CONFIG
   } hmr_registers_id_e;
 
   // Register width information to check illegal writes
-  parameter logic [3:0] HMR_REGISTERS_PERMIT [4] = '{
+  parameter logic [3:0] HMR_REGISTERS_PERMIT [5] = '{
     4'b 0001, // index[0] HMR_REGISTERS_AVAIL_CONFIG
-    4'b 0001, // index[1] HMR_REGISTERS_DMR_ENABLE
-    4'b 0001, // index[2] HMR_REGISTERS_TMR_ENABLE
-    4'b 0001  // index[3] HMR_REGISTERS_TMR_CONFIG
+    4'b 0011, // index[1] HMR_REGISTERS_CORES_EN
+    4'b 0001, // index[2] HMR_REGISTERS_DMR_ENABLE
+    4'b 0001, // index[3] HMR_REGISTERS_TMR_ENABLE
+    4'b 0001  // index[4] HMR_REGISTERS_TMR_CONFIG
   };
 
 endpackage

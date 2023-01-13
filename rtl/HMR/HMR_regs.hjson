@@ -12,7 +12,7 @@
 
   param_list: [
     { name: "NumCores",
-      default: "12" # Supports up to 64 cores
+      default: "12" # Supports up to 32 cores
     },
     { name: "NumDMRGroups",
       default: "6"
@@ -40,6 +40,18 @@
         { bits: "2",
           name: "triple",
           desc: "Triple Modular Redundancy (TMR) is available."
+        }
+      ]
+    },
+    { name: "cores_en",
+      desc: "Enabled cores, based on the configuration. Can be used for barriers.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext: "true",
+      fields: [
+        { bits: "NumCores-1:0"
+          name: "cores_en",
+          desc: "Enabled cores."
         }
       ]
     },
@@ -106,15 +118,6 @@
           desc: "Forces a resynchronization routine"
         }
       ]
-    },
-    { skipto: "0x100" },
-    # Space for DMR-specific multiregs
-    { skipto: "0x200" }
-    # Space for TMR-specific multiregs
-    # { multireg:
-    #   { count: "NumTMRGroups"
-
-    #   }
-    # }
+    }
   ]
 }

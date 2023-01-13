@@ -7,7 +7,7 @@
 package hmr_core_regs_reg_pkg;
 
   // Address widths within the block
-  parameter int BlockAw = 4;
+  parameter int BlockAw = 3;
 
   ////////////////////////////
   // Typedefs for registers //
@@ -34,14 +34,6 @@ package hmr_core_regs_reg_pkg;
     logic        de;
   } hmr_core_regs_hw2reg_mismatches_reg_t;
 
-  typedef struct packed {
-    logic [31:0] d;
-  } hmr_core_regs_hw2reg_mismatches_secondary_reg_t;
-
-  typedef struct packed {
-    logic [31:0] d;
-  } hmr_core_regs_hw2reg_mismatches_tertiary_reg_t;
-
   // Register -> HW type
   typedef struct packed {
     hmr_core_regs_reg2hw_mismatches_reg_t mismatches; // [31:0]
@@ -49,40 +41,30 @@ package hmr_core_regs_reg_pkg;
 
   // HW -> register type
   typedef struct packed {
-    hmr_core_regs_hw2reg_current_mode_reg_t current_mode; // [99:97]
-    hmr_core_regs_hw2reg_mismatches_reg_t mismatches; // [96:64]
-    hmr_core_regs_hw2reg_mismatches_secondary_reg_t mismatches_secondary; // [63:32]
-    hmr_core_regs_hw2reg_mismatches_tertiary_reg_t mismatches_tertiary; // [31:0]
+    hmr_core_regs_hw2reg_current_mode_reg_t current_mode; // [35:33]
+    hmr_core_regs_hw2reg_mismatches_reg_t mismatches; // [32:0]
   } hmr_core_regs_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] HMR_CORE_REGS_CURRENT_MODE_OFFSET = 4'h 0;
-  parameter logic [BlockAw-1:0] HMR_CORE_REGS_MISMATCHES_OFFSET = 4'h 4;
-  parameter logic [BlockAw-1:0] HMR_CORE_REGS_MISMATCHES_SECONDARY_OFFSET = 4'h 8;
-  parameter logic [BlockAw-1:0] HMR_CORE_REGS_MISMATCHES_TERTIARY_OFFSET = 4'h c;
+  parameter logic [BlockAw-1:0] HMR_CORE_REGS_CURRENT_MODE_OFFSET = 3'h 0;
+  parameter logic [BlockAw-1:0] HMR_CORE_REGS_MISMATCHES_OFFSET = 3'h 4;
 
   // Reset values for hwext registers and their fields
   parameter logic [2:0] HMR_CORE_REGS_CURRENT_MODE_RESVAL = 3'h 1;
   parameter logic [0:0] HMR_CORE_REGS_CURRENT_MODE_INDEPENDENT_RESVAL = 1'h 1;
   parameter logic [0:0] HMR_CORE_REGS_CURRENT_MODE_DUAL_RESVAL = 1'h 0;
   parameter logic [0:0] HMR_CORE_REGS_CURRENT_MODE_TRIPLE_RESVAL = 1'h 0;
-  parameter logic [31:0] HMR_CORE_REGS_MISMATCHES_SECONDARY_RESVAL = 32'h 0;
-  parameter logic [31:0] HMR_CORE_REGS_MISMATCHES_TERTIARY_RESVAL = 32'h 0;
 
   // Register index
   typedef enum int {
     HMR_CORE_REGS_CURRENT_MODE,
-    HMR_CORE_REGS_MISMATCHES,
-    HMR_CORE_REGS_MISMATCHES_SECONDARY,
-    HMR_CORE_REGS_MISMATCHES_TERTIARY
+    HMR_CORE_REGS_MISMATCHES
   } hmr_core_regs_id_e;
 
   // Register width information to check illegal writes
-  parameter logic [3:0] HMR_CORE_REGS_PERMIT [4] = '{
+  parameter logic [3:0] HMR_CORE_REGS_PERMIT [2] = '{
     4'b 0001, // index[0] HMR_CORE_REGS_CURRENT_MODE
-    4'b 1111, // index[1] HMR_CORE_REGS_MISMATCHES
-    4'b 1111, // index[2] HMR_CORE_REGS_MISMATCHES_SECONDARY
-    4'b 1111  // index[3] HMR_CORE_REGS_MISMATCHES_TERTIARY
+    4'b 1111  // index[1] HMR_CORE_REGS_MISMATCHES
   };
 
 endpackage

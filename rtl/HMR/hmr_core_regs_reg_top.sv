@@ -10,7 +10,7 @@
 module hmr_core_regs_reg_top #(
   parameter type reg_req_t = logic,
   parameter type reg_rsp_t = logic,
-  parameter int AW = 4
+  parameter int AW = 3
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -77,10 +77,6 @@ module hmr_core_regs_reg_top #(
   logic [31:0] mismatches_qs;
   logic [31:0] mismatches_wd;
   logic mismatches_we;
-  logic [31:0] mismatches_secondary_qs;
-  logic mismatches_secondary_re;
-  logic [31:0] mismatches_tertiary_qs;
-  logic mismatches_tertiary_re;
 
   // Register instances
   // R[current_mode]: V(True)
@@ -157,47 +153,13 @@ module hmr_core_regs_reg_top #(
   );
 
 
-  // R[mismatches_secondary]: V(True)
-
-  prim_subreg_ext #(
-    .DW    (32)
-  ) u_mismatches_secondary (
-    .re     (mismatches_secondary_re),
-    .we     (1'b0),
-    .wd     ('0),
-    .d      (hw2reg.mismatches_secondary.d),
-    .qre    (),
-    .qe     (),
-    .q      (),
-    .qs     (mismatches_secondary_qs)
-  );
 
 
-  // R[mismatches_tertiary]: V(True)
-
-  prim_subreg_ext #(
-    .DW    (32)
-  ) u_mismatches_tertiary (
-    .re     (mismatches_tertiary_re),
-    .we     (1'b0),
-    .wd     ('0),
-    .d      (hw2reg.mismatches_tertiary.d),
-    .qre    (),
-    .qe     (),
-    .q      (),
-    .qs     (mismatches_tertiary_qs)
-  );
-
-
-
-
-  logic [3:0] addr_hit;
+  logic [1:0] addr_hit;
   always_comb begin
     addr_hit = '0;
     addr_hit[0] = (reg_addr == HMR_CORE_REGS_CURRENT_MODE_OFFSET);
     addr_hit[1] = (reg_addr == HMR_CORE_REGS_MISMATCHES_OFFSET);
-    addr_hit[2] = (reg_addr == HMR_CORE_REGS_MISMATCHES_SECONDARY_OFFSET);
-    addr_hit[3] = (reg_addr == HMR_CORE_REGS_MISMATCHES_TERTIARY_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -206,9 +168,7 @@ module hmr_core_regs_reg_top #(
   always_comb begin
     wr_err = (reg_we &
               ((addr_hit[0] & (|(HMR_CORE_REGS_PERMIT[0] & ~reg_be))) |
-               (addr_hit[1] & (|(HMR_CORE_REGS_PERMIT[1] & ~reg_be))) |
-               (addr_hit[2] & (|(HMR_CORE_REGS_PERMIT[2] & ~reg_be))) |
-               (addr_hit[3] & (|(HMR_CORE_REGS_PERMIT[3] & ~reg_be)))));
+               (addr_hit[1] & (|(HMR_CORE_REGS_PERMIT[1] & ~reg_be)))));
   end
 
   assign current_mode_independent_re = addr_hit[0] & reg_re & !reg_error;
@@ -219,10 +179,6 @@ module hmr_core_regs_reg_top #(
 
   assign mismatches_we = addr_hit[1] & reg_we & !reg_error;
   assign mismatches_wd = reg_wdata[31:0];
-
-  assign mismatches_secondary_re = addr_hit[2] & reg_re & !reg_error;
-
-  assign mismatches_tertiary_re = addr_hit[3] & reg_re & !reg_error;
 
   // Read data return
   always_comb begin
@@ -236,14 +192,6 @@ module hmr_core_regs_reg_top #(
 
       addr_hit[1]: begin
         reg_rdata_next[31:0] = mismatches_qs;
-      end
-
-      addr_hit[2]: begin
-        reg_rdata_next[31:0] = mismatches_secondary_qs;
-      end
-
-      addr_hit[3]: begin
-        reg_rdata_next[31:0] = mismatches_tertiary_qs;
       end
 
       default: begin
@@ -268,7 +216,7 @@ endmodule
 
 module hmr_core_regs_reg_top_intf
 #(
-  parameter int AW = 4,
+  parameter int AW = 3,
   localparam int DW = 32
 ) (
   input logic clk_i,

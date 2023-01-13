@@ -24,6 +24,7 @@ HJSON_ODRG = rtl/ODRG_unit/ODRG_unit.hjson
 HJSON_TCLS = rtl/pulpissimo_tcls/TCLS_unit.hjson
 HJSON_HMR = rtl/HMR/HMR_regs.hjson
 HJSON_HMR_core = rtl/HMR/HMR_core_regs.hjson
+HJSON_HMR_tmr = rtl/HMR/HMR_tmr_regs.hjson
 HJSON_ECC = rtl/ecc_wrap/ecc_sram_wrapper.hjson
 
 TARGET_DIR_ODRG = rtl/ODRG_unit
@@ -50,6 +51,7 @@ gen_HMR:
 	python $(REG_TOOL) $(HJSON_HMR) -D > $(TARGET_DIR_HMR)/HMR.h
 	python $(REG_TOOL) $(HJSON_HMR) --doc > $(TARGET_DIR_HMR)/doc.md
 	python $(REG_TOOL) $(HJSON_HMR_core) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_tmr) -t $(TARGET_DIR_HMR) -r
 
 gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) -t $(TARGET_DIR_ECC) -r

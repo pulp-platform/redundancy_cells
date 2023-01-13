@@ -43,30 +43,6 @@
           desc: "mismatch counter of the core"
         }
       ]
-    },
-    { name: "mismatches_secondary",
-      desc: "Mismatches of the secondary core",
-      swaccess: "ro",
-      hwaccess: "hwo",
-      hwext: "true",
-      fields: [
-        { bits: "31:0",
-          name: "mismatches",
-          desc: "mismatch counter of the core"
-        }
-      ]
-    },
-    { name: "mismatches_tertiary",
-      desc: "Mismatches of the tertiary core",
-      swaccess: "ro",
-      hwaccess: "hwo",
-      hwext: "true",
-      fields: [
-        { bits: "31:0",
-          name: "mismatches",
-          desc: "mismatch counter of the core"
-        }
-      ]
     }
   ]
 }
