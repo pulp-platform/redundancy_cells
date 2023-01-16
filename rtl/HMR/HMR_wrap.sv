@@ -34,7 +34,7 @@ module HMR_wrap #(
   localparam int unsigned NumDMRGroups   = NumCores/2,
   localparam int unsigned NumDMRCores    = NumDMRGroups * 2,
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
-  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRCores : NumCores
+  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRCores : TMRFixed ? NumTMRCores : NumCores
 ) (
   input  logic      clk_i ,
   input  logic      rst_ni,
@@ -385,7 +385,7 @@ module HMR_wrap #(
         assign tmr_failure_data[i] = 1'b0;
         assign tmr_error_data[i] = 3'b000;
         assign {tmr_core_busy_out[i], tmr_irq_ack_out[i], tmr_irq_ack_id_out[i],
-               tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i],
+                tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i],
                tmr_data_add_out[i], tmr_data_wen_out[i], tmr_data_wdata_out[i],
                tmr_data_be_out[i], tmr_data_user_out[i]} = main_tmr_out[i];
       end
@@ -749,8 +749,146 @@ module HMR_wrap #(
     end
 
   end else if (DMRSupported || DMRFixed) begin : gen_DMR_only
+    if (DMRFixed && NumCores % 2 != 0) $warning("Extra cores added not properly handled! :)");
+    // Binding DMR outputs to zero for now
+    assign dmr_failure_o     = '0;
+    assign dmr_error_o       = '0;
+    assign dmr_resynch_req_o = '0;
 
-    // TODO
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
+      localparam SysCoreIndex = DMRFixed ? i/2 : InterleaveGrps ? i%NumDMRGroups : i-(i%2);
+      if (i < NumDMRCores && DMRFixed) begin : gen_dmr_mode
+        // CTRL
+        assign core_core_id_o      [i] = sys_core_id_i      [2*SysCoreIndex];
+        assign core_cluster_id_o   [i] = sys_cluster_id_i   [2*SysCoreIndex];
+
+        assign core_clock_en_o     [i] = sys_clock_en_i     [2*SysCoreIndex];
+        assign core_fetch_en_o     [i] = sys_fetch_en_i     [2*SysCoreIndex];
+        assign core_boot_addr_o    [i] = sys_boot_addr_i    [2*SysCoreIndex];
+
+        assign core_debug_req_o    [i] = sys_debug_req_i    [2*SysCoreIndex];
+        assign core_perf_counters_o[i] = sys_perf_counters_i[2*SysCoreIndex];
+
+        // IRQ
+        assign core_irq_req_o      [i] = sys_irq_req_i      [2*SysCoreIndex];
+        assign core_irq_id_o       [i] = sys_irq_id_i       [2*SysCoreIndex];
+
+        // INSTR
+        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [2*SysCoreIndex];
+        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[2*SysCoreIndex];
+        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[2*SysCoreIndex];
+        assign core_instr_err_o    [i] = sys_instr_err_i    [2*SysCoreIndex];
+
+        // DATA
+        assign core_data_gnt_o     [i] = sys_data_gnt_i     [2*SysCoreIndex];
+        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [2*SysCoreIndex];
+        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [2*SysCoreIndex];
+        assign core_data_r_user_o  [i] = sys_data_r_user_i  [2*SysCoreIndex];
+        assign core_data_r_valid_o [i] = sys_data_r_valid_i [2*SysCoreIndex];
+        assign core_data_err_o     [i] = sys_data_err_i     [2*SysCoreIndex];
+
+      end else begin : gen_independent_mode
+
+        // CTRL
+        assign core_core_id_o      [i] = sys_core_id_i      [i];
+        assign core_cluster_id_o   [i] = sys_cluster_id_i   [i];
+
+        assign core_clock_en_o     [i] = sys_clock_en_i     [i];
+        assign core_fetch_en_o     [i] = sys_fetch_en_i     [i];
+        assign core_boot_addr_o    [i] = sys_boot_addr_i    [i];
+
+        assign core_debug_req_o    [i] = sys_debug_req_i    [i];
+        assign core_perf_counters_o[i] = sys_perf_counters_i[i];
+
+        // IRQ
+        assign core_irq_req_o      [i] = sys_irq_req_i      [i];
+        assign core_irq_id_o       [i] = sys_irq_id_i       [i];
+
+        // INSTR
+        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
+        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+        assign core_instr_err_o    [i] = sys_instr_err_i    [i];
+
+        // DATA
+        assign core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
+        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
+        assign core_data_r_user_o  [i] = sys_data_r_user_i  [i];
+        assign core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+        assign core_data_err_o     [i] = sys_data_err_i     [i];
+
+      end
+    end // gen_core_inputs
+
+    for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
+      localparam CoreCoreIndex = DMRFixed ? i : InterleaveGrps ? i : i/2;
+      if ((DMRFixed && i < NumDMRGroups) || (i < NumDMRCores)) begin : gen_dmr_mode
+        if (DMRFixed || (InterleaveGrps && i < NumDMRGroups) || (!InterleaveGrps && i%2 == 0)) begin : gen_is_dmr
+          
+          // CTRL
+          // assign sys_core_busy_o     [i] = dmr_core_busy_out[CoreCoreIndex];
+          assign sys_core_busy_o     [i] = core_core_busy_i[CoreCoreIndex];
+
+          // IRQ
+          assign sys_irq_ack_o       [i] = core_irq_ack_i   [CoreCoreIndex];
+          assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[CoreCoreIndex];
+
+          // INSTR
+          assign sys_instr_req_o     [i] = core_instr_req_i [CoreCoreIndex];
+          assign sys_instr_addr_o    [i] = core_instr_addr_i[CoreCoreIndex];
+
+          // DATA
+          assign sys_data_req_o      [i] = core_data_req_i  [CoreCoreIndex];
+          assign sys_data_add_o      [i] = core_data_add_i  [CoreCoreIndex];
+          assign sys_data_wen_o      [i] = core_data_wen_i  [CoreCoreIndex];
+          assign sys_data_wdata_o    [i] = core_data_wdata_i[CoreCoreIndex];
+          assign sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
+          assign sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
+
+        end else begin : gen_disable_core // Assign disable
+
+          // CTLR
+          assign sys_core_busy_o     [i] = '0;
+
+          // IRQ
+          assign sys_irq_ack_o       [i] = '0;
+          assign sys_irq_ack_id_o    [i] = '0;
+
+          // INSTR
+          assign sys_instr_req_o     [i] = '0;
+          assign sys_instr_addr_o    [i] = '0;
+
+          // DATA
+          assign sys_data_req_o      [i] = '0;
+          assign sys_data_add_o      [i] = '0;
+          assign sys_data_wen_o      [i] = '0;
+          assign sys_data_wdata_o    [i] = '0;
+          assign sys_data_user_o     [i] = '0;
+          assign sys_data_be_o       [i] = '0;
+
+        end
+      end else begin : gen_independent_mode
+        // CTRL
+        assign sys_core_busy_o     [i] = core_core_busy_i [i];
+
+        // IRQ
+        assign sys_irq_ack_o       [i] = core_irq_ack_i   [i];
+        assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
+
+        // INSTR
+        assign sys_instr_req_o     [i] = core_instr_req_i [i];
+        assign sys_instr_addr_o    [i] = core_instr_addr_i[i];
+
+        // DATA
+        assign sys_data_req_o      [i] = core_data_req_i  [i];
+        assign sys_data_add_o      [i] = core_data_add_i  [i];
+        assign sys_data_wen_o      [i] = core_data_wen_i  [i];
+        assign sys_data_wdata_o    [i] = core_data_wdata_i[i];
+        assign sys_data_user_o     [i] = core_data_user_i [i];
+        assign sys_data_be_o       [i] = core_data_be_i   [i];
+      end
+    end // gen_core_outputs
 
   end else begin : gen_no_redundancy
     // Direct assignment, disable all
