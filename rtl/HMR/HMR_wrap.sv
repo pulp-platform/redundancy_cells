@@ -55,6 +55,15 @@ module HMR_wrap #(
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
+  // Backup ports from cores' RFs
+  // Port A
+  input  logic [ NumSysCores-1:0]       backup_regfile_we_a_i   ,
+  input  logic [ NumSysCores-1:0][ 5:0] backup_regfile_waddr_a_i,
+  input  logic [ NumSysCores-1:0][31:0] backup_regfile_wdata_a_i,
+  // Port B
+  input  logic [ NumSysCores-1:0]       backup_regfile_we_b_i   ,
+  input  logic [ NumSysCores-1:0][ 5:0] backup_regfile_waddr_b_i,
+  input  logic [ NumSysCores-1:0][31:0] backup_regfile_wdata_b_i,
   // TODO other required signals
 
   // Ports connecting to System
@@ -119,6 +128,7 @@ module HMR_wrap #(
   output logic [   NumCores-1:0]                     core_instr_err_o    ,
                                                      
   output logic [   NumCores-1:0]                     core_debug_req_o    ,
+  input  logic [   NumCores-1:0]                     core_debug_rsp_i    ,
                                                      
   input  logic [   NumCores-1:0]                     core_data_req_i     ,
   input  logic [   NumCores-1:0][          31:0]     core_data_add_i     ,
@@ -206,6 +216,13 @@ module HMR_wrap #(
   logic [NumDMRGroups-1:0][ DataWidth-1:0] dmr_data_wdata_out;
   logic [NumDMRGroups-1:0][ UserWidth-1:0] dmr_data_user_out;
   logic [NumDMRGroups-1:0][   BeWidth-1:0] dmr_data_be_out;
+
+  logic [NumDMRGroups-1:0][ DataWidth-1:0] backup_regfile_wdata_a,
+                                           backup_regfile_wdata_b;
+  logic [NumDMRGroups-1:0]                 backup_regfile_we_a,
+                                           backup_regfile_we_b,
+                                           backup_regfile_error_a,
+                                           backup_regfile_error_b;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
     if (SeparateData) begin
@@ -493,7 +510,7 @@ module HMR_wrap #(
    ******************** DMR Voters and Regs *******************
    ************************************************************/
 
-  if (DMRSupported || DMRFixed) begin: gen_dmr_checkers
+  if (DMRSupported || DMRFixed) begin: gen_dmr_recovery_region
     for (genvar i = 0; i < NumDMRGroups; i++) begin
       assign dmr_failure [i] = dmr_data_req_out [i] ? (dmr_failure_main | dmr_failure_data)
                                                     : dmr_failure_main;
@@ -501,6 +518,18 @@ module HMR_wrap #(
                                                        : tmr_error_main [i*2+:2];
       assign dmr_single_mismatch [i] = dmr_error [i*2+:2] != 3'b000;
 
+      /**********************************************************
+       ******************** DMR Core Checkers *******************
+       *********************************************************/
+
+      // DMR_checker #(
+      //   .DataWidth ( MainConcatWidth )
+      // ) dmr_core_checker_main (
+      //   .inp_a_i ( main_concat_in [InterleaveGrps ? i                : i*2]),
+      //   .inp_b_i ( main_concat_in [InterleaveGrps ? i + NumDMRGroups : i*2]),
+      //   .check_o ( main_dmr_out [i]    ),
+      //   .error_o ( dmr_failure_main [i])
+      // );
       DMR_checker #(
         .DataWidth ( MainConcatWidth )
       ) dmr_core_checker_main (
@@ -533,6 +562,57 @@ module HMR_wrap #(
                 dmr_data_be_out[i]  , dmr_data_user_out[i]}
                 = main_dmr_out[i];
       end
+
+      /*********************************************************
+       ******************** DMR RF Checkers ********************
+       ********************************************************/
+      DMR_checker # (
+        .DataWidth ( DataWidth )
+      ) dmr_rf_checker_port_a (
+        .inp_a_i ( backup_regfile_wdata_a_i [i  ]),
+        .inp_b_i ( backup_regfile_wdata_a_i [i+1]),
+        .check_o ( backup_regfile_wdata_a [i]    ),
+        .error_o ( backup_regfile_error_a [i]    )
+      );
+
+      DMR_checker # (
+        .DataWidth ( DataWidth )
+      ) dmr_rf_checker_port_b (
+        .inp_a_i ( backup_regfile_wdata_b_i [i  ] ),
+        .inp_b_i ( backup_regfile_wdata_b_i [i+1] ),
+        .check_o ( backup_regfile_wdata_b [i]     ),
+        .error_o ( backup_regfile_error_b [i]     )
+      );
+
+      assign backup_regfile_we_a [i] = backup_regfile_we_a_i [i] | backup_regfile_error_a [i];
+      assign backup_regfile_we_b [i] = backup_regfile_we_b_i [i] | backup_regfile_error_b [i];
+      /*****************************************************************
+       ******************** Recovery Register Files ********************
+       ****************************************************************/
+       recovery_rf #(
+         .ECCEnabled ( 1 )
+       ) RRF           (
+         .clk_i        ( clk_i  ),
+         .rst_ni       ( rst_ni ),
+         .test_en_i    ( '0     ),
+         //Read port A
+         .raddr_a_i    ( '0 ),
+         .rdata_a_o    (    ) ,
+         //Read port B
+         .raddr_b_i    ( '0 ),
+         .rdata_b_o    (    ),
+         //Read port C
+         .raddr_c_i    ( '0 ),
+         .rdata_c_o    (    ),
+         // Write Port A
+         .waddr_a_i    ( backup_regfile_waddr_a_i [i] ),
+         .wdata_a_i    ( backup_regfile_wdata_a [i]   ),
+         .we_a_i       ( backup_regfile_we_a [i]      ),
+         // Write Port B
+         .waddr_b_i    ( backup_regfile_waddr_b_i [i] ),
+         .wdata_b_i    ( backup_regfile_wdata_b [i]   ),
+         .we_b_i       ( backup_regfile_we_b [i]      )
+       );
     end
     if (NumDMRLeftover > 0) begin : gen_dmr_leftover_error
       assign dmr_error_main[NumCores-1-:NumDMRLeftover] = '0;
