@@ -835,6 +835,9 @@ module HMR_wrap #(
     end
 
   end else if (DMRSupported || DMRFixed) begin : gen_DMR_only
+    /*****************
+     *** DMR only ***
+     *****************/
     if (DMRFixed && NumCores % 2 != 0) $warning("Extra cores added not properly handled! :)");
     // Binding DMR outputs to zero for now
     assign dmr_failure_o     = '0;
@@ -842,36 +845,36 @@ module HMR_wrap #(
     assign dmr_resynch_req_o = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam SysCoreIndex = DMRFixed ? i/2 : InterleaveGrps ? i%NumDMRGroups : i-(i%2);
+      localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       if (i < NumDMRCores && DMRFixed) begin : gen_dmr_mode
         // CTRL
-        assign core_core_id_o      [i] = sys_core_id_i      [2*SysCoreIndex];
-        assign core_cluster_id_o   [i] = sys_cluster_id_i   [2*SysCoreIndex];
+        assign core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
+        assign core_cluster_id_o   [i] = sys_cluster_id_i   [SysCoreIndex];
 
-        assign core_clock_en_o     [i] = sys_clock_en_i     [2*SysCoreIndex];
-        assign core_fetch_en_o     [i] = sys_fetch_en_i     [2*SysCoreIndex];
-        assign core_boot_addr_o    [i] = sys_boot_addr_i    [2*SysCoreIndex];
+        assign core_clock_en_o     [i] = sys_clock_en_i     [SysCoreIndex];
+        assign core_fetch_en_o     [i] = sys_fetch_en_i     [SysCoreIndex];
+        assign core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
 
-        assign core_debug_req_o    [i] = sys_debug_req_i    [2*SysCoreIndex];
-        assign core_perf_counters_o[i] = sys_perf_counters_i[2*SysCoreIndex];
+        assign core_debug_req_o    [i] = sys_debug_req_i    [SysCoreIndex];
+        assign core_perf_counters_o[i] = sys_perf_counters_i[SysCoreIndex];
 
         // IRQ
-        assign core_irq_req_o      [i] = sys_irq_req_i      [2*SysCoreIndex];
-        assign core_irq_id_o       [i] = sys_irq_id_i       [2*SysCoreIndex];
+        assign core_irq_req_o      [i] = sys_irq_req_i      [SysCoreIndex];
+        assign core_irq_id_o       [i] = sys_irq_id_i       [SysCoreIndex];
 
         // INSTR
-        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [2*SysCoreIndex];
-        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[2*SysCoreIndex];
-        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[2*SysCoreIndex];
-        assign core_instr_err_o    [i] = sys_instr_err_i    [2*SysCoreIndex];
+        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
+        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
+        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[SysCoreIndex];
+        assign core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
 
         // DATA
-        assign core_data_gnt_o     [i] = sys_data_gnt_i     [2*SysCoreIndex];
-        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [2*SysCoreIndex];
-        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [2*SysCoreIndex];
-        assign core_data_r_user_o  [i] = sys_data_r_user_i  [2*SysCoreIndex];
-        assign core_data_r_valid_o [i] = sys_data_r_valid_i [2*SysCoreIndex];
-        assign core_data_err_o     [i] = sys_data_err_i     [2*SysCoreIndex];
+        assign core_data_gnt_o     [i] = sys_data_gnt_i     [SysCoreIndex];
+        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
+        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
+        assign core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
+        assign core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
+        assign core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
 
       end else begin : gen_independent_mode
 
@@ -908,7 +911,7 @@ module HMR_wrap #(
     end // gen_core_inputs
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = DMRFixed ? i : InterleaveGrps ? i : i/2;
+      localparam CoreCoreIndex = DMRFixed ? i : dmr_core_id(i, 0);
       if ((DMRFixed && i < NumDMRGroups) || (i < NumDMRCores)) begin : gen_dmr_mode
         if (DMRFixed || (InterleaveGrps && i < NumDMRGroups) || (!InterleaveGrps && i%2 == 0)) begin : gen_is_dmr
           
