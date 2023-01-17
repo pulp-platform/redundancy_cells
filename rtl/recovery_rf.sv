@@ -131,7 +131,7 @@ module recovery_rf #(
       
       if (FPU == 1 && PULP_ZFINX == 0) begin
         for (genvar index = 0; index < NUM_FP_WORDS; index++) begin
-          prim_secded_39_32_dec internal_memory_decoder (
+          prim_secded_39_32_dec internal_fp_memory_decoder (
             .in         ( ecc_mem_fp [index]  ),
             .d_o        ( mem_fp [index]      ),
             .syndrome_o (                     ),
