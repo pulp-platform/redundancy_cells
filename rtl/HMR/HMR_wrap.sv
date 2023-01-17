@@ -182,6 +182,10 @@ module HMR_wrap #(
   logic [NumTMRGroups-1:0][2:0] tmr_error, tmr_error_main, tmr_error_data;
   logic [NumTMRGroups-1:0] tmr_single_mismatch;
 
+  logic [NumTMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_data;
+  logic [NumTMRGroups-1:0][2:0] dmr_error, dmr_error_main, dmr_error_data;
+  logic [NumTMRGroups-1:0] dmr_single_mismatch;
+
   logic [NumTMRGroups-1:0]                 tmr_core_busy_out;
   logic [NumTMRGroups-1:0]                 tmr_irq_ack_out;
   logic [NumTMRGroups-1:0][           4:0] tmr_irq_ack_id_out;
@@ -403,6 +407,88 @@ module HMR_wrap #(
            tmr_instr_req_out, tmr_instr_addr_out, tmr_data_req_out,
            tmr_data_add_out, tmr_data_wen_out, tmr_data_wdata_out,
            tmr_data_be_out, tmr_data_user_out} = '0;
+  end
+
+  /*****************************************************
+   ******************** DMR Checkers *******************
+   *****************************************************/
+
+  if (DMRSupported || DMRFixed) begin: gen_dmr_checkers
+    for (genvar i = 0; i < NumDMRGroups; i++) begin
+      assign dmr_failure [i] = dmr_data_req_out [i] ? (dmr_failure_main | dmr_failure_data)
+                                                    : dmr_failure_main;
+      assign dmr_error [i*2+:2] = dmr_data_req_out [i] ? (dmr_error_main [i*2+:2] | dmr_error_data [i*2+:2])
+                                                       : tmr_error_main [i*2+:2];
+      assign dmr_single_mismatch [i] = dmr_error [i*2+:2] != 3'b000;
+
+      // DMR_checker #(
+      //   .DataWidth ( MainConcatWidth )
+      // ) dmr_core_checker_main (
+      //   .inp_a_i ( main_concat_in [InterleaveGrps ? i                : i*2]),
+      //   .inp_b_i ( main_concat_in [InterleaveGrps ? i + NumDMRGroups : i*2]),
+      //   .check_o ( main_dmr_out [i]    ),
+      //   .error_o ( dmr_failure_main [i])
+      // );
+      DMR_checker #(
+        .DataWidth ( MainConcatWidth )
+      ) dmr_core_checker_main (
+        .inp_a_i ( main_concat_in [i  ]),
+        .inp_b_i ( main_concat_in [i+1]),
+        .check_o ( main_dmr_out [i]    ),
+        .error_o ( dmr_failure_main [i])
+      );
+      if (SeparateData) begin : gen_data_checker
+        // DMR_checker # (
+        //   .DataWidth ( DataConcatWidth )
+        // ) dmr_core_checker_data (
+        //   .inp_a_i ( data_concat_in [InterleaveGrps ? i                : i*2]),
+        //   .inp_b_i ( data_concat_in [InterleaveGrps ? i + NumDMRGroups : i*2]),
+        //   .check_o ( data_dmr_out [i]    ),
+        //   .error_o ( dmr_failure_data [i])
+        // );
+        DMR_checker # (
+          .DataWidth ( DataConcatWidth )
+        ) dmr_core_checker_data (
+          .inp_a_i ( data_concat_in [i  ]),
+          .inp_b_i ( data_concat_in [i+1]),
+          .check_o ( data_dmr_out [i]    ),
+          .error_o ( dmr_failure_data [i])
+        );
+        assign {dmr_core_busy_out[i], dmr_irq_ack_out[i]   , dmr_irq_ack_id_out[i],
+                dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i]  }
+                = main_dmr_out[i];
+        assign {dmr_data_add_out[i], dmr_data_wen_out[i] , dmr_data_wdata_out[i],
+                dmr_data_be_out[i] , dmr_data_user_out[i]                       }
+                = data_dmr_out[i];
+      end else begin : gen_data_in_main
+        assign dmr_failure_data[i] = 1'b0;
+        assign dmr_error_data[i] = 3'b000;
+        assign {dmr_core_busy_out[i], dmr_irq_ack_out[i]   , dmr_irq_ack_id_out[i],
+                dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i]  ,
+                dmr_data_add_out[i] , dmr_data_wen_out[i]  , dmr_data_wdata_out[i],
+                dmr_data_be_out[i]  , dmr_data_user_out[i]}
+                = main_dmr_out[i];
+      end
+    end
+    if (NumDMRLeftover > 0) begin : gen_dmr_leftover_error
+      assign dmr_error_main[NumCores-1-:NumDMRLeftover] = '0;
+      assign dmr_error_data[NumCores-1-:NumDMRLeftover] = '0;
+      assign dmr_error     [NumCores-1-:NumDMRLeftover] = '0;
+    end
+  end else begin: no_dmr_checkers // block: gen_dmr_checkers
+    assign dmr_error_main   = '0;
+    assign dmr_error_data   = '0;
+    assign dmr_error        = '0;
+    assign dmr_failure_main = '0;
+    assign dmr_failure_data = '0;
+    assign dmr_failure      = '0;
+    assign main_dmr_out = '0;
+    assign data_dmr_out = '0;
+    assign {dmr_core_busy_out, dmr_irq_ack_out   , dmr_irq_ack_id_out,
+            dmr_instr_req_out, dmr_instr_addr_out, dmr_data_req_out  ,
+            dmr_data_add_out , dmr_data_wen_out  , dmr_data_wdata_out,
+            dmr_data_be_out  , dmr_data_user_out}
+            = '0;
   end
 
   // Assign output signals
@@ -827,8 +913,7 @@ module HMR_wrap #(
         if (DMRFixed || (InterleaveGrps && i < NumDMRGroups) || (!InterleaveGrps && i%2 == 0)) begin : gen_is_dmr
           
           // CTRL
-          // assign sys_core_busy_o     [i] = dmr_core_busy_out[CoreCoreIndex];
-          assign sys_core_busy_o     [i] = core_core_busy_i[CoreCoreIndex];
+          assign sys_core_busy_o     [i] = dmr_core_busy_out[CoreCoreIndex];
 
           // IRQ
           assign sys_irq_ack_o       [i] = core_irq_ack_i   [CoreCoreIndex];
