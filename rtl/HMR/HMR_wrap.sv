@@ -160,9 +160,6 @@ module HMR_wrap #(
 
   if (TMRFixed && DMRFixed) $fatal(1, "Cannot fix both TMR and DMR!");
 
-  typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} tmr_mode_e;
-  localparam tmr_mode_e DefaultTMRMode = NON_TMR;
-
   localparam int unsigned CtrlConcatWidth = 1   + 1      + 5         + 1    + 32    + 1;
   //                                        busy  irq_ack  irq_ack_id  i_req  i_addr  d_req
   localparam int unsigned DataConcatWidth = 32      + 1       + DataWidth + BeWidth + UserWidth;
@@ -344,8 +341,8 @@ module HMR_wrap #(
     assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
   end
 
-  tmr_mode_e [NumTMRGroups-1:0] tmr_red_mode_d, tmr_red_mode_q;
-  logic [NumTMRGroups-1:0] tmr_setback_d, tmr_setback_q;
+  logic [NumTMRGroups-1:0] tmr_setback_q;
+  logic [NumTMRGroups-1:0] tmr_grp_in_independent;
 
 
   /**********************************************************
@@ -360,8 +357,6 @@ module HMR_wrap #(
 
     reg_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
     reg_resp_t [NumTMRGroups-1:0] tmr_register_resps;
-
-    logic [NumTMRGroups-1:0] setback_d;
 
     localparam TMRSelWidth = $clog2(NumTMRGroups);
 
@@ -383,7 +378,7 @@ module HMR_wrap #(
     );
     
     for (genvar i = 0; i < NumCores; i++) begin
-      assign core_in_tmr[i] = tmr_red_mode_q[tmr_group_id(i)] != NON_TMR;
+      assign core_in_tmr[i] = !tmr_grp_in_independent[tmr_group_id(i)];
     end
 
     for (genvar i = 3*NumTMRGroups; i < NumCores; i++) begin
@@ -392,125 +387,40 @@ module HMR_wrap #(
 
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
 
-      hmr_tmr_regs_reg_top #(
-        .reg_req_t(reg_req_t),
-        .reg_rsp_t(reg_resp_t)
-      ) i_tmr_regs (
+      hmr_tmr_ctrl #(
+        .reg_req_t     (reg_req_t),
+        .reg_resp_t     (reg_resp_t),
+        .TMRFixed      (TMRFixed),
+        .InterleaveGrps(InterleaveGrps),
+        .DefaultInTMR  (1'b0)
+      ) i_tmr_ctrl (
         .clk_i,
         .rst_ni,
-        .reg_req_i(tmr_register_reqs[i]),
-        .reg_rsp_o(tmr_register_resps[i]),
-        .reg2hw   (tmr_reg2hw[i]),
-        .hw2reg   (tmr_hw2reg[i]),
-        .devmode_i('0)
+
+        .reg_req_i            ( tmr_register_reqs[i]),
+        .reg_resp_o           ( tmr_register_resps[i]),
+
+        .tmr_enable_q_i       ( hmr_reg2hw.tmr_enable.q[i] ),
+        .tmr_enable_qe_i      ( hmr_reg2hw.tmr_enable.qe ),
+        .delay_resynch_q_i    ( hmr_reg2hw.tmr_config.delay_resynch.q ),
+        .delay_resynch_qe_i   ( hmr_reg2hw.tmr_config.delay_resynch.qe ),
+        .setback_q_i          ( hmr_reg2hw.tmr_config.setback.q ),
+        .setback_qe_i         ( hmr_reg2hw.tmr_config.setback.qe ),
+        .reload_setback_q_i   ( hmr_reg2hw.tmr_config.reload_setback.q ),
+        .reload_setback_qe_i  ( hmr_reg2hw.tmr_config.reload_setback.qe ),
+        .force_resynch_q_i    ( hmr_reg2hw.tmr_config.force_resynch.q ),
+        .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
+
+        .setback_o            ( tmr_setback_q[i] ),
+        .grp_in_independent_o ( tmr_grp_in_independent[i] ),
+        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,2)]} ),
+        .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
+        .tmr_error_i          ( tmr_error[i] ),
+        .tmr_failure_i        ( tmr_failure[i] ),
+        .fetch_en_i           ( sys_fetch_en_i[tmr_core_id(i, 0)] ),
+        .cores_synch_i        ( tmr_cores_synch_i[i] )
       );
 
-      // Global config update
-      assign tmr_hw2reg[i].tmr_enable.de = hmr_reg2hw.tmr_enable.qe;
-      assign tmr_hw2reg[i].tmr_enable.d  = hmr_reg2hw.tmr_enable.q;
-      assign tmr_hw2reg[i].tmr_config.delay_resynch.de  = hmr_reg2hw.tmr_config.delay_resynch.qe;
-      assign tmr_hw2reg[i].tmr_config.delay_resynch.d   = hmr_reg2hw.tmr_config.delay_resynch.q;
-      assign tmr_hw2reg[i].tmr_config.setback.de        = hmr_reg2hw.tmr_config.setback.qe;
-      assign tmr_hw2reg[i].tmr_config.setback.d         = hmr_reg2hw.tmr_config.setback.q;
-      assign tmr_hw2reg[i].tmr_config.reload_setback.de = hmr_reg2hw.tmr_config.reload_setback.qe;
-      assign tmr_hw2reg[i].tmr_config.reload_setback.d  = hmr_reg2hw.tmr_config.reload_setback.q;
-      assign tmr_hw2reg[i].tmr_config.force_resynch.d   = hmr_reg2hw.tmr_config.force_resynch.qe ? hmr_reg2hw.tmr_config.force_resynch.q : 1'b0;
-
-      /**************************
-       *  FSM for TMR lockstep  *
-       **************************/
-      always_comb begin : proc_fsm
-        tmr_setback_d[i] = 1'b0;
-        tmr_red_mode_d[i] = tmr_red_mode_q[i];
-        tmr_incr_mismatches[tmr_core_id(i, 0)] = 1'b0;
-        tmr_incr_mismatches[tmr_core_id(i, 1)] = 1'b0;
-        tmr_incr_mismatches[tmr_core_id(i, 1)] = 1'b0;
-
-        tmr_hw2reg[i].tmr_config.force_resynch.de  = hmr_reg2hw.tmr_config.force_resynch.qe;
-
-        // If forced execute resynchronization
-        if (tmr_red_mode_q[i] == TMR_RUN && tmr_reg2hw[i].tmr_config.force_resynch.q) begin
-          tmr_hw2reg[i].tmr_config.force_resynch.de = 1'b1;
-          if (tmr_reg2hw[i].tmr_config.delay_resynch == 0) begin
-            tmr_red_mode_d[i] = TMR_UNLOAD;
-            // TODO: buffer the restoration until delay_resynch is disabled
-          end
-        end
-
-        // If error detected, do resynchronization
-        if (tmr_red_mode_q[i] == TMR_RUN && tmr_single_mismatch[i]) begin
-          $display("[ODRG] %t - mismatch detected", $realtime);
-          if (tmr_error[i][0]) tmr_incr_mismatches[tmr_core_id(i, 0)] = 1'b1;
-          if (tmr_error[i][1]) tmr_incr_mismatches[tmr_core_id(i, 1)] = 1'b1;
-          if (tmr_error[i][2]) tmr_incr_mismatches[tmr_core_id(i, 2)] = 1'b1;
-
-          if (tmr_reg2hw[i].tmr_config.delay_resynch == 0) begin
-            tmr_red_mode_d[i] = TMR_UNLOAD;
-            // TODO: buffer the restoration until delay_resynch is disabled
-          end
-        end
-
-        // If unload complete, go to reload (and reset)
-        if (tmr_red_mode_q[i] == TMR_UNLOAD) begin
-          if (tmr_reg2hw[i].sp_store.q != '0) begin
-            tmr_red_mode_d[i] = TMR_RELOAD;
-            if (tmr_reg2hw[i].tmr_config.setback.q) begin
-              tmr_setback_d[i] = 1'b1;
-            end
-          end
-        end
-
-        // If reload complete, finish (or reset if error happens during reload)
-        if (tmr_red_mode_q[i] == TMR_RELOAD) begin
-          if (tmr_reg2hw[i].sp_store.q == '0) begin
-            $display("[ODRG] %t - mismatch restored", $realtime);
-            tmr_red_mode_d[i] = TMR_RUN;
-          end else begin
-            if ((tmr_single_mismatch[i] || tmr_failure[i]) && tmr_reg2hw[i].tmr_config.setback.q &&
-                tmr_reg2hw[i].tmr_config.reload_setback.q &&
-                !(tmr_reg2hw[i].sp_store.qe && tmr_register_reqs[i].wdata == '0)) begin
-              tmr_setback_d[i] = 1'b1;
-            end
-          end
-        end
-
-        // Before core startup: set TMR mode from reg2hw.mode.mode
-        if (!TMRFixed) begin
-          if (sys_fetch_en_i[tmr_core_id(i, 0)] == 0) begin
-            if (tmr_reg2hw[i].tmr_enable.q == 1'b0) begin
-              tmr_red_mode_d[i] = NON_TMR;
-            end else begin
-              tmr_red_mode_d[i] = TMR_RUN;
-            end
-          end
-          // split single-error tolerant mode to performance mode anytime (but require correct core state)
-          if (tmr_red_mode_q[i] == TMR_RUN) begin
-            if (tmr_reg2hw[i].tmr_enable.q == 1'b0) begin
-              tmr_red_mode_d[i] = NON_TMR;
-            end
-          end
-          // Set TMR mode on external signal that cores are synchronized
-          if (tmr_red_mode_q[i] == NON_TMR && tmr_cores_synch_i[i]) begin
-            if (tmr_reg2hw[i].tmr_enable.q == 1'b1) begin
-              tmr_red_mode_d[i] = TMR_RUN;
-            end
-          end
-        end
-      end
-    end
-
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
-      if(!rst_ni) begin
-        tmr_red_mode_q <= {NumTMRGroups{DefaultTMRMode}};
-        tmr_setback_q <= '0;
-      end else begin
-        tmr_red_mode_q <= tmr_red_mode_d;
-        tmr_setback_q <= tmr_setback_d;
-      end
-    end
-
-
-    for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_voter
       assign tmr_failure[i]         = tmr_data_req_out[i] ?
                           tmr_failure_main | tmr_failure_data : tmr_failure_main;
       assign tmr_error[i]      = tmr_data_req_out[i] ?
@@ -567,14 +477,12 @@ module HMR_wrap #(
            tmr_instr_req_out, tmr_instr_addr_out, tmr_data_req_out,
            tmr_data_add_out, tmr_data_wen_out, tmr_data_wdata_out,
            tmr_data_be_out, tmr_data_user_out} = '0;
-    assign tmr_red_mode_d = {NumTMRGroups{NON_TMR}};
-    assign tmr_red_mode_q = {NumTMRGroups{NON_TMR}};
     assign top_register_resps[3].rdata = '0;
     assign top_register_resps[3].error = 1'b1;
     assign top_register_resps[3].ready = 1'b1;
     assign tmr_incr_mismatches = '0;
+    assign tmr_grp_in_independent = '0;
     assign core_in_tmr = '0;
-    assign tmr_setback_d = '0;
     assign tmr_setback_q = '0;
   end
 
@@ -663,7 +571,7 @@ module HMR_wrap #(
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
-        if (i < NumTMRCores && (TMRFixed || tmr_red_mode_q[tmr_group_id(i)] != NON_TMR)) begin : tmr_mode
+        if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
           core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
 
           // CTRL
@@ -774,7 +682,7 @@ module HMR_wrap #(
           assign sys_data_be_o       [i] = core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin
           always_comb begin
-            if ((tmr_red_mode_q[tmr_group_id(i)] != NON_TMR)) begin : tmr_mode
+            if (core_in_tmr[i]) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
                 
                 // CTRL
