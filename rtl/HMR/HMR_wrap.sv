@@ -533,19 +533,19 @@ module HMR_wrap #(
       DMR_checker #(
         .DataWidth ( MainConcatWidth )
       ) dmr_core_checker_main (
-        .inp_a_i ( main_concat_in [dmr_core_id(i, 0)]),
-        .inp_b_i ( main_concat_in [dmr_core_id(i, 1)]),
-        .check_o ( main_dmr_out [i]    ),
-        .error_o ( dmr_failure_main [i])
+        .inp_a_i ( main_concat_in [dmr_core_id(i, 0)] ),
+        .inp_b_i ( main_concat_in [dmr_core_id(i, 1)] ),
+        .check_o ( main_dmr_out [i]                   ),
+        .error_o ( dmr_failure_main [i]               )
       );
       if (SeparateData) begin : gen_data_checker
         DMR_checker # (
           .DataWidth ( DataConcatWidth )
         ) dmr_core_checker_data (
-          .inp_a_i ( data_concat_in [dmr_core_id(i, 0)]),
-          .inp_b_i ( data_concat_in [dmr_core_id(i, 1)]),
-          .check_o ( data_dmr_out [i]    ),
-          .error_o ( dmr_failure_data [i])
+          .inp_a_i ( data_concat_in [dmr_core_id(i, 0)] ),
+          .inp_b_i ( data_concat_in [dmr_core_id(i, 1)] ),
+          .check_o ( data_dmr_out [i]                   ),
+          .error_o ( dmr_failure_data [i]               )
         );
         assign {dmr_core_busy_out[i], dmr_irq_ack_out[i]   , dmr_irq_ack_id_out[i],
                 dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i]  }
@@ -569,19 +569,19 @@ module HMR_wrap #(
       DMR_checker # (
         .DataWidth ( DataWidth )
       ) dmr_rf_checker_port_a (
-        .inp_a_i ( backup_regfile_wdata_a_i [i  ]),
-        .inp_b_i ( backup_regfile_wdata_a_i [i+1]),
-        .check_o ( backup_regfile_wdata_a [i]    ),
-        .error_o ( backup_regfile_error_a [i]    )
+        .inp_a_i ( backup_regfile_wdata_a_i [dmr_core_id(i, 0)] ),
+        .inp_b_i ( backup_regfile_wdata_a_i [dmr_core_id(i, 1)] ),
+        .check_o ( backup_regfile_wdata_a [i]                   ),
+        .error_o ( backup_regfile_error_a [i]                   )
       );
 
       DMR_checker # (
         .DataWidth ( DataWidth )
       ) dmr_rf_checker_port_b (
-        .inp_a_i ( backup_regfile_wdata_b_i [i  ] ),
-        .inp_b_i ( backup_regfile_wdata_b_i [i+1] ),
-        .check_o ( backup_regfile_wdata_b [i]     ),
-        .error_o ( backup_regfile_error_b [i]     )
+        .inp_a_i ( backup_regfile_wdata_b_i [dmr_core_id(i, 0)] ),
+        .inp_b_i ( backup_regfile_wdata_b_i [dmr_core_id(i, 1)] ),
+        .check_o ( backup_regfile_wdata_b [i]                   ),
+        .error_o ( backup_regfile_error_b [i]                   )
       );
 
       assign backup_regfile_we_a [i] = backup_regfile_we_a_i [i] | backup_regfile_error_a [i];
