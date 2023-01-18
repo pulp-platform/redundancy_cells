@@ -1,4 +1,4 @@
-// Copyright 2020 ETH Zurich and University of Bologna.
+// Copyright 2023 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -64,7 +64,7 @@ logic [3*DataWidth-1:0] data_d, data_q, reset_value;
 
 assign dmr_err_o = (data_1_i != data_2_i);
 
-assign data_d = (no_load_i) ? data_q : {data_1_i, data_2_i, data_1_i};
+assign data_d = (no_load_i) ? data_q : {3{data_1_i}};
 
 /*****************
  *   Flip-Flop   *
@@ -91,22 +91,31 @@ end
  *    Vote Data    *
  *******************/
 
-logic [DataWidth-1:0] data_q_1, data_q_2, data_q_3, diff_12, diff_23, sel;
+logic [2:0] voter_err_1, voter_err_2;
 
-assign data_q_1 = data_q[0*DataWidth+:DataWidth];
-assign data_q_2 = data_q[1*DataWidth+:DataWidth];
-assign data_q_3 = data_q[2*DataWidth+:DataWidth];
+// Create two independent voters to prevent common-mode DMR faults
+bitwise_TMR_voter #(
+  .DataWidth   ( DataWidth                      )
+) i_voter_1 (
+  .a_i         ( data_q[0*DataWidth+:DataWidth] ),
+  .b_i         ( data_q[1*DataWidth+:DataWidth] ),
+  .c_i         ( data_q[2*DataWidth+:DataWidth] ),
+  .majority_o  ( data_1_o                       ),
+  .error_o     (                                ),
+  .error_cba_o ( voter_err_1                    )
+);
 
-assign diff_12 = data_q_1 ^ data_q_2;
-assign diff_23 = data_q_2 ^ data_q_3;
+bitwise_TMR_voter #(
+  .DataWidth   ( DataWidth                      )
+) i_voter_2 (
+  .a_i         ( data_q[0*DataWidth+:DataWidth] ),
+  .b_i         ( data_q[1*DataWidth+:DataWidth] ),
+  .c_i         ( data_q[2*DataWidth+:DataWidth] ),
+  .majority_o  ( data_2_o                       ),
+  .error_o     (                                ),
+  .error_cba_o ( voter_err_2                    )
+);
 
-assign sel = diff_12 & ~diff_23;
-
-for (genvar i = 0; i < DataWidth; i++) begin : sel_out
-  assign data_1_o[i] = sel[i] ? data_q_3[i] : data_q_1[i];
-  assign data_2_o[i] = sel[i] ? data_q_3[i] : data_q_1[i];
-end
-
-assign voter_err_o = |(diff_12 | diff_23);
+assign voter_err_o = |voter_err_1 | |voter_err_2;
 
 endmodule
