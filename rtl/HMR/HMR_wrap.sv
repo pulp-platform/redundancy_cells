@@ -45,13 +45,13 @@ module HMR_wrap #(
 
   // TMR signals
   output logic [NumTMRGroups-1:0] tmr_failure_o    ,
-  output logic [ NumSysCores-1:0] tmr_error_o      ,
+  output logic [ NumSysCores-1:0] tmr_error_o      , // Should this not be NumTMRCores? or NumCores?
   output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
   input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
 
   // DMR signals
   output logic [NumDMRGroups-1:0] dmr_failure_o    ,
-  output logic [ NumSysCores-1:0] dmr_error_o      ,
+  output logic [ NumSysCores-1:0] dmr_error_o      , // Should this not be NumDMRCores? or NumCores?
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
@@ -259,6 +259,8 @@ module HMR_wrap #(
     .out_rsp_i  ( top_register_resps )
   );
 
+  // Global config registers
+
   hmr_registers_reg_pkg::hmr_registers_hw2reg_t hmr_hw2reg;
   hmr_registers_reg_pkg::hmr_registers_reg2hw_t hmr_reg2hw;
 
@@ -292,7 +294,7 @@ module HMR_wrap #(
   assign hmr_hw2reg.tmr_config.reload_setback.d  = '0;
   assign hmr_hw2reg.tmr_config.force_resynch.d = '0;
 
-  // CORE Config Registers
+  // Core Config Registers
 
   reg_req_t  [NumCores-1:0] core_register_reqs;
   reg_resp_t [NumCores-1:0] core_register_resps;
@@ -377,12 +379,13 @@ module HMR_wrap #(
       .out_rsp_i  ( tmr_register_resps             )
     );
     
-    for (genvar i = 0; i < NumCores; i++) begin
+    for (genvar i = 0; i < NumTMRCores; i++) begin : gen_core_in_tmr
       assign core_in_tmr[i] = !tmr_grp_in_independent[tmr_group_id(i)];
     end
 
-    for (genvar i = 3*NumTMRGroups; i < NumCores; i++) begin
+    for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign tmr_incr_mismatches[i] = '0;
+      assign core_in_tmr[i] = '0;
     end
 
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
@@ -486,9 +489,9 @@ module HMR_wrap #(
     assign tmr_setback_q = '0;
   end
 
-  /*****************************************************
-   ******************** DMR Checkers *******************
-   *****************************************************/
+  /************************************************************
+   ******************** DMR Voters and Regs *******************
+   ************************************************************/
 
   if (DMRSupported || DMRFixed) begin: gen_dmr_checkers
     for (genvar i = 0; i < NumDMRGroups; i++) begin
@@ -640,7 +643,7 @@ module HMR_wrap #(
     end
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = TMRFixed ? i : tmr_core_id(i, 0);
+      localparam CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
       if (TMRFixed && i < NumTMRGroups) begin : fixed_tmr
         // CTRL
         assign sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
@@ -661,7 +664,7 @@ module HMR_wrap #(
         assign sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
         assign sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
       end else begin
-        if (i >= NumTMRGroups) begin : independent_stragglers
+        if (i >= NumTMRCores) begin : independent_stragglers
           // CTRL
           assign sys_core_busy_o     [i] = core_core_busy_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
