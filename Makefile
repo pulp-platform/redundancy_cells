@@ -49,11 +49,14 @@ gen_TCLS:
 gen_HMR:
 	python $(REG_TOOL) $(HJSON_HMR) -t $(TARGET_DIR_HMR) -r
 	python $(REG_TOOL) $(HJSON_HMR) -d > $(TARGET_DIR_HMR)/doc.html
-	python $(REG_TOOL) $(HJSON_HMR) -D > $(TARGET_DIR_HMR)/HMR.h
+	python $(REG_TOOL) $(HJSON_HMR) -D > $(TARGET_DIR_HMR)/hmr_global.h
 	python $(REG_TOOL) $(HJSON_HMR) --doc > $(TARGET_DIR_HMR)/doc.md
 	python $(REG_TOOL) $(HJSON_HMR_core) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_core) -D > $(TARGET_DIR_HMR)/hmr_core.h
 	python $(REG_TOOL) $(HJSON_HMR_dmr) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_dmr) -D > $(TARGET_DIR_HMR)/hmr_dmr.h
 	python $(REG_TOOL) $(HJSON_HMR_tmr) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_tmr) -D > $(TARGET_DIR_HMR)/hmr_tmr.h
 
 gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) -t $(TARGET_DIR_ECC) -r
