@@ -12,7 +12,7 @@
 
   registers: [
     { name: "TMR_enable",
-      desc: "TMR configuration enable, one bit per TMR group.",
+      desc: "TMR configuration enable.",
       swaccess: "rw",
       hwaccess: "hrw",
       hwqe: "true",

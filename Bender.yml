@@ -87,9 +87,11 @@ sources:
   - files:
       - rtl/HMR/hmr_registers_reg_pkg.sv
       - rtl/HMR/hmr_core_regs_reg_pkg.sv
+      - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
       - rtl/HMR/hmr_tmr_regs_reg_pkg.sv
       - rtl/HMR/hmr_registers_reg_top.sv
       - rtl/HMR/hmr_core_regs_reg_top.sv
+      - rtl/HMR/hmr_dmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_ctrl.sv
       - rtl/HMR/HMR_wrap.sv
