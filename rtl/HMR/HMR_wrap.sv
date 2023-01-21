@@ -61,7 +61,8 @@ module HMR_wrap #(
 
   // Backup ports from cores' RFs
   input  regfile_write_t [ NumSysCores-1:0] backup_regfile_wport_i,
-  output regfile_raddr_t [    NumCores-1:0] core_regfile_raddr_o  ,
+  output regfile_raddr_t [    NumCores-1:0] core_regfile_raddr_o,
+  output regfile_write_t [    NumCores-1:0] core_recovery_regfile_wport_o,
   // TODO other required signals
 
   // Ports connecting to System
@@ -232,7 +233,9 @@ module HMR_wrap #(
                                            dmr_ctrl_core_recover_out;
 
   regfile_raddr_t [NumDMRGroups-1:0] core_regfile_raddr_out;
-  regfile_write_t [NumDMRGroups-1:0] backup_regfile_wport_in;
+  regfile_rdata_t [NumDMRGroups-1:0] core_recovery_regfile_rdata_out;
+  regfile_write_t [NumDMRGroups-1:0] backup_regfile_wport_in,
+                                     core_recovery_regfile_wport_out;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
     if (SeparateData) begin
@@ -538,19 +541,20 @@ module HMR_wrap #(
   ) dmr_controller (
     .clk_i (clk_i),
     .rst_ni ( rst_ni),
-    .dmr_rf_checker_error_port_a_i ( backup_regfile_error_a       ),
-    .dmr_rf_checker_error_port_b_i ( backup_regfile_error_b       ),
-    .dmr_core_checker_error_main_i ( dmr_failure_main             ),
-    .dmr_core_checker_error_data_i ( dmr_failure_data             ),
-    .recovery_regfile_write_i      ( backup_regfile_wport_in      ),
-    .regfile_readback_o            ( regfile_readback_out         ),
-    .regfile_raddr_o               ( core_regfile_raddr_out       ),
-    .dmr_ctrl_core_rstn_o          ( dmr_ctrl_core_rstn_out       ),
-    .dmr_ctrl_core_debug_req_o     ( dmr_ctrl_core_debug_req_out  ),
-    .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_rsp_in   ),
-    .dmr_ctrl_core_instr_lock_o    ( dmr_ctrl_core_instr_lock_out ),
-    .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out    ),
-    .dmr_ctrl_core_clk_en_o        (                              )
+    .dmr_rf_checker_error_port_a_i ( backup_regfile_error_a          ),
+    .dmr_rf_checker_error_port_b_i ( backup_regfile_error_b          ),
+    .dmr_core_checker_error_main_i ( dmr_failure_main                ),
+    .dmr_core_checker_error_data_i ( dmr_failure_data                ),
+    .backup_regfile_write_i        ( backup_regfile_wport_in         ),
+    .core_recovery_regfile_wport_o ( core_recovery_regfile_wport_out ),
+    .regfile_readback_o            ( regfile_readback_out            ),
+    .regfile_raddr_o               ( core_regfile_raddr_out          ),
+    .dmr_ctrl_core_rstn_o          ( dmr_ctrl_core_rstn_out          ),
+    .dmr_ctrl_core_debug_req_o     ( dmr_ctrl_core_debug_req_out     ),
+    .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_rsp_in      ),
+    .dmr_ctrl_core_instr_lock_o    ( dmr_ctrl_core_instr_lock_out    ),
+    .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out       ),
+    .dmr_ctrl_core_clk_en_o        (                                 )
   );
 
   if (DMRSupported || DMRFixed) begin: gen_dmr_recovery_region
@@ -636,11 +640,11 @@ module HMR_wrap #(
          .rst_ni       ( rst_ni ),
          .test_en_i    ( '0     ),
          //Read port A
-         .raddr_a_i    ( '0 ),
-         .rdata_a_o    (    ),
+         .raddr_a_i    ( core_recovery_regfile_wport_out[dmr_core_id(i, 0)].waddr_a ),
+         .rdata_a_o    ( core_recovery_regfile_rdata_out[dmr_core_id(i, 0)].rdata_a ),
          //Read port B
-         .raddr_b_i    ( '0 ),
-         .rdata_b_o    (    ),
+         .raddr_b_i    ( core_recovery_regfile_wport_out[dmr_core_id(i, 0)].waddr_b ),
+         .rdata_b_o    ( core_recovery_regfile_rdata_out[dmr_core_id(i, 0)].rdata_b ),
          //Read port C
          .raddr_c_i    ( '0 ),
          .rdata_c_o    (    ),
@@ -922,6 +926,12 @@ module HMR_wrap #(
         // RF
         assign dmr_rf_readback_o [i] = regfile_readback_out [SysCoreIndex];
         assign core_regfile_raddr_o [i] = core_regfile_raddr_out [SysCoreIndex];
+        assign core_recovery_regfile_wport_o[i].we_a = core_recovery_regfile_wport_out[SysCoreIndex].we_a;
+        assign core_recovery_regfile_wport_o[i].waddr_a = core_recovery_regfile_wport_out[SysCoreIndex].waddr_a;
+        assign core_recovery_regfile_wport_o[i].wdata_a = core_recovery_regfile_rdata_out[SysCoreIndex].rdata_a;
+        assign core_recovery_regfile_wport_o[i].we_b = core_recovery_regfile_wport_out[SysCoreIndex].we_b;
+        assign core_recovery_regfile_wport_o[i].waddr_b = core_recovery_regfile_wport_out[SysCoreIndex].waddr_b;
+        assign core_recovery_regfile_wport_o[i].wdata_b = core_recovery_regfile_rdata_out[SysCoreIndex].rdata_b;
 
       end else begin : gen_independent_mode
 

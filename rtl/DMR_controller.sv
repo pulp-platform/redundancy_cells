@@ -30,7 +30,8 @@ module DMR_controller #(
   input  logic [NumDMRGroups-1:0] dmr_rf_checker_error_port_b_i,
   input  logic [NumDMRGroups-1:0] dmr_core_checker_error_main_i,
   input  logic [NumDMRGroups-1:0] dmr_core_checker_error_data_i,
-  input  regfile_write_t [NumDMRGroups-1:0] recovery_regfile_write_i,
+  input  regfile_write_t [NumDMRGroups-1:0] backup_regfile_write_i,
+  output regfile_write_t [NumDMRGroups-1:0] core_recovery_regfile_wport_o,
   output logic           [NumDMRGroups-1:0] regfile_readback_o,
   output regfile_raddr_t [NumDMRGroups-1:0] regfile_raddr_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_rstn_o,
@@ -164,6 +165,20 @@ DMR_address_generator #(
   .address_o ( addr_gen_res   )
 );
 
+/* Binding recovery signals towards RRF and cores */
+always_comb begin : RF_ports_binding
+  core_recovery_regfile_wport_o = '0;
+  for (int i = 0; i < NumDMRGroups; i++) begin
+    if (i == error_index_q) begin
+      core_recovery_regfile_wport_o[i].we_a = (addr_gen_start) ? 1'b1 : 1'b0;
+      core_recovery_regfile_wport_o[i].waddr_a = addr_gen_res;
+      core_recovery_regfile_wport_o[i].we_b = (addr_gen_start) ? 1'b1 : 1'b0;
+      core_recovery_regfile_wport_o[i].waddr_b = 5'd16 + addr_gen_res;
+    end else
+      core_recovery_regfile_wport_o = '0;
+  end
+end
+
 /********************************
 * Recovery Routine State Update *
 *********************************/
@@ -222,85 +237,21 @@ always_comb begin : recovery_routine_fsm
     RESTORE_RF: begin
       dmr_ctrl_core_recover_d [error_index_q] = 1'b1;
       addr_gen_start = 1'b1;
-      if (addr_gen_done)
-        next = RESTORE_CSR;
-      else
+      if (addr_gen_done) begin
+        dmr_ctrl_core_instr_lock_d [error_index_q] = 1'b0;
+        dmr_ctrl_core_debug_req_out [error_index_q] = 1'b1;
+        next = EXIT;
+      end else
       next = current;
     end
     
     RESTORE_CSR: begin
     end
+
+    EXIT: begin
+      
+    end
   endcase
 end : recovery_routine_fsm
-
-/***************************************************
-******************** RF Readback *******************
-****************************************************/
-
-/* Come back here later*/
-
-// logic [NumDMRGroups-1:0] core_clk_int,
-//                          core_clk_pre,
-//                          regfile_error_a,
-//                          regfile_error_b;
-// logic [NumDMRGroups-1:0] core_rst;
-// logic [RegfileAddr-1:0] regfile_read_a,
-//                         regfile_read_b;
-// 
-// always_ff @(posedge clk_i, negedge rst_ni) begin
-//   if (~rst_ni)
-//     core_clk_pre <= 1'b1;
-//   else if (|core_clk_int)
-//     core_clk_pre <= 1'b0;
-// end
-// 
-// always_ff @(posedge clk_i, negedge rst_ni) begin
-//   if (~rst_ni) begin
-//     core_clk_o <= 1'b1;
-//     regfile_readback_o <= '0;
-//   end else /*if (|core_clk_int)*/ begin
-//     core_clk_o <= core_clk_pre;
-//     for (int i = 0; i < NumDMRGroups; i++)
-//       regfile_readback_o[i] <= (dmr_rf_checker_error_port_a_i[i] || 
-//                                 dmr_rf_checker_error_port_b_i[i] ) ? 1'b1 : 1'b0;
-//   end
-// end
-// 
-// always_ff @(posedge clk_i, negedge rst_ni) begin
-//   if (~rst_ni) begin
-//     regfile_raddr_o <= '0;
-//   end else begin
-//     for (int i = 0; i < NumDMRGroups; i++) begin
-//       if (dmr_rf_checker_error_port_a_i[i])
-//         regfile_raddr_o[i].raddr_a <= recovery_regfile_write_i[i].waddr_a;
-//       else if (dmr_rf_checker_error_port_b_i[i])
-//         regfile_raddr_o[i].raddr_b <= recovery_regfile_write_i[i].waddr_b;
-//       else begin
-//         regfile_raddr_o[i].raddr_a <= '0;
-//         regfile_raddr_o[i].raddr_b <= '0;
-//       end
-//     end
-//   end
-// end
-
-// assign regfile_read_a = |regfile_error_a;
-// assign regfile_read_b = |regfile_error_b;
-// 
-// for (genvar i = 0; i < NumDMRGroups; i++) begin
-//   assign core_clk_int [i] = (dmr_rf_checker_error_port_a_i[i] || 
-//                              dmr_rf_checker_error_port_b_i[i] ) ? 1'b1 : 1'b0;
-// 
-//   assign regfile_error_a [i] = dmr_rf_checker_error_port_a_i [i] ? 1'b0 : 1'b1;
-//   assign regfile_error_b [i] = dmr_rf_checker_error_port_b_i [i] ? 1'b0 : 1'b1;
-//   
-//   assign regfile_readback_o [i] = (dmr_rf_checker_error_port_a_i[i] || 
-//                                    dmr_rf_checker_error_port_b_i[i] ) ? 1'b1 : 1'b0;
-// 
-//   assign regfile_raddr_o[i].raddr_a = (dmr_rf_checker_error_port_a_i[i]) ? 
-//                                       recovery_regfile_write_i[i].waddr_a : '0;
-// 
-//   assign regfile_raddr_o[i].raddr_b = (dmr_rf_checker_error_port_b_i[i]) ? 
-//                                       recovery_regfile_write_i[i].waddr_b : '0;
-// end
 
 endmodule : DMR_controller

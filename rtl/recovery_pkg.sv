@@ -46,7 +46,8 @@ typedef enum logic [RECOVERY_STATE_BITS-1:0]{
   HALT_WAIT  ,
   RESTORE_PC ,
   RESTORE_RF ,
-  RESTORE_CSR
+  RESTORE_CSR,
+  EXIT
 } recovery_routine_state_e;
 
 endpackage
