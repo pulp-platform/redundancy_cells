@@ -10,6 +10,8 @@
 //
 // Hybrid modular redundancy wrapping unit
 
+import recovery_pkg::*;
+
 module HMR_wrap #(
   // Wrapper parameters
   parameter  int unsigned NumCores       = 0,
@@ -53,17 +55,13 @@ module HMR_wrap #(
   output logic [NumDMRGroups-1:0] dmr_failure_o    ,
   output logic [ NumSysCores-1:0] dmr_error_o      , // Should this not be NumDMRCores? or NumCores?
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
+  output logic [    NumCores-1:0] dmr_rf_readback_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
+  output logic [ NumSysCores-1:0] dmr_core_rstn_o,
 
   // Backup ports from cores' RFs
-  // Port A
-  input  logic [ NumSysCores-1:0]       backup_regfile_we_a_i   ,
-  input  logic [ NumSysCores-1:0][ 5:0] backup_regfile_waddr_a_i,
-  input  logic [ NumSysCores-1:0][31:0] backup_regfile_wdata_a_i,
-  // Port B
-  input  logic [ NumSysCores-1:0]       backup_regfile_we_b_i   ,
-  input  logic [ NumSysCores-1:0][ 5:0] backup_regfile_waddr_b_i,
-  input  logic [ NumSysCores-1:0][31:0] backup_regfile_wdata_b_i,
+  input  regfile_write_t [ NumSysCores-1:0] backup_regfile_wport_i,
+  output regfile_raddr_t [    NumCores-1:0] core_regfile_raddr_o  ,
   // TODO other required signals
 
   // Ports connecting to System
@@ -125,6 +123,7 @@ module HMR_wrap #(
   input  logic [   NumCores-1:0][          31:0]     core_instr_addr_i   ,
   output logic [   NumCores-1:0][InstrDataWidth-1:0] core_instr_r_rdata_o,
   output logic [   NumCores-1:0]                     core_instr_r_valid_o,
+  output logic [   NumCores-1:0]                     core_instr_lock_o   ,
   output logic [   NumCores-1:0]                     core_instr_err_o    ,
                                                      
   output logic [   NumCores-1:0]                     core_debug_req_o    ,
@@ -177,6 +176,8 @@ module HMR_wrap #(
   localparam int unsigned MainConcatWidth = SeparateData ? CtrlConcatWidth : 
                                             CtrlConcatWidth + DataConcatWidth;
 
+  localparam int unsigned RFAddrWidth = 6;
+
   logic [    NumCores-1:0][MainConcatWidth-1:0] main_concat_in;
   logic [NumTMRGroups-1:0][MainConcatWidth-1:0] main_tmr_out;
   logic [NumDMRGroups-1:0][MainConcatWidth-1:0] main_dmr_out;
@@ -189,9 +190,9 @@ module HMR_wrap #(
   logic [NumTMRGroups-1:0][2:0] tmr_error, tmr_error_main, tmr_error_data;
   logic [NumTMRGroups-1:0] tmr_single_mismatch;
 
-  logic [NumTMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_data;
-  logic [NumTMRGroups-1:0][2:0] dmr_error, dmr_error_main, dmr_error_data;
-  logic [NumTMRGroups-1:0] dmr_single_mismatch;
+  logic [NumDMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_data;
+  logic [NumDMRGroups-1:0][2:0] dmr_error, dmr_error_main, dmr_error_data;
+  logic [NumDMRGroups-1:0] dmr_single_mismatch;
 
   logic [NumTMRGroups-1:0]                 tmr_core_busy_out;
   logic [NumTMRGroups-1:0]                 tmr_irq_ack_out;
@@ -222,7 +223,16 @@ module HMR_wrap #(
   logic [NumDMRGroups-1:0]                 backup_regfile_we_a,
                                            backup_regfile_we_b,
                                            backup_regfile_error_a,
-                                           backup_regfile_error_b;
+                                           backup_regfile_error_b,
+                                           regfile_readback_out,
+                                           dmr_ctrl_core_rstn_out,
+                                           dmr_ctrl_core_debug_req_out,
+                                           dmr_ctrl_core_debug_rsp_in,
+                                           dmr_ctrl_core_instr_lock_out,
+                                           dmr_ctrl_core_recover_out;
+
+  regfile_raddr_t [NumDMRGroups-1:0] core_regfile_raddr_out;
+  regfile_write_t [NumDMRGroups-1:0] backup_regfile_wport_in;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
     if (SeparateData) begin
@@ -509,6 +519,39 @@ module HMR_wrap #(
   /************************************************************
    ******************** DMR Voters and Regs *******************
    ************************************************************/
+  for (genvar i = 0; i < NumCores; i++) begin
+    assign backup_regfile_wport_in [i] = backup_regfile_wport_i [dmr_core_id(dmr_group_id(i), 0)];
+  end
+  
+  for (genvar i = 0; i < NumDMRGroups; i++) begin
+    assign dmr_ctrl_core_debug_rsp_in [i] = core_debug_rsp_i [dmr_core_id(dmr_group_id(i), 0)]
+                                          & core_debug_rsp_i [dmr_core_id(dmr_group_id(i), 1)];
+  end
+
+  /******************
+   * DMR Controller *
+   ******************/
+  DMR_controller #(
+    .NumCores    ( NumCores    ),
+    .DMRFixed    ( DMRFixed    ),
+    .RFAddrWidth ( RFAddrWidth )
+  ) dmr_controller (
+    .clk_i (clk_i),
+    .rst_ni ( rst_ni),
+    .dmr_rf_checker_error_port_a_i ( backup_regfile_error_a       ),
+    .dmr_rf_checker_error_port_b_i ( backup_regfile_error_b       ),
+    .dmr_core_checker_error_main_i ( dmr_failure_main             ),
+    .dmr_core_checker_error_data_i ( dmr_failure_data             ),
+    .recovery_regfile_write_i      ( backup_regfile_wport_in      ),
+    .regfile_readback_o            ( regfile_readback_out         ),
+    .regfile_raddr_o               ( core_regfile_raddr_out       ),
+    .dmr_ctrl_core_rstn_o          ( dmr_ctrl_core_rstn_out       ),
+    .dmr_ctrl_core_debug_req_o     ( dmr_ctrl_core_debug_req_out  ),
+    .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_rsp_in   ),
+    .dmr_ctrl_core_instr_lock_o    ( dmr_ctrl_core_instr_lock_out ),
+    .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out    ),
+    .dmr_ctrl_core_clk_en_o        (                              )
+  );
 
   if (DMRSupported || DMRFixed) begin: gen_dmr_recovery_region
     for (genvar i = 0; i < NumDMRGroups; i++) begin
@@ -518,10 +561,9 @@ module HMR_wrap #(
                                                        : tmr_error_main [i*2+:2];
       assign dmr_single_mismatch [i] = dmr_error [i*2+:2] != 3'b000;
 
-      /**********************************************************
-       ******************** DMR Core Checkers *******************
-       *********************************************************/
-
+      /*********************
+       * DMR Core Checkers *
+       *********************/
       DMR_checker #(
         .DataWidth ( MainConcatWidth )
       ) dmr_core_checker_main (
@@ -561,28 +603,34 @@ module HMR_wrap #(
       DMR_checker # (
         .DataWidth ( DataWidth )
       ) dmr_rf_checker_port_a (
-        .inp_a_i ( backup_regfile_wdata_a_i [dmr_core_id(i, 0)] ),
-        .inp_b_i ( backup_regfile_wdata_a_i [dmr_core_id(i, 1)] ),
-        .check_o ( backup_regfile_wdata_a [i]                   ),
-        .error_o ( backup_regfile_error_a [i]                   )
+        .inp_a_i ( backup_regfile_wport_i[dmr_core_id(i, 0)].wdata_a ),
+        .inp_b_i ( backup_regfile_wport_i[dmr_core_id(i, 1)].wdata_a ),
+        .check_o ( backup_regfile_wdata_a[i]                   ),
+        .error_o ( backup_regfile_error_a[i]                   )
       );
 
       DMR_checker # (
         .DataWidth ( DataWidth )
       ) dmr_rf_checker_port_b (
-        .inp_a_i ( backup_regfile_wdata_b_i [dmr_core_id(i, 0)] ),
-        .inp_b_i ( backup_regfile_wdata_b_i [dmr_core_id(i, 1)] ),
-        .check_o ( backup_regfile_wdata_b [i]                   ),
-        .error_o ( backup_regfile_error_b [i]                   )
+        .inp_a_i ( backup_regfile_wport_i[dmr_core_id(i, 0)].wdata_b ),
+        .inp_b_i ( backup_regfile_wport_i[dmr_core_id(i, 1)].wdata_b ),
+        .check_o ( backup_regfile_wdata_b [i]                        ),
+        .error_o ( backup_regfile_error_b [i]                        )
       );
 
-      assign backup_regfile_we_a [i] = backup_regfile_we_a_i [i] & ~backup_regfile_error_a [i];
-      assign backup_regfile_we_b [i] = backup_regfile_we_b_i [i] & ~backup_regfile_error_b [i];
-      /*****************************************************************
-       ******************** Recovery Register Files ********************
-       ****************************************************************/
+      assign backup_regfile_we_a [i] = backup_regfile_wport_i[i].we_a 
+                                     & ~backup_regfile_error_a [i] 
+                                     & ~dmr_ctrl_core_recover_out [i];
+      assign backup_regfile_we_b [i] = backup_regfile_wport_i[i].we_b 
+                                     & ~backup_regfile_error_b [i] 
+                                     & ~dmr_ctrl_core_recover_out [i];
+
+      /***************************
+       * Recovery Register Files *
+       ***************************/
        recovery_rf  #(
-         .ECCEnabled ( 1 )
+         .ECCEnabled ( 1           ),
+         .ADDR_WIDTH ( RFAddrWidth )
        ) RRF           (
          .clk_i        ( clk_i  ),
          .rst_ni       ( rst_ni ),
@@ -597,13 +645,13 @@ module HMR_wrap #(
          .raddr_c_i    ( '0 ),
          .rdata_c_o    (    ),
          // Write Port A
-         .waddr_a_i    ( backup_regfile_waddr_a_i [i] ),
-         .wdata_a_i    ( backup_regfile_wdata_a [i]   ),
-         .we_a_i       ( backup_regfile_we_a [i]      ),
+         .waddr_a_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_a ),
+         .wdata_a_i    ( backup_regfile_wdata_a [i]                        ),
+         .we_a_i       ( backup_regfile_we_a [i]                           ),
          // Write Port B
-         .waddr_b_i    ( backup_regfile_waddr_b_i [i] ),
-         .wdata_b_i    ( backup_regfile_wdata_b [i]   ),
-         .we_b_i       ( backup_regfile_we_b [i]      )
+         .waddr_b_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_b ),
+         .wdata_b_i    ( backup_regfile_wdata_b [i]                        ),
+         .we_b_i       ( backup_regfile_we_b [i]                           )
        );
     end
     if (NumDMRLeftover > 0) begin : gen_dmr_leftover_error
@@ -840,33 +888,40 @@ module HMR_wrap #(
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       if (i < NumDMRCores && DMRFixed) begin : gen_dmr_mode
         // CTRL
-        assign core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
-        assign core_cluster_id_o   [i] = sys_cluster_id_i   [SysCoreIndex];
+        assign dmr_core_rstn_o     [i] = dmr_ctrl_core_rstn_out [SysCoreIndex];
+        assign core_core_id_o      [i] = sys_core_id_i       [SysCoreIndex];
+        assign core_cluster_id_o   [i] = sys_cluster_id_i    [SysCoreIndex];
 
-        assign core_clock_en_o     [i] = sys_clock_en_i     [SysCoreIndex];
-        assign core_fetch_en_o     [i] = sys_fetch_en_i     [SysCoreIndex];
-        assign core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
+        assign core_clock_en_o     [i] = sys_clock_en_i      [SysCoreIndex];
+        assign core_fetch_en_o     [i] = sys_fetch_en_i      [SysCoreIndex];
+        assign core_boot_addr_o    [i] = sys_boot_addr_i     [SysCoreIndex];
 
-        assign core_debug_req_o    [i] = sys_debug_req_i    [SysCoreIndex];
-        assign core_perf_counters_o[i] = sys_perf_counters_i[SysCoreIndex];
+        assign core_debug_req_o    [i] = sys_debug_req_i     [SysCoreIndex] 
+                                       | dmr_ctrl_core_debug_req_out [SysCoreIndex];
+        assign core_perf_counters_o[i] = sys_perf_counters_i [SysCoreIndex];
 
         // IRQ
-        assign core_irq_req_o      [i] = sys_irq_req_i      [SysCoreIndex];
-        assign core_irq_id_o       [i] = sys_irq_id_i       [SysCoreIndex];
+        assign core_irq_req_o      [i] = sys_irq_req_i       [SysCoreIndex];
+        assign core_irq_id_o       [i] = sys_irq_id_i        [SysCoreIndex];
 
         // INSTR
-        assign core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
-        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
-        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i[SysCoreIndex];
-        assign core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
+        assign core_instr_gnt_o    [i] = sys_instr_gnt_i     [SysCoreIndex];
+        assign core_instr_r_rdata_o[i] = sys_instr_r_rdata_i [SysCoreIndex];
+        assign core_instr_r_valid_o[i] = sys_instr_r_valid_i [SysCoreIndex];
+        assign core_instr_err_o    [i] = sys_instr_err_i     [SysCoreIndex];
+        assign core_instr_lock_o   [i] = dmr_ctrl_core_instr_lock_out [SysCoreIndex];
 
         // DATA
-        assign core_data_gnt_o     [i] = sys_data_gnt_i     [SysCoreIndex];
-        assign core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
-        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
-        assign core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
-        assign core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
-        assign core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
+        assign core_data_gnt_o     [i] = sys_data_gnt_i      [SysCoreIndex];
+        assign core_data_r_opc_o   [i] = sys_data_r_opc_i    [SysCoreIndex];
+        assign core_data_r_rdata_o [i] = sys_data_r_rdata_i  [SysCoreIndex];
+        assign core_data_r_user_o  [i] = sys_data_r_user_i   [SysCoreIndex];
+        assign core_data_r_valid_o [i] = sys_data_r_valid_i  [SysCoreIndex];
+        assign core_data_err_o     [i] = sys_data_err_i      [SysCoreIndex];
+
+        // RF
+        assign dmr_rf_readback_o [i] = regfile_readback_out [SysCoreIndex];
+        assign core_regfile_raddr_o [i] = core_regfile_raddr_out [SysCoreIndex];
 
       end else begin : gen_independent_mode
 
@@ -925,6 +980,8 @@ module HMR_wrap #(
           assign sys_data_wdata_o    [i] = core_data_wdata_i[CoreCoreIndex];
           assign sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
           assign sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
+
+          assign core_setback_o      [i] = dmr_ctrl_core_recover_out [CoreCoreIndex];
 
         end else begin : gen_disable_core // Assign disable
 
