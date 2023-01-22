@@ -72,7 +72,7 @@ logic [$clog2(NumDMRGroups)-1:0] error_index_d,
 for (genvar i = 0; i < NumDMRGroups; i++) begin
   assign dmr_ctrl_core_rstn_o [i] = dmr_ctrl_core_rstn_out [i];
   assign dmr_ctrl_core_clk_en_o [i] = dmr_ctrl_core_clk_en_out [i];
-  assign dmr_ctrl_core_instr_lock_o [i] = ~dmr_ctrl_core_instr_lock_q [i];
+  assign dmr_ctrl_core_instr_lock_o [i] = dmr_ctrl_core_instr_lock_q [i];
   assign dmr_ctrl_core_debug_req_o [i] = dmr_ctrl_core_debug_req_out [i];
   assign dmr_ctrl_core_recover_o [i] = dmr_ctrl_core_recover_q [i];
   assign dmr_ctrl_core_debug_rsp_in [i] = dmr_ctrl_core_debug_rsp_i [i];
