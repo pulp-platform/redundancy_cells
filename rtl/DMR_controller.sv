@@ -39,6 +39,7 @@ module DMR_controller #(
   input  logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_rsp_i,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_instr_lock_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_recover_o,
+  output logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_resume_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_clk_en_o
 );
 
@@ -204,6 +205,7 @@ always_comb begin : recovery_routine_fsm
   dmr_ctrl_core_recover_d = dmr_ctrl_core_recover_q;
   dmr_ctrl_core_instr_lock_d = dmr_ctrl_core_instr_lock_q;
   dmr_ctrl_core_debug_req_out = '0;
+  dmr_ctrl_core_debug_resume_o = '0;
   case (current)
     IDLE: begin
       if (routine_start) begin
@@ -239,7 +241,7 @@ always_comb begin : recovery_routine_fsm
       addr_gen_start = 1'b1;
       if (addr_gen_done) begin
         dmr_ctrl_core_instr_lock_d [error_index_q] = 1'b0;
-        dmr_ctrl_core_debug_req_out [error_index_q] = 1'b1;
+        dmr_ctrl_core_debug_resume_o [error_index_q] = 1'b1;
         next = EXIT;
       end else
       next = current;

@@ -128,6 +128,7 @@ module HMR_wrap #(
   output logic [   NumCores-1:0]                     core_instr_err_o    ,
                                                      
   output logic [   NumCores-1:0]                     core_debug_req_o    ,
+  output logic [   NumCores-1:0]                     core_debug_resume_o ,
   input  logic [   NumCores-1:0]                     core_debug_rsp_i    ,
                                                      
   input  logic [   NumCores-1:0]                     core_data_req_i     ,
@@ -230,7 +231,8 @@ module HMR_wrap #(
                                            dmr_ctrl_core_debug_req_out,
                                            dmr_ctrl_core_debug_rsp_in,
                                            dmr_ctrl_core_instr_lock_out,
-                                           dmr_ctrl_core_recover_out;
+                                           dmr_ctrl_core_recover_out,
+                                           dmr_ctrl_debug_resume_out;
 
   regfile_raddr_t [NumDMRGroups-1:0] core_regfile_raddr_out;
   regfile_rdata_t [NumDMRGroups-1:0] core_recovery_regfile_rdata_out;
@@ -554,6 +556,7 @@ module HMR_wrap #(
     .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_rsp_in      ),
     .dmr_ctrl_core_instr_lock_o    ( dmr_ctrl_core_instr_lock_out    ),
     .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out       ),
+    .dmr_ctrl_core_debug_resume_o  ( dmr_ctrl_debug_resume_out       ),
     .dmr_ctrl_core_clk_en_o        (                                 )
   );
 
@@ -902,6 +905,7 @@ module HMR_wrap #(
 
         assign core_debug_req_o    [i] = sys_debug_req_i     [SysCoreIndex] 
                                        | dmr_ctrl_core_debug_req_out [SysCoreIndex];
+        assign core_debug_resume_o [i] = dmr_ctrl_debug_resume_out [SysCoreIndex];
         assign core_perf_counters_o[i] = sys_perf_counters_i [SysCoreIndex];
 
         // IRQ
