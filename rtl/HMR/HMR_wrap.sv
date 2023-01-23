@@ -57,7 +57,6 @@ module HMR_wrap #(
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
   output logic [    NumCores-1:0] dmr_rf_readback_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
-  output logic [ NumSysCores-1:0] dmr_core_rstn_o,
 
   // Backup ports from cores' RFs
   input  regfile_write_t [ NumSysCores-1:0] backup_regfile_wport_i,
@@ -105,6 +104,7 @@ module HMR_wrap #(
 
   // Ports connecting to the cores
   output logic [   NumCores-1:0]                     core_setback_o      ,
+  output logic [   NumCores-1:0]                     core_recover_o      ,
                                                                          
   output logic [   NumCores-1:0][           3:0]     core_core_id_o      ,
   output logic [   NumCores-1:0][           5:0]     core_cluster_id_o   ,
@@ -231,6 +231,7 @@ module HMR_wrap #(
                                            dmr_ctrl_core_debug_req_out,
                                            dmr_ctrl_core_debug_rsp_in,
                                            dmr_ctrl_core_instr_lock_out,
+                                           dmr_ctrl_core_setback_out,
                                            dmr_ctrl_core_recover_out,
                                            dmr_ctrl_debug_resume_out;
 
@@ -551,10 +552,10 @@ module HMR_wrap #(
     .core_recovery_regfile_wport_o ( core_recovery_regfile_wport_out ),
     .regfile_readback_o            ( regfile_readback_out            ),
     .regfile_raddr_o               ( core_regfile_raddr_out          ),
-    .dmr_ctrl_core_rstn_o          ( dmr_ctrl_core_rstn_out          ),
     .dmr_ctrl_core_debug_req_o     ( dmr_ctrl_core_debug_req_out     ),
     .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_rsp_in      ),
     .dmr_ctrl_core_instr_lock_o    ( dmr_ctrl_core_instr_lock_out    ),
+    .dmr_ctrl_core_setback_o       ( dmr_ctrl_core_setback_out       ),
     .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out       ),
     .dmr_ctrl_core_debug_resume_o  ( dmr_ctrl_debug_resume_out       ),
     .dmr_ctrl_core_clk_en_o        (                                 )
@@ -895,7 +896,6 @@ module HMR_wrap #(
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       if (i < NumDMRCores && DMRFixed) begin : gen_dmr_mode
         // CTRL
-        assign dmr_core_rstn_o     [i] = dmr_ctrl_core_rstn_out [SysCoreIndex];
         assign core_core_id_o      [i] = sys_core_id_i       [SysCoreIndex];
         assign core_cluster_id_o   [i] = sys_cluster_id_i    [SysCoreIndex];
 
@@ -995,7 +995,8 @@ module HMR_wrap #(
           assign sys_data_user_o     [i] = core_data_user_i [CoreCoreIndex];
           assign sys_data_be_o       [i] = core_data_be_i   [CoreCoreIndex];
 
-          assign core_setback_o      [i] = dmr_ctrl_core_recover_out [CoreCoreIndex];
+          assign core_setback_o      [i] = dmr_ctrl_core_setback_out [CoreCoreIndex];
+          assign core_recover_o      [i] = dmr_ctrl_core_recover_out [CoreCoreIndex];
 
         end else begin : gen_disable_core // Assign disable
 

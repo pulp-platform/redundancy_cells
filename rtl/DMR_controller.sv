@@ -34,10 +34,10 @@ module DMR_controller #(
   output regfile_write_t [NumDMRGroups-1:0] core_recovery_regfile_wport_o,
   output logic           [NumDMRGroups-1:0] regfile_readback_o,
   output regfile_raddr_t [NumDMRGroups-1:0] regfile_raddr_o,
-  output logic           [NumDMRGroups-1:0] dmr_ctrl_core_rstn_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_req_o,
   input  logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_rsp_i,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_instr_lock_o,
+  output logic           [NumDMRGroups-1:0] dmr_ctrl_core_setback_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_recover_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_resume_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_clk_en_o
@@ -56,7 +56,7 @@ logic addr_gen_start,
 
 logic [RFAddrWidth-1:0] addr_gen_res;
 
-logic [NumDMRGroups-1:0] dmr_ctrl_core_rstn_out     ,
+logic [NumDMRGroups-1:0] dmr_ctrl_core_setback_out  ,
                          dmr_ctrl_core_debug_rsp_in ,
                          dmr_ctrl_core_clk_en_out,
                          dmr_ctrl_core_debug_req_out,
@@ -70,7 +70,7 @@ logic [$clog2(NumDMRGroups)-1:0] error_index_d,
                                  error_index_q;
 
 for (genvar i = 0; i < NumDMRGroups; i++) begin
-  assign dmr_ctrl_core_rstn_o [i] = dmr_ctrl_core_rstn_out [i];
+  assign dmr_ctrl_core_setback_o [i] = dmr_ctrl_core_setback_out [i];
   assign dmr_ctrl_core_clk_en_o [i] = dmr_ctrl_core_clk_en_out [i];
   assign dmr_ctrl_core_instr_lock_o [i] = dmr_ctrl_core_instr_lock_q [i];
   assign dmr_ctrl_core_debug_req_o [i] = dmr_ctrl_core_debug_req_out [i];
@@ -200,7 +200,7 @@ always_comb begin : recovery_routine_fsm
   addr_gen_start = 1'b0;
   core_recover_rst = '0;
   core_instr_lock_rst = 1'b0;
-  dmr_ctrl_core_rstn_out = '1;
+  dmr_ctrl_core_setback_out = '0;
   dmr_ctrl_core_clk_en_out = '1;
   dmr_ctrl_core_recover_d = dmr_ctrl_core_recover_q;
   dmr_ctrl_core_instr_lock_d = dmr_ctrl_core_instr_lock_q;
@@ -215,7 +215,7 @@ always_comb begin : recovery_routine_fsm
     end
     
     RESET: begin
-      dmr_ctrl_core_rstn_out [error_index_q] = 1'b0;
+      dmr_ctrl_core_setback_out [error_index_q] = 1'b1;
       dmr_ctrl_core_instr_lock_d [error_index_q] = 1'b1;
       next = HALT_REQ;
     end
