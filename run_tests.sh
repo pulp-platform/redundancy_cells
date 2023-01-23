@@ -9,7 +9,7 @@
 # this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-# 
+#
 # Testing script for redundancy cells
 
 set -e
@@ -45,4 +45,7 @@ call_vsim -GDataWidth=8 tb_ecc_secded
 call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
+call_vsim tb_dmr_handshake_fork
+call_vsim tb_dmr_handshake_join
+call_vsim tb_dmr_handshake_fork_join_fork
 call_vsim tb_ecc_scrubber
