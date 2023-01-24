@@ -79,6 +79,8 @@ module handshake_source #(
       end
     end
 
+    `ifndef VERILATOR
+    // pragma translate_off
     // Warnings
     assert property (@(posedge clk_i) disable iff (~rst_ni)
       ( data_q != 0 |-> data_d != 0)) else
@@ -101,6 +103,10 @@ module handshake_source #(
     assert property (@(posedge clk_i) disable iff (~rst_ni)
       (~ready_i &  valid_o ) |=> $stable(data_o)) else
       $error("[Handshake Source] data changed before handshake completed.");
+
+    // pragma translate_on
+    `endif
+
   endmodule
 
   module handshake_sink #(
