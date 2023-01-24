@@ -20,6 +20,7 @@ sources:
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/dmr/DMR_handshake_fork.sv
   - rtl/dmr/DMR_handshake_join.sv
+  - rtl/dmr/DMR_instr_join_fork.sv
   - rtl/dmr/DMR_write_mux.sv
   - rtl/ECC_reg/hamming.sv
   - rtl/ECC_reg/tmr_reg.sv
