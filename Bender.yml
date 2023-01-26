@@ -14,7 +14,6 @@ sources:
     # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
-  - rtl/recovery_pkg.sv
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
@@ -29,14 +28,9 @@ sources:
   - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
   - rtl/lowrisc_ecc/prim_secded_pkg.sv
-  - rtl/recovery_rf.sv
-  - rtl/recovery_pc.sv
   - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
-  - rtl/DMR_checker.sv
-  - rtl/DMR_address_generator.sv
-  - rtl/DMR_controller.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
@@ -90,6 +84,12 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
 
   - files:
+      - rtl/HMR/recovery_pkg.sv
+      - rtl/HMR/recovery_rf.sv
+      - rtl/HMR/recovery_pc.sv
+      - rtl/HMR/DMR_checker.sv
+      - rtl/HMR/DMR_address_generator.sv
+      - rtl/HMR/DMR_controller.sv
       - rtl/HMR/hmr_registers_reg_pkg.sv
       - rtl/HMR/hmr_core_regs_reg_pkg.sv
       - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
