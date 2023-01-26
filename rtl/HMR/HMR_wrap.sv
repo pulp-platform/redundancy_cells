@@ -522,14 +522,6 @@ module HMR_wrap #(
        ******************** DMR Core Checkers *******************
        *********************************************************/
 
-      // DMR_checker #(
-      //   .DataWidth ( MainConcatWidth )
-      // ) dmr_core_checker_main (
-      //   .inp_a_i ( main_concat_in [InterleaveGrps ? i                : i*2]),
-      //   .inp_b_i ( main_concat_in [InterleaveGrps ? i + NumDMRGroups : i*2]),
-      //   .check_o ( main_dmr_out [i]    ),
-      //   .error_o ( dmr_failure_main [i])
-      // );
       DMR_checker #(
         .DataWidth ( MainConcatWidth )
       ) dmr_core_checker_main (
@@ -584,12 +576,12 @@ module HMR_wrap #(
         .error_o ( backup_regfile_error_b [i]                   )
       );
 
-      assign backup_regfile_we_a [i] = backup_regfile_we_a_i [i] | backup_regfile_error_a [i];
-      assign backup_regfile_we_b [i] = backup_regfile_we_b_i [i] | backup_regfile_error_b [i];
+      assign backup_regfile_we_a [i] = backup_regfile_we_a_i [i] & ~backup_regfile_error_a [i];
+      assign backup_regfile_we_b [i] = backup_regfile_we_b_i [i] & ~backup_regfile_error_b [i];
       /*****************************************************************
        ******************** Recovery Register Files ********************
        ****************************************************************/
-       recovery_rf #(
+       recovery_rf  #(
          .ECCEnabled ( 1 )
        ) RRF           (
          .clk_i        ( clk_i  ),
@@ -597,7 +589,7 @@ module HMR_wrap #(
          .test_en_i    ( '0     ),
          //Read port A
          .raddr_a_i    ( '0 ),
-         .rdata_a_o    (    ) ,
+         .rdata_a_o    (    ),
          //Read port B
          .raddr_b_i    ( '0 ),
          .rdata_b_o    (    ),
@@ -619,7 +611,7 @@ module HMR_wrap #(
       assign dmr_error_data[NumCores-1-:NumDMRLeftover] = '0;
       assign dmr_error     [NumCores-1-:NumDMRLeftover] = '0;
     end
-  end else begin: no_dmr_checkers // block: gen_dmr_checkers
+  end else begin: no_dmr_checkers
     assign dmr_error_main   = '0;
     assign dmr_error_data   = '0;
     assign dmr_error        = '0;
