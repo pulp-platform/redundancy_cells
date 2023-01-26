@@ -26,6 +26,7 @@ module DMR_controller #(
 )(
   input  logic clk_i ,
   input  logic rst_ni,
+  output logic intruder_lock_o,
   input  logic [NumDMRGroups-1:0] dmr_rf_checker_error_port_a_i,
   input  logic [NumDMRGroups-1:0] dmr_rf_checker_error_port_b_i,
   input  logic [NumDMRGroups-1:0] dmr_core_checker_error_main_i,
@@ -34,6 +35,8 @@ module DMR_controller #(
   output regfile_write_t [NumDMRGroups-1:0] core_recovery_regfile_wport_o,
   output logic           [NumDMRGroups-1:0] regfile_readback_o,
   output regfile_raddr_t [NumDMRGroups-1:0] regfile_raddr_o,
+  output logic           [NumDMRGroups-1:0] dmr_ctrl_pc_read_enable_o,
+  output logic           [NumDMRGroups-1:0] dmr_ctrl_pc_write_enable_o,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_req_o,
   input  logic           [NumDMRGroups-1:0] dmr_ctrl_core_debug_rsp_i,
   output logic           [NumDMRGroups-1:0] dmr_ctrl_core_instr_lock_o,
@@ -46,13 +49,24 @@ module DMR_controller #(
 /********************************************************
 ******************** Recovery Routine *******************
 *********************************************************/
+/************************
+ * Signals Declarations *
+ ************************/
 logic clear,
       routine_start;
 logic core_instr_lock_rst,
-      core_recover_rst;
+      core_recover_rst,
+      pc_write_enable_rst;
 logic addr_gen_start,
       addr_gen_error,
       addr_gen_done;
+
+logic intruder_lock_d,
+      intruder_lock_q;
+
+logic restore_pc_cycles_d,
+      restore_pc_cycles_q,
+      restore_pc_cycles_rst;
 
 logic [RFAddrWidth-1:0] addr_gen_res;
 
@@ -60,6 +74,9 @@ logic [NumDMRGroups-1:0] dmr_ctrl_core_setback_out  ,
                          dmr_ctrl_core_debug_rsp_in ,
                          dmr_ctrl_core_clk_en_out,
                          dmr_ctrl_core_debug_req_out,
+                         dmr_ctrl_pc_read_enable_out,
+                         dmr_ctrl_pc_write_enable_d,
+                         dmr_ctrl_pc_write_enable_q,
                          dmr_ctrl_core_recover_d,
                          dmr_ctrl_core_recover_q,
                          dmr_ctrl_core_instr_lock_d,
@@ -68,10 +85,14 @@ logic [NumDMRGroups-1:0] dmr_ctrl_core_setback_out  ,
 recovery_routine_state_e current, next;
 logic [$clog2(NumDMRGroups)-1:0] error_index_d,
                                  error_index_q;
-
+/******************
+ * Output Assigns *
+ ******************/
 for (genvar i = 0; i < NumDMRGroups; i++) begin
   assign dmr_ctrl_core_setback_o [i] = dmr_ctrl_core_setback_out [i];
   assign dmr_ctrl_core_clk_en_o [i] = dmr_ctrl_core_clk_en_out [i];
+  assign dmr_ctrl_pc_read_enable_o [i] = dmr_ctrl_pc_read_enable_out [i];
+  assign dmr_ctrl_pc_write_enable_o [i] = dmr_ctrl_pc_write_enable_q [i];
   assign dmr_ctrl_core_instr_lock_o [i] = dmr_ctrl_core_instr_lock_q [i];
   assign dmr_ctrl_core_debug_req_o [i] = dmr_ctrl_core_debug_req_out [i];
   assign dmr_ctrl_core_recover_o [i] = dmr_ctrl_core_recover_q [i];
@@ -79,7 +100,16 @@ for (genvar i = 0; i < NumDMRGroups; i++) begin
   assign regfile_readback_o [i] = '0;
   assign regfile_raddr_o [i] = '0;
 end
+assign intruder_lock_o = intruder_lock_q;
 
+/**************
+ * Comb logic *
+ **************/
+
+/*
+ * Error index identifier.
+ * Identifies the index of the group that is faulty.
+ */
 always_comb begin
   error_index_d = error_index_q;
   for (int i = 0; i < NumDMRGroups; i++) begin
@@ -91,6 +121,10 @@ always_comb begin
   end
 end
 
+/*
+ * Routine start signal.
+ * Checks if there are any errors from external checkers to start the FSM Recovery Routine.
+ */
 assign routine_start = (|dmr_rf_checker_error_port_a_i) | 
                        (|dmr_rf_checker_error_port_a_i) |
                        (|dmr_core_checker_error_main_i) |
@@ -98,8 +132,23 @@ assign routine_start = (|dmr_rf_checker_error_port_a_i) |
 /************
 * Registers *
 *************/
-/* 
- * Error index register. If the controller receives an error from one of the input NumDMRGroups,
+
+/*
+ * Intruder lock signal.
+ * At the end of the recovery routine, we lock the intruder a prevent it
+ * to continuously inject undesired faults.
+ */
+always_ff @(posedge clk_i, negedge rst_ni) begin : intruder_lock
+  if (~rst_ni)
+    intruder_lock_q <= 1'b0;
+  else begin
+    intruder_lock_q <= intruder_lock_d;
+  end
+end
+
+/*
+ * Error index register.
+ * If the controller receives an error from one of the input NumDMRGroups,
  * this register saves the index of the faulty input group.
  */
 always_ff @(posedge clk_i, negedge rst_ni) begin : error_index_register
@@ -113,9 +162,10 @@ always_ff @(posedge clk_i, negedge rst_ni) begin : error_index_register
   end
 end
 
-/* 
- * Instruction lock registers. These registers prevent PULP obi adapter to propagate     
- * inexistent instruction requests towards iCache while the cores are in debug mode (halted) 
+/*
+ * Instruction lock registers.
+ * These registers prevent PULP obi adapter to propagate
+ * inexistent instruction requests towards iCache while the cores are in debug mode (halted).
  */
 generate
   for (genvar i = 0; i < NumDMRGroups; i++) begin
@@ -132,9 +182,10 @@ generate
   end
 endgenerate
 
-/* 
- * Core Recover Registers. These registers raise the recover signal towards the cores to     
- * allow their register files to be reloaded with the RRF content
+/*
+ * Core Recover Registers.
+ * These registers raise the recover signal towards the cores to
+ * allow their register files to be reloaded with the RRF content.
  */
 generate
   for (genvar i = 0; i < NumDMRGroups; i++) begin
@@ -150,6 +201,42 @@ generate
     end
   end
 endgenerate
+
+/*
+ * Program Counter Write Enable Register.
+ * During a recovery routine, this register blocks the Recovery PC
+ * from sampling new values from the cores.
+ */
+generate
+  for (genvar i = 0; i < NumDMRGroups; i++) begin
+    always_ff @(posedge clk_i, negedge rst_ni) begin : program_counter_write_enable
+      if (~rst_ni) begin
+        dmr_ctrl_pc_write_enable_q [i] <= 1'b1;
+      end else begin
+        if (clear || pc_write_enable_rst) begin
+          dmr_ctrl_pc_write_enable_q [i] <= 1'b1;
+        end else
+          dmr_ctrl_pc_write_enable_q [i] <= dmr_ctrl_pc_write_enable_d [i];
+      end
+    end
+  end
+endgenerate
+
+/*
+ * Program Counter Restore Counter.
+ * Counter that keeps the Recovery Routine FSM in the RECOVERY_PC state
+ * for two cycles to make sure that the PC state is safely restored.
+ */
+always_ff @(posedge clk_i, negedge rst_ni) begin : pc_restore_counter
+  if (~rst_ni)
+    restore_pc_cycles_q <= '0;
+  else begin
+    if (clear || restore_pc_cycles_rst)
+      restore_pc_cycles_q <= '0;
+    else
+      restore_pc_cycles_q <= restore_pc_cycles_d;
+  end
+end
 
 /***********************
 * RF Address Generator *
@@ -199,13 +286,19 @@ always_comb begin : recovery_routine_fsm
   clear = 1'b0;
   addr_gen_start = 1'b0;
   core_recover_rst = '0;
+  pc_write_enable_rst = 1'b0;
   core_instr_lock_rst = 1'b0;
+  restore_pc_cycles_rst = 1'b0;
   dmr_ctrl_core_setback_out = '0;
   dmr_ctrl_core_clk_en_out = '1;
   dmr_ctrl_core_recover_d = dmr_ctrl_core_recover_q;
   dmr_ctrl_core_instr_lock_d = dmr_ctrl_core_instr_lock_q;
   dmr_ctrl_core_debug_req_out = '0;
   dmr_ctrl_core_debug_resume_o = '0;
+  dmr_ctrl_pc_read_enable_out = '0;
+  dmr_ctrl_pc_write_enable_d = dmr_ctrl_pc_write_enable_q;
+  intruder_lock_d = intruder_lock_q;
+  restore_pc_cycles_d = restore_pc_cycles_q;
   case (current)
     IDLE: begin
       if (routine_start) begin
@@ -217,6 +310,7 @@ always_comb begin : recovery_routine_fsm
     RESET: begin
       dmr_ctrl_core_setback_out [error_index_q] = 1'b1;
       dmr_ctrl_core_instr_lock_d [error_index_q] = 1'b1;
+      dmr_ctrl_pc_write_enable_d [error_index_q] = 1'b0;
       next = HALT_REQ;
     end
     
@@ -226,14 +320,20 @@ always_comb begin : recovery_routine_fsm
     end
 
     HALT_WAIT: begin
-      if ( dmr_ctrl_core_debug_rsp_in [error_index_q] ) begin
+      if (dmr_ctrl_core_debug_rsp_in [error_index_q]) begin
+        next = RESTORE_PC;
+      end else
+        next = current;
+    end
+
+    RESTORE_PC: begin
+      dmr_ctrl_pc_read_enable_out [error_index_q] = 1'b1;
+      restore_pc_cycles_d = restore_pc_cycles_q + 1'd1;
+      if (restore_pc_cycles_q == 1'd1) begin
+        restore_pc_cycles_d = 1'd0;
         next = RESTORE_RF;
       end else
-        next = current;      
-    end
-    
-    RESTORE_PC: begin
-    
+        next = current;
     end
     
     RESTORE_RF: begin
@@ -244,14 +344,16 @@ always_comb begin : recovery_routine_fsm
         dmr_ctrl_core_debug_resume_o [error_index_q] = 1'b1;
         next = EXIT;
       end else
-      next = current;
+        next = current;
     end
     
     RESTORE_CSR: begin
     end
 
     EXIT: begin
-      
+      clear = 1'b1;
+      intruder_lock_d = 1'b1;
+      next =  IDLE;
     end
   endcase
 end : recovery_routine_fsm

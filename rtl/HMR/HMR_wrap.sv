@@ -58,10 +58,18 @@ module HMR_wrap #(
   output logic [    NumCores-1:0] dmr_rf_readback_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
-  // Backup ports from cores' RFs
-  input  regfile_write_t [ NumSysCores-1:0] backup_regfile_wport_i,
-  output regfile_raddr_t [    NumCores-1:0] core_regfile_raddr_o,
-  output regfile_write_t [    NumCores-1:0] core_recovery_regfile_wport_o,
+  // Backup Port from Cores'Program Counter
+  input   logic          [    NumCores-1:0][DataWidth-1:0] backup_program_counter_i,
+  output  logic          [    NumCores-1:0]                pc_recover_o,
+  output  logic          [    NumCores-1:0][DataWidth-1:0] recovery_program_counter_o,
+  input   logic          [    NumCores-1:0]                backup_branch_i,
+  input   logic          [    NumCores-1:0][DataWidth-1:0] backup_branch_addr_i,
+  output  logic          [    NumCores-1:0]                recovery_branch_o,
+  output  logic          [    NumCores-1:0][DataWidth-1:0] recovery_branch_addr_o,
+  // Backup ports from Cores' RFs
+  input  regfile_write_t [    NumCores-1:0] backup_regfile_wport_i,
+  output regfile_raddr_t [ NumSysCores-1:0] core_regfile_raddr_o,
+  output regfile_write_t [ NumSysCores-1:0] core_recovery_regfile_wport_o,
   // TODO other required signals
 
   // Ports connecting to System
@@ -220,12 +228,23 @@ module HMR_wrap #(
   logic [NumDMRGroups-1:0][ UserWidth-1:0] dmr_data_user_out;
   logic [NumDMRGroups-1:0][   BeWidth-1:0] dmr_data_be_out;
 
-  logic [NumDMRGroups-1:0][ DataWidth-1:0] backup_regfile_wdata_a,
+  logic [NumDMRGroups-1:0][ DataWidth-1:0] backup_branch_addr_int,
+                                           recovery_branch_addr_out,
+                                           backup_program_counter_int,
+                                           recovery_program_counter_out,
+                                           backup_regfile_wdata_a,
                                            backup_regfile_wdata_b;
-  logic [NumDMRGroups-1:0]                 backup_regfile_we_a,
+  logic [NumDMRGroups-1:0]                 backup_branch_int,
+                                           recovery_branch_out,
+                                           backup_program_counter_error,
+                                           dmr_ctrl_pc_read_enable_out,
+                                           dmr_ctrl_pc_write_enable_out,
+                                           backup_regfile_we_a,
                                            backup_regfile_we_b,
                                            backup_regfile_error_a,
                                            backup_regfile_error_b,
+                                           backup_branch_error,
+                                           backup_branch_addr_error,
                                            regfile_readback_out,
                                            dmr_ctrl_core_rstn_out,
                                            dmr_ctrl_core_debug_req_out,
@@ -234,6 +253,7 @@ module HMR_wrap #(
                                            dmr_ctrl_core_setback_out,
                                            dmr_ctrl_core_recover_out,
                                            dmr_ctrl_debug_resume_out;
+  logic                                    intruder_lock;
 
   regfile_raddr_t [NumDMRGroups-1:0] core_regfile_raddr_out;
   regfile_rdata_t [NumDMRGroups-1:0] core_recovery_regfile_rdata_out;
@@ -542,8 +562,9 @@ module HMR_wrap #(
     .DMRFixed    ( DMRFixed    ),
     .RFAddrWidth ( RFAddrWidth )
   ) dmr_controller (
-    .clk_i (clk_i),
-    .rst_ni ( rst_ni),
+    .clk_i                         ( clk_i                           ),
+    .rst_ni                        ( rst_ni                          ),
+    .intruder_lock_o               ( intruder_lock                   ),
     .dmr_rf_checker_error_port_a_i ( backup_regfile_error_a          ),
     .dmr_rf_checker_error_port_b_i ( backup_regfile_error_b          ),
     .dmr_core_checker_error_main_i ( dmr_failure_main                ),
@@ -558,6 +579,8 @@ module HMR_wrap #(
     .dmr_ctrl_core_setback_o       ( dmr_ctrl_core_setback_out       ),
     .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out       ),
     .dmr_ctrl_core_debug_resume_o  ( dmr_ctrl_debug_resume_out       ),
+    .dmr_ctrl_pc_read_enable_o     ( dmr_ctrl_pc_read_enable_out     ),
+    .dmr_ctrl_pc_write_enable_o    ( dmr_ctrl_pc_write_enable_out    ),
     .dmr_ctrl_core_clk_en_o        (                                 )
   );
 
@@ -605,9 +628,45 @@ module HMR_wrap #(
                 = main_dmr_out[i];
       end
 
-      /*********************************************************
-       ******************** DMR RF Checkers ********************
-       ********************************************************/
+      /******************
+       * DMR PC Checker *
+       ******************/
+       DMR_checker # (
+         .DataWidth ( DataWidth )
+       ) dmr_pc_checker (
+         .inp_a_i ( backup_program_counter_i[dmr_core_id(i, 0)] ),
+         .inp_b_i ( backup_program_counter_i[dmr_core_id(i, 1)] ),
+         .check_o ( backup_program_counter_int [i]              ),
+         .error_o ( backup_program_counter_error [i]            )
+       );
+
+       /*********************
+       * DMR Branch Checker *
+       **********************/
+       DMR_checker # (
+         .DataWidth ( 1 )
+       ) dmr_branch_checker (
+         .inp_a_i ( backup_branch_i[dmr_core_id(i, 0)] ),
+         .inp_b_i ( backup_branch_i[dmr_core_id(i, 1)] ),
+         .check_o ( backup_branch_int [i]              ),
+         .error_o ( backup_branch_error [i]            )
+       );
+
+       /*****************************
+       * DMR Branch Address Checker *
+       ******************************/
+       DMR_checker # (
+         .DataWidth ( DataWidth )
+       ) dmr_branch_addr_checker (
+         .inp_a_i ( backup_branch_addr_i[dmr_core_id(i, 0)] ),
+         .inp_b_i ( backup_branch_addr_i[dmr_core_id(i, 1)] ),
+         .check_o ( backup_branch_addr_int [i]              ),
+         .error_o ( backup_branch_addr_error [i]            )
+       );
+
+      /*******************
+       * DMR RF Checkers *
+       *******************/
       DMR_checker # (
         .DataWidth ( DataWidth )
       ) dmr_rf_checker_port_a (
@@ -632,6 +691,28 @@ module HMR_wrap #(
       assign backup_regfile_we_b [i] = backup_regfile_wport_i[i].we_b 
                                      & ~backup_regfile_error_b [i] 
                                      & ~dmr_ctrl_core_recover_out [i];
+      /****************************
+       * Recovery Program Counter *
+       ****************************/
+       recovery_pc #(
+         .ECCEnabled ( 1 )
+       ) RPC (
+         // Control Ports
+         .clk_i                      ( clk_i                              ),
+         .rst_ni                     ( rst_ni                             ),
+         .clear_i                    ( '0                                 ),
+         .read_enable_i              ( dmr_ctrl_pc_read_enable_out [i]    ),
+         .write_enable_i             ( ~backup_program_counter_error [i]
+                                      & dmr_ctrl_pc_write_enable_out [i]  ),
+         // Backup Ports
+         .backup_program_counter_i   ( backup_program_counter_int [i]     ),
+         .backup_branch_i            ( backup_branch_int [i]              ),
+         .backup_branch_addr_i       ( backup_branch_addr_i [i]           ),
+         // Recovery Pors
+         .recovery_program_counter_o ( recovery_program_counter_out [i]   ),
+         .recovery_branch_o          ( recovery_branch_out [i]            ),
+         .recovery_branch_addr_o     ( recovery_branch_addr_out [i]       )
+       );
 
       /***************************
        * Recovery Register Files *
@@ -926,6 +1007,12 @@ module HMR_wrap #(
         assign core_data_r_user_o  [i] = sys_data_r_user_i   [SysCoreIndex];
         assign core_data_r_valid_o [i] = sys_data_r_valid_i  [SysCoreIndex];
         assign core_data_err_o     [i] = sys_data_err_i      [SysCoreIndex];
+
+        // PC
+        assign pc_recover_o [i] = dmr_ctrl_pc_read_enable_out [SysCoreIndex];
+        assign recovery_program_counter_o [i] = recovery_program_counter_out [SysCoreIndex];
+        assign recovery_branch_o [i] = recovery_branch_out [SysCoreIndex];
+        assign recovery_branch_addr_o [i] = recovery_branch_addr_out [SysCoreIndex];
 
         // RF
         assign dmr_rf_readback_o [i] = regfile_readback_out [SysCoreIndex];

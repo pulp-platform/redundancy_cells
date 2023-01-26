@@ -16,7 +16,7 @@ package recovery_pkg;
 
 localparam int unsigned DataWidth = 32;
 localparam int unsigned RegfileAddr = 6;
-localparam int unsigned RECOVERY_STATE_BITS = 3;
+localparam int unsigned RecoveryStateBits = 3;
 
 typedef struct packed {
   // Write Port A
@@ -39,7 +39,7 @@ typedef struct packed {
   logic [DataWidth-1:0] rdata_b;
 } regfile_rdata_t;
 
-typedef enum logic [RECOVERY_STATE_BITS-1:0]{
+typedef enum logic [RecoveryStateBits-1:0]{
   IDLE       ,
   RESET      ,
   HALT_REQ   ,

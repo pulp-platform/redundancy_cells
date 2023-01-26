@@ -36,7 +36,8 @@ module recovery_rf #(
     parameter  ProtectedWidth    = 39,
     parameter  FPU               = 0,
     parameter  PULP_ZFINX        = 0,
-    localparam DataWidth         = ( ECCEnabled ) ? ProtectedWidth :  NonProtectedWidth
+    localparam DataWidth         = ( ECCEnabled ) ? ProtectedWidth
+                                                  :  NonProtectedWidth
 ) (
     // Clock and Reset
     input logic clk_i,
