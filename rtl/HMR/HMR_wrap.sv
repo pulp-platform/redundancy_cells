@@ -12,14 +12,22 @@
 
 module HMR_wrap import recovery_pkg::*; #(
   // Wrapper parameters
+  /// Number of physical cores
   parameter  int unsigned NumCores       = 0,
+  /// Enables support for Dual Modular Redundancy
   parameter  bit          DMRSupported   = 1'b1,
+  /// Locks HMR into permanent DMR mode
   parameter  bit          DMRFixed       = 1'b0,
+  /// Enables support for Triple Modular Redundancy
   parameter  bit          TMRSupported   = 1'b1,
+  /// Locks HMR into permanent TMR mode
   parameter  bit          TMRFixed       = 1'b0,
-  parameter  bit          RapidRecovery  = 1'b0, // Backup Regfile
+  /// Enables rapid recovery with a backup register file, PC, ...
+  parameter  bit          RapidRecovery  = 1'b0,
+  /// Separates voters and checkers for data, which are then only checked if data request is valid
   parameter  bit          SeparateData   = 1'b1,
-  parameter  bit          InterleaveGrps = 1'b1, // alternative is sequential grouping
+  /// Interleave DMR/TMR cores, alternatively with sequential grouping
+  parameter  bit          InterleaveGrps = 1'b1,
   parameter  int unsigned InstrDataWidth = 32,
   parameter  int unsigned DataWidth      = 32,
   parameter  int unsigned BeWidth        = 4,
@@ -28,12 +36,19 @@ module HMR_wrap import recovery_pkg::*; #(
   parameter  type         reg_req_t      = logic,
   parameter  type         reg_resp_t     = logic,
   // Local parameters depending on the above ones
+  /// Number of TMR groups (virtual TMR cores)
   localparam int unsigned NumTMRGroups   = NumCores/3,
+  /// Number of physical cores used for TMR
   localparam int unsigned NumTMRCores    = NumTMRGroups * 3,
+  /// Number of physical cores NOT used for TMR
   localparam int unsigned NumTMRLeftover = NumCores - NumTMRCores,
+  /// Number of DMR groups (virtual DMR cores)
   localparam int unsigned NumDMRGroups   = NumCores/2,
+  /// Nubmer of physical cores used for DMR
   localparam int unsigned NumDMRCores    = NumDMRGroups * 2,
+  /// Number of physical cores NOT used for DMR
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
+  /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
   localparam int unsigned NumSysCores    = DMRFixed ? NumDMRCores : TMRFixed ? NumTMRCores : NumCores
 ) (
   input  logic      clk_i ,
@@ -199,8 +214,8 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumTMRGroups-1:0] tmr_single_mismatch;
 
   logic [NumDMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_data;
-  logic [NumDMRGroups-1:0][2:0] dmr_error, dmr_error_main, dmr_error_data;
-  logic [NumDMRGroups-1:0] dmr_single_mismatch;
+  // logic [NumDMRGroups-1:0][2:0] dmr_error, dmr_error_main, dmr_error_data;
+  // logic [NumDMRGroups-1:0] dmr_single_mismatch;
 
   logic [NumTMRGroups-1:0]                 tmr_core_busy_out;
   logic [NumTMRGroups-1:0]                 tmr_irq_ack_out;
@@ -587,9 +602,9 @@ module HMR_wrap import recovery_pkg::*; #(
     for (genvar i = 0; i < NumDMRGroups; i++) begin
       assign dmr_failure [i] = dmr_data_req_out [i] ? (dmr_failure_main | dmr_failure_data)
                                                     : dmr_failure_main;
-      assign dmr_error [i*2+:2] = dmr_data_req_out [i] ? (dmr_error_main [i*2+:2] | dmr_error_data [i*2+:2])
-                                                       : tmr_error_main [i*2+:2];
-      assign dmr_single_mismatch [i] = dmr_error [i*2+:2] != 3'b000;
+      // assign dmr_error [i*2+:2] = dmr_data_req_out [i] ? (dmr_error_main [i*2+:2] | dmr_error_data [i*2+:2])
+      //                                                  : dmr_error_main [i*2+:2];
+      // assign dmr_single_mismatch [i] = dmr_error [i*2+:2] != 3'b000;
 
       /*********************
        * DMR Core Checkers *
@@ -619,7 +634,7 @@ module HMR_wrap import recovery_pkg::*; #(
                 = data_dmr_out[i];
       end else begin : gen_data_in_main
         assign dmr_failure_data[i] = 1'b0;
-        assign dmr_error_data[i] = 3'b000;
+        // assign dmr_error_data[i] = 3'b000;
         assign {dmr_core_busy_out[i], dmr_irq_ack_out[i]   , dmr_irq_ack_id_out[i],
                 dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i]  ,
                 dmr_data_add_out[i] , dmr_data_wen_out[i]  , dmr_data_wdata_out[i],
@@ -747,15 +762,15 @@ module HMR_wrap import recovery_pkg::*; #(
 
       end
     end
-    if (NumDMRLeftover > 0) begin : gen_dmr_leftover_error
-      assign dmr_error_main[NumCores-1-:NumDMRLeftover] = '0;
-      assign dmr_error_data[NumCores-1-:NumDMRLeftover] = '0;
-      assign dmr_error     [NumCores-1-:NumDMRLeftover] = '0;
-    end
+    // if (NumDMRLeftover > 0) begin : gen_dmr_leftover_error
+    //   assign dmr_error_main[NumCores-1-:NumDMRLeftover] = '0;
+    //   assign dmr_error_data[NumCores-1-:NumDMRLeftover] = '0;
+    //   assign dmr_error     [NumCores-1-:NumDMRLeftover] = '0;
+    // end
   end else begin: no_dmr_checkers
-    assign dmr_error_main   = '0;
-    assign dmr_error_data   = '0;
-    assign dmr_error        = '0;
+    // assign dmr_error_main   = '0;
+    // assign dmr_error_data   = '0;
+    // assign dmr_error        = '0;
     assign dmr_failure_main = '0;
     assign dmr_failure_data = '0;
     assign dmr_failure      = '0;
@@ -1086,7 +1101,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
           core_data_r_valid_o [i] = sys_data_r_valid_i [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
-
         end
       end
     end
