@@ -16,6 +16,7 @@ import recovery_pkg::*;
 module DMR_controller #(
   parameter  int unsigned NumCores       = 0,
   parameter  bit          DMRFixed       = 1'b0,
+  parameter  bit          RapidRecovery  = 1'b0,
   parameter  int unsigned RFAddrWidth    = 6,
   localparam int unsigned NumDMRGroups   = NumCores/2,
   localparam int unsigned NumDMRCores    = NumDMRGroups * 2,
