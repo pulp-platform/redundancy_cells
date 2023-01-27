@@ -17,8 +17,8 @@ module HMR_wrap import recovery_pkg::*; #(
   parameter  bit          DMRFixed       = 1'b0,
   parameter  bit          TMRSupported   = 1'b1,
   parameter  bit          TMRFixed       = 1'b0,
+  parameter  bit          RapidRecovery  = 1'b0, // Backup Regfile
   parameter  bit          SeparateData   = 1'b1,
-  parameter  bit          BackupRegfile  = 1'b0,
   parameter  bit          InterleaveGrps = 1'b1, // alternative is sequential grouping
   parameter  int unsigned InstrDataWidth = 32,
   parameter  int unsigned DataWidth      = 32,
@@ -556,9 +556,10 @@ module HMR_wrap import recovery_pkg::*; #(
    * DMR Controller *
    ******************/
   DMR_controller #(
-    .NumCores    ( NumCores    ),
-    .DMRFixed    ( DMRFixed    ),
-    .RFAddrWidth ( RFAddrWidth )
+    .NumCores      ( NumCores      ),
+    .DMRFixed      ( DMRFixed      ),
+    .RapidRecovery ( RapidRecovery ),
+    .RFAddrWidth   ( RFAddrWidth   )
   ) dmr_controller (
     .clk_i                         ( clk_i                           ),
     .rst_ni                        ( rst_ni                          ),
@@ -625,120 +626,125 @@ module HMR_wrap import recovery_pkg::*; #(
                 = main_dmr_out[i];
       end
 
-      /******************
-       * DMR PC Checker *
-       ******************/
-       DMR_checker # (
-         .DataWidth ( DataWidth )
-       ) dmr_pc_checker (
-         .inp_a_i ( backup_program_counter_i[dmr_core_id(i, 0)] ),
-         .inp_b_i ( backup_program_counter_i[dmr_core_id(i, 1)] ),
-         .check_o ( backup_program_counter_int [i]              ),
-         .error_o ( backup_program_counter_error [i]            )
-       );
+      if (RapidRecovery) begin
 
-       /*********************
-       * DMR Branch Checker *
-       **********************/
-       DMR_checker # (
-         .DataWidth ( 1 )
-       ) dmr_branch_checker (
-         .inp_a_i ( backup_branch_i[dmr_core_id(i, 0)] ),
-         .inp_b_i ( backup_branch_i[dmr_core_id(i, 1)] ),
-         .check_o ( backup_branch_int [i]              ),
-         .error_o ( backup_branch_error [i]            )
-       );
+        /******************
+         * DMR PC Checker *
+         ******************/
+        DMR_checker # (
+          .DataWidth ( DataWidth )
+        ) dmr_pc_checker (
+          .inp_a_i ( backup_program_counter_i[dmr_core_id(i, 0)] ),
+          .inp_b_i ( backup_program_counter_i[dmr_core_id(i, 1)] ),
+          .check_o ( backup_program_counter_int [i]              ),
+          .error_o ( backup_program_counter_error [i]            )
+        );
 
-       /*****************************
-       * DMR Branch Address Checker *
-       ******************************/
-       DMR_checker # (
-         .DataWidth ( DataWidth )
-       ) dmr_branch_addr_checker (
-         .inp_a_i ( backup_branch_addr_i[dmr_core_id(i, 0)] ),
-         .inp_b_i ( backup_branch_addr_i[dmr_core_id(i, 1)] ),
-         .check_o ( backup_branch_addr_int [i]              ),
-         .error_o ( backup_branch_addr_error [i]            )
-       );
+        /**********************
+         * DMR Branch Checker *
+         **********************/
+        DMR_checker # (
+          .DataWidth ( 1 )
+        ) dmr_branch_checker (
+          .inp_a_i ( backup_branch_i[dmr_core_id(i, 0)] ),
+          .inp_b_i ( backup_branch_i[dmr_core_id(i, 1)] ),
+          .check_o ( backup_branch_int [i]              ),
+          .error_o ( backup_branch_error [i]            )
+        );
 
-      /*******************
-       * DMR RF Checkers *
-       *******************/
-      DMR_checker # (
-        .DataWidth ( DataWidth )
-      ) dmr_rf_checker_port_a (
-        .inp_a_i ( backup_regfile_wport_i[dmr_core_id(i, 0)].wdata_a ),
-        .inp_b_i ( backup_regfile_wport_i[dmr_core_id(i, 1)].wdata_a ),
-        .check_o ( backup_regfile_wdata_a[i]                   ),
-        .error_o ( backup_regfile_error_a[i]                   )
-      );
+        /*****************************
+         * DMR Branch Address Checker *
+         ******************************/
+        DMR_checker # (
+          .DataWidth ( DataWidth )
+        ) dmr_branch_addr_checker (
+          .inp_a_i ( backup_branch_addr_i[dmr_core_id(i, 0)] ),
+          .inp_b_i ( backup_branch_addr_i[dmr_core_id(i, 1)] ),
+          .check_o ( backup_branch_addr_int [i]              ),
+          .error_o ( backup_branch_addr_error [i]            )
+        );
 
-      DMR_checker # (
-        .DataWidth ( DataWidth )
-      ) dmr_rf_checker_port_b (
-        .inp_a_i ( backup_regfile_wport_i[dmr_core_id(i, 0)].wdata_b ),
-        .inp_b_i ( backup_regfile_wport_i[dmr_core_id(i, 1)].wdata_b ),
-        .check_o ( backup_regfile_wdata_b [i]                        ),
-        .error_o ( backup_regfile_error_b [i]                        )
-      );
+        /*******************
+         * DMR RF Checkers *
+         *******************/
+        DMR_checker # (
+          .DataWidth ( DataWidth )
+        ) dmr_rf_checker_port_a (
+          .inp_a_i ( backup_regfile_wport_i[dmr_core_id(i, 0)].wdata_a ),
+          .inp_b_i ( backup_regfile_wport_i[dmr_core_id(i, 1)].wdata_a ),
+          .check_o ( backup_regfile_wdata_a[i]                   ),
+          .error_o ( backup_regfile_error_a[i]                   )
+        );
 
-      assign backup_regfile_we_a [i] = backup_regfile_wport_i[i].we_a 
-                                     & ~backup_regfile_error_a [i] 
-                                     & ~dmr_ctrl_core_recover_out [i];
-      assign backup_regfile_we_b [i] = backup_regfile_wport_i[i].we_b 
-                                     & ~backup_regfile_error_b [i] 
-                                     & ~dmr_ctrl_core_recover_out [i];
-      /****************************
-       * Recovery Program Counter *
-       ****************************/
-       recovery_pc #(
-         .ECCEnabled ( 1 )
-       ) RPC (
-         // Control Ports
-         .clk_i                      ( clk_i                              ),
-         .rst_ni                     ( rst_ni                             ),
-         .clear_i                    ( '0                                 ),
-         .read_enable_i              ( dmr_ctrl_pc_read_enable_out [i]    ),
-         .write_enable_i             ( ~backup_program_counter_error [i]
-                                      & dmr_ctrl_pc_write_enable_out [i]  ),
-         // Backup Ports
-         .backup_program_counter_i   ( backup_program_counter_int [i]     ),
-         .backup_branch_i            ( backup_branch_int [i]              ),
-         .backup_branch_addr_i       ( backup_branch_addr_i [i]           ),
-         // Recovery Pors
-         .recovery_program_counter_o ( recovery_program_counter_out [i]   ),
-         .recovery_branch_o          ( recovery_branch_out [i]            ),
-         .recovery_branch_addr_o     ( recovery_branch_addr_out [i]       )
-       );
+        DMR_checker # (
+          .DataWidth ( DataWidth )
+        ) dmr_rf_checker_port_b (
+          .inp_a_i ( backup_regfile_wport_i[dmr_core_id(i, 0)].wdata_b ),
+          .inp_b_i ( backup_regfile_wport_i[dmr_core_id(i, 1)].wdata_b ),
+          .check_o ( backup_regfile_wdata_b [i]                        ),
+          .error_o ( backup_regfile_error_b [i]                        )
+        );
 
-      /***************************
-       * Recovery Register Files *
-       ***************************/
-       recovery_rf  #(
+        assign backup_regfile_we_a [i] = backup_regfile_wport_i[i].we_a 
+                                       & ~backup_regfile_error_a [i] 
+                                       & ~dmr_ctrl_core_recover_out [i];
+        assign backup_regfile_we_b [i] = backup_regfile_wport_i[i].we_b 
+                                       & ~backup_regfile_error_b [i] 
+                                       & ~dmr_ctrl_core_recover_out [i];
+        /****************************
+         * Recovery Program Counter *
+         ****************************/
+         recovery_pc #(
+           .ECCEnabled ( 1 )
+         ) RPC (
+           // Control Ports
+           .clk_i                      ( clk_i                              ),
+           .rst_ni                     ( rst_ni                             ),
+           .clear_i                    ( '0                                 ),
+           .read_enable_i              ( dmr_ctrl_pc_read_enable_out [i]    ),
+           .write_enable_i             ( ~backup_program_counter_error [i]
+                                        & dmr_ctrl_pc_write_enable_out [i]  ),
+           // Backup Ports
+           .backup_program_counter_i   ( backup_program_counter_int [i]     ),
+           .backup_branch_i            ( backup_branch_int [i]              ),
+           .backup_branch_addr_i       ( backup_branch_addr_i [i]           ),
+           // Recovery Pors
+           .recovery_program_counter_o ( recovery_program_counter_out [i]   ),
+           .recovery_branch_o          ( recovery_branch_out [i]            ),
+           .recovery_branch_addr_o     ( recovery_branch_addr_out [i]       )
+         );
+
+        /***************************
+         * Recovery Register Files *
+         ***************************/
+        recovery_rf  #(
          .ECCEnabled ( 1           ),
          .ADDR_WIDTH ( RFAddrWidth )
-       ) RRF           (
-         .clk_i        ( clk_i  ),
-         .rst_ni       ( rst_ni ),
-         .test_en_i    ( '0     ),
-         //Read port A
-         .raddr_a_i    ( core_recovery_regfile_wport_out[dmr_core_id(i, 0)].waddr_a ),
-         .rdata_a_o    ( core_recovery_regfile_rdata_out[dmr_core_id(i, 0)].rdata_a ),
-         //Read port B
-         .raddr_b_i    ( core_recovery_regfile_wport_out[dmr_core_id(i, 0)].waddr_b ),
-         .rdata_b_o    ( core_recovery_regfile_rdata_out[dmr_core_id(i, 0)].rdata_b ),
-         //Read port C
-         .raddr_c_i    ( '0 ),
-         .rdata_c_o    (    ),
-         // Write Port A
-         .waddr_a_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_a ),
-         .wdata_a_i    ( backup_regfile_wdata_a [i]                        ),
-         .we_a_i       ( backup_regfile_we_a [i]                           ),
-         // Write Port B
-         .waddr_b_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_b ),
-         .wdata_b_i    ( backup_regfile_wdata_b [i]                        ),
-         .we_b_i       ( backup_regfile_we_b [i]                           )
-       );
+        ) RRF           (
+          .clk_i        ( clk_i  ),
+          .rst_ni       ( rst_ni ),
+          .test_en_i    ( '0     ),
+          //Read port A
+          .raddr_a_i    ( core_recovery_regfile_wport_out[dmr_core_id(i, 0)].waddr_a ),
+          .rdata_a_o    ( core_recovery_regfile_rdata_out[dmr_core_id(i, 0)].rdata_a ),
+          //Read port B
+          .raddr_b_i    ( core_recovery_regfile_wport_out[dmr_core_id(i, 0)].waddr_b ),
+          .rdata_b_o    ( core_recovery_regfile_rdata_out[dmr_core_id(i, 0)].rdata_b ),
+          //Read port C
+          .raddr_c_i    ( '0 ),
+          .rdata_c_o    (    ),
+          // Write Port A
+          .waddr_a_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_a ),
+          .wdata_a_i    ( backup_regfile_wdata_a [i]                        ),
+          .we_a_i       ( backup_regfile_we_a [i]                           ),
+          // Write Port B
+          .waddr_b_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_b ),
+          .wdata_b_i    ( backup_regfile_wdata_b [i]                        ),
+          .we_b_i       ( backup_regfile_we_b [i]                           )
+        );
+      end else begin
+
+      end
     end
     if (NumDMRLeftover > 0) begin : gen_dmr_leftover_error
       assign dmr_error_main[NumCores-1-:NumDMRLeftover] = '0;
