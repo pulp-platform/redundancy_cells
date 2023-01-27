@@ -772,13 +772,249 @@ module HMR_wrap import recovery_pkg::*; #(
      *****************/
     if (TMRFixed || DMRFixed) $fatal(1, "Cannot support both TMR and DMR and fix one!");
 
-    // TODO
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
+      localparam TMRCoreIndex = tmr_core_id(tmr_group_id(i), 0);
+      localparam DMRCoreIndex = dmr_core_id(dmr_group_id(i), 0);
+
+      always_comb begin
+        if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
+          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
+
+          // CTRL
+          core_core_id_o      [i] = sys_core_id_i      [TMRCoreIndex];
+          core_cluster_id_o   [i] = sys_cluster_id_i   [TMRCoreIndex];
+
+          core_clock_en_o     [i] = sys_clock_en_i     [TMRCoreIndex];
+          core_fetch_en_o     [i] = sys_fetch_en_i     [TMRCoreIndex];
+          core_boot_addr_o    [i] = sys_boot_addr_i    [TMRCoreIndex];
+
+          core_debug_req_o    [i] = sys_debug_req_i    [TMRCoreIndex];
+          core_perf_counters_o[i] = sys_perf_counters_i[TMRCoreIndex];
+
+          // IRQ
+          core_irq_req_o      [i] = sys_irq_req_i      [TMRCoreIndex];
+          core_irq_id_o       [i] = sys_irq_id_i       [TMRCoreIndex];
+
+          // INSTR
+          core_instr_gnt_o    [i] = sys_instr_gnt_i    [TMRCoreIndex];
+          core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[TMRCoreIndex];
+          core_instr_r_valid_o[i] = sys_instr_r_valid_i[TMRCoreIndex];
+          core_instr_err_o    [i] = sys_instr_err_i    [TMRCoreIndex];
+
+          // DATA
+          core_data_gnt_o     [i] = sys_data_gnt_i     [TMRCoreIndex];
+          core_data_r_opc_o   [i] = sys_data_r_opc_i   [TMRCoreIndex];
+          core_data_r_rdata_o [i] = sys_data_r_rdata_i [TMRCoreIndex];
+          core_data_r_user_o  [i] = sys_data_r_user_i  [TMRCoreIndex];
+          core_data_r_valid_o [i] = sys_data_r_valid_i [TMRCoreIndex];
+          core_data_err_o     [i] = sys_data_err_i     [TMRCoreIndex];
+        end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
+          core_setback_o      [i] = '0;
+
+          // CTRL
+          core_core_id_o      [i] = sys_core_id_i      [DMRCoreIndex];
+          core_cluster_id_o   [i] = sys_cluster_id_i   [DMRCoreIndex];
+
+          core_clock_en_o     [i] = sys_clock_en_i     [DMRCoreIndex];
+          core_fetch_en_o     [i] = sys_fetch_en_i     [DMRCoreIndex];
+          core_boot_addr_o    [i] = sys_boot_addr_i    [DMRCoreIndex];
+
+          core_debug_req_o    [i] = sys_debug_req_i    [DMRCoreIndex];
+          core_perf_counters_o[i] = sys_perf_counters_i[DMRCoreIndex];
+
+          // IRQ
+          core_irq_req_o      [i] = sys_irq_req_i      [DMRCoreIndex];
+          core_irq_id_o       [i] = sys_irq_id_i       [DMRCoreIndex];
+
+          // INSTR
+          core_instr_gnt_o    [i] = sys_instr_gnt_i    [DMRCoreIndex];
+          core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[DMRCoreIndex];
+          core_instr_r_valid_o[i] = sys_instr_r_valid_i[DMRCoreIndex];
+          core_instr_err_o    [i] = sys_instr_err_i    [DMRCoreIndex];
+
+          // DATA
+          core_data_gnt_o     [i] = sys_data_gnt_i     [DMRCoreIndex];
+          core_data_r_opc_o   [i] = sys_data_r_opc_i   [DMRCoreIndex];
+          core_data_r_rdata_o [i] = sys_data_r_rdata_i [DMRCoreIndex];
+          core_data_r_user_o  [i] = sys_data_r_user_i  [DMRCoreIndex];
+          core_data_r_valid_o [i] = sys_data_r_valid_i [DMRCoreIndex];
+          core_data_err_o     [i] = sys_data_err_i     [DMRCoreIndex];
+        end else begin : independent_mode
+          core_setback_o      [i] = '0;
+
+          // CTRL
+          core_core_id_o      [i] = sys_core_id_i      [i];
+          core_cluster_id_o   [i] = sys_cluster_id_i   [i];
+
+          core_clock_en_o     [i] = sys_clock_en_i     [i];
+          core_fetch_en_o     [i] = sys_fetch_en_i     [i];
+          core_boot_addr_o    [i] = sys_boot_addr_i    [i];
+
+          core_debug_req_o    [i] = sys_debug_req_i    [i];
+          core_perf_counters_o[i] = sys_perf_counters_i[i];
+
+          // IRQ
+          core_irq_req_o      [i] = sys_irq_req_i      [i];
+          core_irq_id_o       [i] = sys_irq_id_i       [i];
+
+          // INSTR
+          core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+          core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
+          core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+          core_instr_err_o    [i] = sys_instr_err_i    [i];
+
+          // DATA
+          core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+          core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
+          core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
+          core_data_r_user_o  [i] = sys_data_r_user_i  [i];
+          core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+          core_data_err_o     [i] = sys_data_err_i     [i];
+        end
+      end
+    end
+
+    for (genvar i = 0; i < NumSysCores/*==NumCores*/; i++) begin : gen_core_outputs
+      localparam TMRCoreIndex = tmr_group_id(i);
+      localparam DMRCoreIndex = dmr_group_id(i);
+      always_comb begin
+        if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
+          if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
+            // CTRL
+            sys_core_busy_o     [i] = tmr_core_busy_out [TMRCoreIndex];
+
+            // IRQ
+            sys_irq_ack_o       [i] = tmr_irq_ack_out   [TMRCoreIndex];
+            sys_irq_ack_id_o    [i] = tmr_irq_ack_id_out[TMRCoreIndex];
+
+            // INSTR
+            sys_instr_req_o     [i] = tmr_instr_req_out [TMRCoreIndex];
+            sys_instr_addr_o    [i] = tmr_instr_addr_out[TMRCoreIndex];
+
+            // DATA
+            sys_data_req_o      [i] = tmr_data_req_out  [TMRCoreIndex];
+            sys_data_add_o      [i] = tmr_data_add_out  [TMRCoreIndex];
+            sys_data_wen_o      [i] = tmr_data_wen_out  [TMRCoreIndex];
+            sys_data_wdata_o    [i] = tmr_data_wdata_out[TMRCoreIndex];
+            sys_data_user_o     [i] = tmr_data_user_out [TMRCoreIndex];
+            sys_data_be_o       [i] = tmr_data_be_out   [TMRCoreIndex];
+
+          end else begin : disable_core // Assign disable
+
+            // CTLR
+            sys_core_busy_o     [i] = '0;
+
+            // IRQ
+            sys_irq_ack_o       [i] = '0;
+            sys_irq_ack_id_o    [i] = '0;
+
+            // INSTR
+            sys_instr_req_o     [i] = '0;
+            sys_instr_addr_o    [i] = '0;
+
+            // DATA
+            sys_data_req_o      [i] = '0;
+            sys_data_add_o      [i] = '0;
+            sys_data_wen_o      [i] = '0;
+            sys_data_wdata_o    [i] = '0;
+            sys_data_user_o     [i] = '0;
+            sys_data_be_o       [i] = '0;
+
+          end
+        end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
+          if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
+            // CTRL
+            sys_core_busy_o     [i] = dmr_core_busy_out [DMRCoreIndex];
+
+            // IRQ
+            sys_irq_ack_o       [i] = dmr_irq_ack_out   [DMRCoreIndex];
+            sys_irq_ack_id_o    [i] = dmr_irq_ack_id_out[DMRCoreIndex];
+
+            // INSTR
+            sys_instr_req_o     [i] = dmr_instr_req_out [DMRCoreIndex];
+            sys_instr_addr_o    [i] = dmr_instr_addr_out[DMRCoreIndex];
+
+            // DATA
+            sys_data_req_o      [i] = dmr_data_req_out  [DMRCoreIndex];
+            sys_data_add_o      [i] = dmr_data_add_out  [DMRCoreIndex];
+            sys_data_wen_o      [i] = dmr_data_wen_out  [DMRCoreIndex];
+            sys_data_wdata_o    [i] = dmr_data_wdata_out[DMRCoreIndex];
+            sys_data_user_o     [i] = dmr_data_user_out [DMRCoreIndex];
+            sys_data_be_o       [i] = dmr_data_be_out   [DMRCoreIndex];
+
+          end else begin : disable_core // Assign disable
+
+            // CTLR
+            sys_core_busy_o     [i] = '0;
+
+            // IRQ
+            sys_irq_ack_o       [i] = '0;
+            sys_irq_ack_id_o    [i] = '0;
+
+            // INSTR
+            sys_instr_req_o     [i] = '0;
+            sys_instr_addr_o    [i] = '0;
+
+            // DATA
+            sys_data_req_o      [i] = '0;
+            sys_data_add_o      [i] = '0;
+            sys_data_wen_o      [i] = '0;
+            sys_data_wdata_o    [i] = '0;
+            sys_data_user_o     [i] = '0;
+            sys_data_be_o       [i] = '0;
+
+          end
+        end else begin : independent_mode
+          // CTRL
+          sys_core_busy_o     [i] = core_core_busy_i [i];
+
+          // IRQ
+          sys_irq_ack_o       [i] = core_irq_ack_i   [i];
+          sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
+
+          // INSTR
+          sys_instr_req_o     [i] = core_instr_req_i [i];
+          sys_instr_addr_o    [i] = core_instr_addr_i[i];
+
+          // DATA
+          sys_data_req_o      [i] = core_data_req_i  [i];
+          sys_data_add_o      [i] = core_data_add_i  [i];
+          sys_data_wen_o      [i] = core_data_wen_i  [i];
+          sys_data_wdata_o    [i] = core_data_wdata_i[i];
+          sys_data_user_o     [i] = core_data_user_i [i];
+          sys_data_be_o       [i] = core_data_be_i   [i];
+        end
+      end
+    end
 
   end else if (TMRSupported || TMRFixed) begin : gen_TMR_only
     /*****************
      *** TMR only ***
      *****************/
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
+      // Temporary disable of RapidRecovery
+      assign core_debug_resume_o [i] = '0;
+
+      // Setback
+      assign core_recover_o      [i] = '0;
+      assign core_instr_lock_o   [i] = '0;
+
+      // PC
+      assign pc_recover_o               [i] = '0;
+      assign recovery_program_counter_o [i] = '0;
+      assign recovery_branch_o          [i] = '0;
+      assign recovery_branch_addr_o     [i] = '0;
+
+      // RF
+      assign dmr_rf_readback_o            [i]         = '0;
+      assign core_regfile_raddr_o         [i]         = '0;
+      assign core_recovery_regfile_wport_o[i].we_a    = '0;
+      assign core_recovery_regfile_wport_o[i].waddr_a = '0;
+      assign core_recovery_regfile_wport_o[i].wdata_a = '0;
+      assign core_recovery_regfile_wport_o[i].we_b    = '0;
+      assign core_recovery_regfile_wport_o[i].waddr_b = '0;
+      assign core_recovery_regfile_wport_o[i].wdata_b = '0;
+
       localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
         if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
