@@ -10,9 +10,7 @@
 //
 // Hybrid modular redundancy wrapping unit
 
-import recovery_pkg::*;
-
-module HMR_wrap #(
+module HMR_wrap import recovery_pkg::*; #(
   // Wrapper parameters
   parameter  int unsigned NumCores       = 0,
   parameter  bit          DMRSupported   = 1'b1,
@@ -137,7 +135,7 @@ module HMR_wrap #(
                                                      
   output logic [   NumCores-1:0]                     core_debug_req_o    ,
   output logic [   NumCores-1:0]                     core_debug_resume_o ,
-  input  logic [   NumCores-1:0]                     core_debug_rsp_i    ,
+  input  logic [   NumCores-1:0]                     core_debug_halted_i ,
                                                      
   input  logic [   NumCores-1:0]                     core_data_req_i     ,
   input  logic [   NumCores-1:0][          31:0]     core_data_add_i     ,
@@ -248,7 +246,7 @@ module HMR_wrap #(
                                            regfile_readback_out,
                                            dmr_ctrl_core_rstn_out,
                                            dmr_ctrl_core_debug_req_out,
-                                           dmr_ctrl_core_debug_rsp_in,
+                                           dmr_ctrl_core_debug_halted_in,
                                            dmr_ctrl_core_instr_lock_out,
                                            dmr_ctrl_core_setback_out,
                                            dmr_ctrl_core_recover_out,
@@ -550,8 +548,8 @@ module HMR_wrap #(
   end
   
   for (genvar i = 0; i < NumDMRGroups; i++) begin
-    assign dmr_ctrl_core_debug_rsp_in [i] = core_debug_rsp_i [dmr_core_id(dmr_group_id(i), 0)]
-                                          & core_debug_rsp_i [dmr_core_id(dmr_group_id(i), 1)];
+    assign dmr_ctrl_core_debug_halted_in [i] = core_debug_halted_i [dmr_core_id(dmr_group_id(i), 0)]
+                                             & core_debug_halted_i [dmr_core_id(dmr_group_id(i), 1)];
   end
 
   /******************
@@ -574,7 +572,7 @@ module HMR_wrap #(
     .regfile_readback_o            ( regfile_readback_out            ),
     .regfile_raddr_o               ( core_regfile_raddr_out          ),
     .dmr_ctrl_core_debug_req_o     ( dmr_ctrl_core_debug_req_out     ),
-    .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_rsp_in      ),
+    .dmr_ctrl_core_debug_rsp_i     ( dmr_ctrl_core_debug_halted_in   ),
     .dmr_ctrl_core_instr_lock_o    ( dmr_ctrl_core_instr_lock_out    ),
     .dmr_ctrl_core_setback_o       ( dmr_ctrl_core_setback_out       ),
     .dmr_ctrl_core_recover_o       ( dmr_ctrl_core_recover_out       ),
