@@ -81,7 +81,9 @@ logic [NumDMRGroups-1:0] dmr_ctrl_core_setback_out  ,
                          dmr_ctrl_core_recover_d,
                          dmr_ctrl_core_recover_q,
                          dmr_ctrl_core_instr_lock_d,
-                         dmr_ctrl_core_instr_lock_q;
+                         dmr_ctrl_core_instr_lock_q,
+                         dmr_ctrl_core_clk_en_d,
+                         dmr_ctrl_core_clk_en_q;
 
 recovery_routine_state_e current, next;
 logic [$clog2(NumDMRGroups)-1:0] error_index_d,
@@ -178,6 +180,25 @@ generate
           dmr_ctrl_core_instr_lock_q [i] <= 1'b0;
         end else
           dmr_ctrl_core_instr_lock_q [i] <= dmr_ctrl_core_instr_lock_d [i];
+      end
+    end
+  end
+endgenerate
+
+/*
+ * Core clock enable.
+ * Clock gate the cores that do not need to recover during the recovery routine.
+ */
+generate
+  for (genvar i = 0; i < NumDMRGroups; i++) begin
+    always_ff @(posedge clk_i, negedge rst_ni) begin : core_clock_enable
+      if (~rst_ni) begin
+        dmr_ctrl_core_clk_en_q [i] <= 1'b1;
+      end else begin
+        if (clear) begin
+          dmr_ctrl_core_clk_en_q [i] <= 1'b1;
+        end else
+          dmr_ctrl_core_clk_en_q [i] <= dmr_ctrl_core_clk_en_d [i];
       end
     end
   end
@@ -294,6 +315,7 @@ always_comb begin : recovery_routine_fsm
   dmr_ctrl_core_clk_en_out = '1;
   dmr_ctrl_core_recover_d = dmr_ctrl_core_recover_q;
   dmr_ctrl_core_instr_lock_d = dmr_ctrl_core_instr_lock_q;
+  dmr_ctrl_core_clk_en_d = dmr_ctrl_core_clk_en_q;
   dmr_ctrl_core_debug_req_out = '0;
   dmr_ctrl_core_debug_resume_o = '0;
   dmr_ctrl_pc_read_enable_out = '0;
@@ -312,6 +334,10 @@ always_comb begin : recovery_routine_fsm
       dmr_ctrl_core_setback_out [error_index_q] = 1'b1;
       dmr_ctrl_core_instr_lock_d [error_index_q] = 1'b1;
       dmr_ctrl_pc_write_enable_d [error_index_q] = 1'b0;
+      for (int i = 0; i < NumDMRGroups; i++) begin
+        if (i != error_index_q)
+          dmr_ctrl_core_clk_en_d [i] = 1'b0;
+      end
       next = HALT_REQ;
     end
     

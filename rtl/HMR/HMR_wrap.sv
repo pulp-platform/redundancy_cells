@@ -237,6 +237,7 @@ module HMR_wrap import recovery_pkg::*; #(
                                            backup_program_counter_error,
                                            dmr_ctrl_pc_read_enable_out,
                                            dmr_ctrl_pc_write_enable_out,
+                                           dmr_ctrl_core_clk_en_out,
                                            backup_regfile_we_a,
                                            backup_regfile_we_b,
                                            backup_regfile_error_a,
@@ -580,7 +581,7 @@ module HMR_wrap import recovery_pkg::*; #(
     .dmr_ctrl_core_debug_resume_o  ( dmr_ctrl_debug_resume_out       ),
     .dmr_ctrl_pc_read_enable_o     ( dmr_ctrl_pc_read_enable_out     ),
     .dmr_ctrl_pc_write_enable_o    ( dmr_ctrl_pc_write_enable_out    ),
-    .dmr_ctrl_core_clk_en_o        (                                 )
+    .dmr_ctrl_core_clk_en_o        ( dmr_ctrl_core_clk_en_out        )
   );
 
   if (DMRSupported || DMRFixed) begin: gen_dmr_recovery_region
@@ -1222,7 +1223,8 @@ module HMR_wrap import recovery_pkg::*; #(
           core_core_id_o      [i] = sys_core_id_i       [SysCoreIndex];
           core_cluster_id_o   [i] = sys_cluster_id_i    [SysCoreIndex];
 
-          core_clock_en_o     [i] = sys_clock_en_i      [SysCoreIndex];
+          core_clock_en_o     [i] = sys_clock_en_i      [SysCoreIndex]
+                                  & dmr_ctrl_core_clk_en_out[SysGroupId];
           core_fetch_en_o     [i] = sys_fetch_en_i      [SysCoreIndex];
           core_boot_addr_o    [i] = sys_boot_addr_i     [SysCoreIndex];
 
