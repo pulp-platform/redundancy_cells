@@ -88,26 +88,26 @@ module HMR_wrap import recovery_pkg::*; #(
   // Ports connecting to System
   input  logic [NumSysCores-1:0][           3:0]     sys_core_id_i      ,
   input  logic [NumSysCores-1:0][           5:0]     sys_cluster_id_i   ,
-                                                                        
+
   input  logic [NumSysCores-1:0]                     sys_clock_en_i     ,
   input  logic [NumSysCores-1:0]                     sys_fetch_en_i     ,
   input  logic [NumSysCores-1:0][          31:0]     sys_boot_addr_i    ,
   output logic [NumSysCores-1:0]                     sys_core_busy_o    ,
-                                                                        
+
   input  logic [NumSysCores-1:0]                     sys_irq_req_i      ,
   output logic [NumSysCores-1:0]                     sys_irq_ack_o      ,
   input  logic [NumSysCores-1:0][           4:0]     sys_irq_id_i       ,
   output logic [NumSysCores-1:0][           4:0]     sys_irq_ack_id_o   ,
-                                                     
+
   output logic [NumSysCores-1:0]                     sys_instr_req_o    ,
   input  logic [NumSysCores-1:0]                     sys_instr_gnt_i    ,
   output logic [NumSysCores-1:0][          31:0]     sys_instr_addr_o   ,
   input  logic [NumSysCores-1:0][InstrDataWidth-1:0] sys_instr_r_rdata_i,
   input  logic [NumSysCores-1:0]                     sys_instr_r_valid_i,
   input  logic [NumSysCores-1:0]                     sys_instr_err_i    ,
-                                                     
+
   input  logic [NumSysCores-1:0]                     sys_debug_req_i    ,
-                                                     
+
   output logic [NumSysCores-1:0]                     sys_data_req_o     ,
   output logic [NumSysCores-1:0][          31:0]     sys_data_add_o     ,
   output logic [NumSysCores-1:0]                     sys_data_wen_o     ,
@@ -129,17 +129,17 @@ module HMR_wrap import recovery_pkg::*; #(
                                                                          
   output logic [   NumCores-1:0][           3:0]     core_core_id_o      ,
   output logic [   NumCores-1:0][           5:0]     core_cluster_id_o   ,
-                                                                         
+
   output logic [   NumCores-1:0]                     core_clock_en_o     ,
   output logic [   NumCores-1:0]                     core_fetch_en_o     ,
   output logic [   NumCores-1:0][          31:0]     core_boot_addr_o    ,
   input  logic [   NumCores-1:0]                     core_core_busy_i    ,
-                                                                         
+
   output logic [   NumCores-1:0]                     core_irq_req_o      ,
   input  logic [   NumCores-1:0]                     core_irq_ack_i      ,
   output logic [   NumCores-1:0][           4:0]     core_irq_id_o       ,
   input  logic [   NumCores-1:0][           4:0]     core_irq_ack_id_i   ,
-                                                                         
+
   input  logic [   NumCores-1:0]                     core_instr_req_i    ,
   output logic [   NumCores-1:0]                     core_instr_gnt_o    ,
   input  logic [   NumCores-1:0][          31:0]     core_instr_addr_i   ,
@@ -147,11 +147,11 @@ module HMR_wrap import recovery_pkg::*; #(
   output logic [   NumCores-1:0]                     core_instr_r_valid_o,
   output logic [   NumCores-1:0]                     core_instr_lock_o   ,
   output logic [   NumCores-1:0]                     core_instr_err_o    ,
-                                                     
+
   output logic [   NumCores-1:0]                     core_debug_req_o    ,
   output logic [   NumCores-1:0]                     core_debug_resume_o ,
   input  logic [   NumCores-1:0]                     core_debug_halted_i ,
-                                                     
+
   input  logic [   NumCores-1:0]                     core_data_req_i     ,
   input  logic [   NumCores-1:0][          31:0]     core_data_add_i     ,
   input  logic [   NumCores-1:0]                     core_data_wen_i     ,
@@ -164,7 +164,7 @@ module HMR_wrap import recovery_pkg::*; #(
   output logic [   NumCores-1:0][ UserWidth-1:0]     core_data_r_user_o  ,
   output logic [   NumCores-1:0]                     core_data_r_valid_o ,
   output logic [   NumCores-1:0]                     core_data_err_o     ,
-                                                     
+
   output logic [   NumCores-1:0][NumExtPerf-1:0]     core_perf_counters_o
 
   // APU/SHARED_FPU not implemented
@@ -292,14 +292,18 @@ module HMR_wrap import recovery_pkg::*; #(
    *  HMR Control Registers  *
    ***************************/
 
-  logic [NumSysCores-1:0] core_en_as_master;
-  logic [NumSysCores-1:0] core_in_independent;
-  logic [NumSysCores-1:0] core_in_dmr;
-  logic [NumSysCores-1:0] core_in_tmr;
+  logic [NumCores-1:0] core_en_as_master;
+  logic [NumCores-1:0] core_in_independent;
+  logic [NumCores-1:0] core_in_dmr;
+  logic [NumCores-1:0] core_in_tmr;
 
-  for (genvar i = 0; i < NumSysCores; i++) begin
+  logic [NumTMRGroups-1:0] tmr_setback_q;
+  logic [NumTMRGroups-1:0] tmr_grp_in_independent;
+
+  for (genvar i = 0; i < NumCores; i++) begin
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
     assign core_in_dmr[i] = 1'b0;
+    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ? !tmr_grp_in_independent[tmr_group_id(i)] : '0;
     assign core_en_as_master[i] = ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[i]) &
                                   ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
   end
@@ -410,9 +414,6 @@ module HMR_wrap import recovery_pkg::*; #(
     assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
   end
 
-  logic [NumTMRGroups-1:0] tmr_setback_q;
-  logic [NumTMRGroups-1:0] tmr_grp_in_independent;
-
 
   /**********************************************************
    ******************** TMR Voters & Regs *******************
@@ -420,9 +421,6 @@ module HMR_wrap import recovery_pkg::*; #(
 
   if (TMRSupported || TMRFixed) begin : gen_tmr_logic
     if (TMRFixed && NumCores % 3 != 0) $warning("Extra cores added not properly handled!");
-
-    hmr_tmr_regs_reg_pkg::hmr_tmr_regs_reg2hw_t [NumTMRGroups-1:0] tmr_reg2hw;
-    hmr_tmr_regs_reg_pkg::hmr_tmr_regs_hw2reg_t [NumTMRGroups-1:0] tmr_hw2reg;
 
     reg_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
     reg_resp_t [NumTMRGroups-1:0] tmr_register_resps;
@@ -445,14 +443,9 @@ module HMR_wrap import recovery_pkg::*; #(
       .out_req_o  ( tmr_register_reqs              ),
       .out_rsp_i  ( tmr_register_resps             )
     );
-    
-    for (genvar i = 0; i < NumTMRCores; i++) begin : gen_core_in_tmr
-      assign core_in_tmr[i] = !tmr_grp_in_independent[tmr_group_id(i)];
-    end
 
     for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign tmr_incr_mismatches[i] = '0;
-      assign core_in_tmr[i] = '0;
     end
 
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
@@ -482,6 +475,7 @@ module HMR_wrap import recovery_pkg::*; #(
         .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
 
         .setback_o            ( tmr_setback_q[i] ),
+        .sw_resynch_req_o     ( tmr_resynch_req_o[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
         .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,2)]} ),
         .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
@@ -554,6 +548,7 @@ module HMR_wrap import recovery_pkg::*; #(
     assign tmr_grp_in_independent = '0;
     assign core_in_tmr = '0;
     assign tmr_setback_q = '0;
+    assign tmr_resynch_req_o = '0;
   end
 
   /************************************************************
