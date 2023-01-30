@@ -25,7 +25,6 @@ module DMR_controller import recovery_pkg::*; #(
 )(
   input  logic clk_i ,
   input  logic rst_ni,
-  output logic intruder_lock_o,
   input  logic [NumDMRGroups-1:0] dmr_rf_checker_error_port_a_i,
   input  logic [NumDMRGroups-1:0] dmr_rf_checker_error_port_b_i,
   input  logic [NumDMRGroups-1:0] dmr_core_checker_error_main_i,
@@ -59,9 +58,6 @@ logic core_instr_lock_rst,
 logic addr_gen_start,
       addr_gen_error,
       addr_gen_done;
-
-logic intruder_lock_d,
-      intruder_lock_q;
 
 logic restore_pc_cycles_d,
       restore_pc_cycles_q,
@@ -101,7 +97,6 @@ for (genvar i = 0; i < NumDMRGroups; i++) begin
   assign regfile_readback_o [i] = '0;
   assign regfile_raddr_o [i] = '0;
 end
-assign intruder_lock_o = intruder_lock_q;
 
 /**************
  * Comb logic *
@@ -133,19 +128,6 @@ assign routine_start = (|dmr_rf_checker_error_port_a_i) |
 /************
 * Registers *
 *************/
-
-/*
- * Intruder lock signal.
- * At the end of the recovery routine, we lock the intruder a prevent it
- * to continuously inject undesired faults.
- */
-always_ff @(posedge clk_i, negedge rst_ni) begin : intruder_lock
-  if (~rst_ni)
-    intruder_lock_q <= 1'b0;
-  else begin
-    intruder_lock_q <= intruder_lock_d;
-  end
-end
 
 /*
  * Error index register.
@@ -318,7 +300,6 @@ always_comb begin : recovery_routine_fsm
   dmr_ctrl_core_debug_resume_o = '0;
   dmr_ctrl_pc_read_enable_out = '0;
   dmr_ctrl_pc_write_enable_d = dmr_ctrl_pc_write_enable_q;
-  intruder_lock_d = intruder_lock_q;
   restore_pc_cycles_d = restore_pc_cycles_q;
   case (current)
     IDLE: begin
@@ -377,7 +358,6 @@ always_comb begin : recovery_routine_fsm
 
     EXIT: begin
       clear = 1'b1;
-      intruder_lock_d = 1'b1;
       next =  IDLE;
     end
   endcase

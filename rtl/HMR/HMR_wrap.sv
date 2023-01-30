@@ -579,7 +579,6 @@ module HMR_wrap import recovery_pkg::*; #(
   ) dmr_controller (
     .clk_i                         ( clk_i                           ),
     .rst_ni                        ( rst_ni                          ),
-    .intruder_lock_o               ( intruder_lock                   ),
     .dmr_rf_checker_error_port_a_i ( backup_regfile_error_a          ),
     .dmr_rf_checker_error_port_b_i ( backup_regfile_error_b          ),
     .dmr_core_checker_error_main_i ( dmr_failure_main                ),
