@@ -14,6 +14,7 @@ module hmr_tmr_ctrl #(
   parameter bit  InterleaveGrps = 1'b0,
   parameter bit  TMRFixed       = 1'b0,
   parameter bit  DefaultInTMR   = TMRFixed ? 1'b1 : 1'b0,
+  parameter bit  RapidRecovery  = 1'b0,
   parameter type reg_req_t      = logic,
   parameter type reg_resp_t     = logic
 ) (
@@ -34,6 +35,8 @@ module hmr_tmr_ctrl #(
   input  logic       setback_qe_i,
   input  logic       reload_setback_q_i,
   input  logic       reload_setback_qe_i,
+  input  logic       rapid_recovery_q_i,
+  input  logic       rapid_recovery_qe_i,
   input  logic       force_resynch_q_i,
   input  logic       force_resynch_qe_i,
   
@@ -84,6 +87,8 @@ module hmr_tmr_ctrl #(
   assign tmr_hw2reg.tmr_config.setback.d         = setback_q_i;
   assign tmr_hw2reg.tmr_config.reload_setback.de = reload_setback_qe_i;
   assign tmr_hw2reg.tmr_config.reload_setback.d  = reload_setback_q_i;
+  assign tmr_hw2reg.tmr_config.rapid_recovery.de = rapid_recovery_qe_i;
+  assign tmr_hw2reg.tmr_config.rapid_recovery.d  = rapid_recovery_q_i;
   assign tmr_hw2reg.tmr_config.force_resynch.d   = force_resynch_qe_i ? force_resynch_q_i : 1'b0;
 
   /**************************
@@ -94,7 +99,7 @@ module hmr_tmr_ctrl #(
     tmr_red_mode_d = tmr_red_mode_q;
     tmr_incr_mismatches_o = '0;
 
-    tmr_hw2reg.tmr_config.force_resynch.de  = force_resynch_qe_i;
+    tmr_hw2reg.tmr_config.force_resynch.de = force_resynch_qe_i;
 
     case (tmr_red_mode_q)
       TMR_RUN: begin

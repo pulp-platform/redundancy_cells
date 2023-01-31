@@ -354,19 +354,26 @@ module HMR_wrap import recovery_pkg::*; #(
   assign hmr_hw2reg.avail_config.independent.d = ~(TMRFixed | DMRFixed);
   assign hmr_hw2reg.avail_config.dual.d = DMRFixed | DMRSupported;
   assign hmr_hw2reg.avail_config.triple.d = TMRFixed | TMRSupported;
+  assign hmr_hw2reg.avail_config.rapid_recovery.d = RapidRecovery;
 
   always_comb begin
     hmr_hw2reg.cores_en.d = '0;
     hmr_hw2reg.cores_en.d = core_en_as_master;
-  end
 
-  assign hmr_hw2reg.dmr_enable.d = '0;
-  assign hmr_hw2reg.tmr_enable.d = '0;
+    hmr_hw2reg.dmr_enable.d = '0;
+    hmr_hw2reg.dmr_enable.d[NumDMRGroups-1:0] = ~dmr_grp_in_independent;
+    hmr_hw2reg.tmr_enable.d = '0;
+    hmr_hw2reg.tmr_enable.d[NumTMRGroups-1:0] = ~tmr_grp_in_independent;
+  end
 
   assign hmr_hw2reg.tmr_config.delay_resynch.d = '0;
   assign hmr_hw2reg.tmr_config.setback.d = '0;
   assign hmr_hw2reg.tmr_config.reload_setback.d  = '0;
   assign hmr_hw2reg.tmr_config.force_resynch.d = '0;
+  assign hmr_hw2reg.tmr_config.rapid_recovery.d = '0;
+
+  assign hmr_hw2reg.dmr_config.rapid_recovery.d = '0;
+  assign hmr_hw2reg.dmr_config.force_recovery.d = '0;
 
   // Core Config Registers
 
@@ -473,6 +480,8 @@ module HMR_wrap import recovery_pkg::*; #(
         .setback_qe_i         ( hmr_reg2hw.tmr_config.setback.qe ),
         .reload_setback_q_i   ( hmr_reg2hw.tmr_config.reload_setback.q ),
         .reload_setback_qe_i  ( hmr_reg2hw.tmr_config.reload_setback.qe ),
+        .rapid_recovery_q_i   ( hmr_reg2hw.tmr_config.rapid_recovery.q ),
+        .rapid_recovery_qe_i  ( hmr_reg2hw.tmr_config.rapid_recovery.qe ),
         .force_resynch_q_i    ( hmr_reg2hw.tmr_config.force_resynch.q ),
         .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
 
@@ -613,6 +622,10 @@ module HMR_wrap import recovery_pkg::*; #(
 
         .dmr_enable_q_i          ( hmr_reg2hw.dmr_enable.q[i] ),
         .dmr_enable_qe_i         ( hmr_reg2hw.dmr_enable.qe ),
+        .rapid_recovery_q_i    ( hmr_reg2hw.dmr_config.rapid_recovery.q ),
+        .rapid_recovery_qe_i   ( hmr_reg2hw.dmr_config.rapid_recovery.qe ),
+        .force_recovery_q_i    ( hmr_reg2hw.dmr_config.force_recovery.q ),
+        .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.force_recovery.qe ),
 
         .setback_o               ( dmr_setback_q[i] ),
         .sw_resynch_req_o        ( dmr_resynch_req_o[i] ),

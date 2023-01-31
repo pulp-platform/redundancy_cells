@@ -29,6 +29,10 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   // CTRL from external (e.g. HMR ctrl regs)
   input  logic       dmr_enable_q_i,
   input  logic       dmr_enable_qe_i,
+  input  logic       rapid_recovery_q_i,
+  input  logic       rapid_recovery_qe_i,
+  input  logic       force_recovery_q_i,
+  input  logic       force_recovery_qe_i,
 
   // DMR control signals
   output logic       setback_o,
@@ -71,6 +75,9 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   // Global config update
   assign dmr_hw2reg.dmr_enable.de = dmr_enable_qe_i;
   assign dmr_hw2reg.dmr_enable.d  = dmr_enable_q_i;
+  assign dmr_hw2reg.dmr_config.rapid_recovery.de = rapid_recovery_qe_i;
+  assign dmr_hw2reg.dmr_config.rapid_recovery.d  = rapid_recovery_q_i;
+  assign dmr_hw2reg.dmr_config.force_recovery.d  = force_recovery_qe_i ? force_recovery_q_i : 1'b0;
 
   /**************************
    *  FSM for DMR lockstep  *
@@ -81,8 +88,16 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     dmr_red_mode_d = dmr_red_mode_q;
     dmr_incr_mismatches_o = '0;
 
+    dmr_hw2reg.dmr_config.force_recovery.de = force_recovery_qe_i;
+
     case (dmr_red_mode_q)
       DMR_RUN: begin
+        // If forced execute recovery
+        if (dmr_reg2hw.dmr_config.force_recovery.q && RapidRecovery) begin
+          dmr_hw2reg.dmr_config.force_recovery.de = 1'b1;
+          dmr_red_mode_d = DMR_RESTORE;
+        end
+
         // If error detected, restore
         if (dmr_error_i && RapidRecovery) begin
           dmr_red_mode_d = DMR_RESTORE;

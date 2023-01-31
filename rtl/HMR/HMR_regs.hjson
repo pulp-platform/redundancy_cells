@@ -40,6 +40,10 @@
         { bits: "2",
           name: "triple",
           desc: "Triple Modular Redundancy (TMR) is available."
+        },
+        { bits: "8",
+          name: "rapid_recovery",
+          desc: "Rapid Recovery is available."
         }
       ]
     },
@@ -83,13 +87,23 @@
         }
       ]
     },
-    # { name: "DMR_config",
-    #   desc: "DMR configuration bits."
-    #   swaccess: "rw",
-    #   hwaccess: "hrw",
-    #   hwqe: "true",
-    #   fields: []
-    # },
+    { name: "DMR_config",
+      desc: "DMR configuration bits."
+      swaccess: "rw",
+      hwaccess: "hrw",
+      hwqe: "true",
+      hwext: "true",
+      fields: [
+        { bits: "0",
+          name: "rapid_recovery",
+          desc: "Enable rapid recovery using an additional register file."
+        },
+        { bits: "1"
+          name: "force_recovery",
+          desc: "Forces recovery routine (if rapid_recovery is available)."
+        }
+      ]
+    },
     { name: "TMR_config",
       desc: "TMR configuration bits."
       swaccess: "rw",
@@ -113,6 +127,10 @@
           desc: "Enable setback on mismatch during reload section of re-synch (only possible with `setback`)"
         },
         { bits: "3",
+          name: "rapid_recovery",
+          desc: "Enable rapid recovery using additional register file."
+        },
+        { bits: "4",
           name: "force_resynch",
           resval: "0",
           desc: "Forces a resynchronization routine"
