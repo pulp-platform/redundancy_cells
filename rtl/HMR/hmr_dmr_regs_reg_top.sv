@@ -71,9 +71,12 @@ module hmr_dmr_regs_reg_top #(
   logic dmr_enable_qs;
   logic dmr_enable_wd;
   logic dmr_enable_we;
-  logic dmr_config_qs;
-  logic dmr_config_wd;
-  logic dmr_config_we;
+  logic dmr_config_rapid_recovery_qs;
+  logic dmr_config_rapid_recovery_wd;
+  logic dmr_config_rapid_recovery_we;
+  logic dmr_config_force_recovery_qs;
+  logic dmr_config_force_recovery_wd;
+  logic dmr_config_force_recovery_we;
   logic [31:0] checkpoint_addr_qs;
   logic [31:0] checkpoint_addr_wd;
   logic checkpoint_addr_we;
@@ -108,28 +111,55 @@ module hmr_dmr_regs_reg_top #(
 
   // R[dmr_config]: V(False)
 
+  //   F[rapid_recovery]: 0:0
   prim_subreg #(
     .DW      (1),
     .SWACCESS("RW"),
     .RESVAL  (1'h0)
-  ) u_dmr_config (
+  ) u_dmr_config_rapid_recovery (
     .clk_i   (clk_i    ),
     .rst_ni  (rst_ni  ),
 
     // from register interface
-    .we     (dmr_config_we),
-    .wd     (dmr_config_wd),
+    .we     (dmr_config_rapid_recovery_we),
+    .wd     (dmr_config_rapid_recovery_wd),
 
     // from internal hardware
-    .de     (hw2reg.dmr_config.de),
-    .d      (hw2reg.dmr_config.d ),
+    .de     (hw2reg.dmr_config.rapid_recovery.de),
+    .d      (hw2reg.dmr_config.rapid_recovery.d ),
 
     // to internal hardware
-    .qe     (reg2hw.dmr_config.qe),
-    .q      (reg2hw.dmr_config.q ),
+    .qe     (reg2hw.dmr_config.rapid_recovery.qe),
+    .q      (reg2hw.dmr_config.rapid_recovery.q ),
 
     // to register interface (read)
-    .qs     (dmr_config_qs)
+    .qs     (dmr_config_rapid_recovery_qs)
+  );
+
+
+  //   F[force_recovery]: 1:1
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h0)
+  ) u_dmr_config_force_recovery (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (dmr_config_force_recovery_we),
+    .wd     (dmr_config_force_recovery_wd),
+
+    // from internal hardware
+    .de     (hw2reg.dmr_config.force_recovery.de),
+    .d      (hw2reg.dmr_config.force_recovery.d ),
+
+    // to internal hardware
+    .qe     (reg2hw.dmr_config.force_recovery.qe),
+    .q      (reg2hw.dmr_config.force_recovery.q ),
+
+    // to register interface (read)
+    .qs     (dmr_config_force_recovery_qs)
   );
 
 
@@ -183,8 +213,11 @@ module hmr_dmr_regs_reg_top #(
   assign dmr_enable_we = addr_hit[0] & reg_we & !reg_error;
   assign dmr_enable_wd = reg_wdata[0];
 
-  assign dmr_config_we = addr_hit[1] & reg_we & !reg_error;
-  assign dmr_config_wd = reg_wdata[0];
+  assign dmr_config_rapid_recovery_we = addr_hit[1] & reg_we & !reg_error;
+  assign dmr_config_rapid_recovery_wd = reg_wdata[0];
+
+  assign dmr_config_force_recovery_we = addr_hit[1] & reg_we & !reg_error;
+  assign dmr_config_force_recovery_wd = reg_wdata[1];
 
   assign checkpoint_addr_we = addr_hit[2] & reg_we & !reg_error;
   assign checkpoint_addr_wd = reg_wdata[31:0];
@@ -198,7 +231,8 @@ module hmr_dmr_regs_reg_top #(
       end
 
       addr_hit[1]: begin
-        reg_rdata_next[0] = dmr_config_qs;
+        reg_rdata_next[0] = dmr_config_rapid_recovery_qs;
+        reg_rdata_next[1] = dmr_config_force_recovery_qs;
       end
 
       addr_hit[2]: begin
