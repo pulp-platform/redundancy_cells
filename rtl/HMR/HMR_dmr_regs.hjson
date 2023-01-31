@@ -31,8 +31,12 @@
       hwqe: "true",
       fields: [
         { bits: "0",
-          name: "todo",
-          desc: "TODO"
+          name: "rapid_recovery",
+          desc: "Enable rapid recovery using an additional register file."
+        },
+        { bits: "1"
+          name: "force_recovery",
+          desc: "Forces recovery routine (if rapid_recovery is available)."
         }
       ]
     },
