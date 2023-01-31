@@ -92,9 +92,7 @@ module hmr_tmr_ctrl #(
   always_comb begin : proc_fsm
     tmr_setback_d = 1'b0;
     tmr_red_mode_d = tmr_red_mode_q;
-    tmr_incr_mismatches_o[0] = 1'b0;
-    tmr_incr_mismatches_o[1] = 1'b0;
-    tmr_incr_mismatches_o[2] = 1'b0;
+    tmr_incr_mismatches_o = '0;
 
     tmr_hw2reg.tmr_config.force_resynch.de  = force_resynch_qe_i;
 
@@ -151,8 +149,9 @@ module hmr_tmr_ctrl #(
 
     endcase
 
-    // Before core startup: set TMR mode from reg2hw.mode.mode
+    // Logic to switch in and out of TMR
     if (!TMRFixed) begin
+      // Before core startup: set TMR mode from reg2hw.tmr_enable
       if (fetch_en_i == 0) begin
         if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
           tmr_red_mode_d = NON_TMR;
@@ -160,7 +159,7 @@ module hmr_tmr_ctrl #(
           tmr_red_mode_d = TMR_RUN;
         end
       end
-      // split single-error tolerant mode to performance mode anytime (but require correct core state)
+      // split tolerant mode to performance mode anytime (but require correct core state)
       if (tmr_red_mode_q == TMR_RUN) begin
         if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
           tmr_red_mode_d = NON_TMR;

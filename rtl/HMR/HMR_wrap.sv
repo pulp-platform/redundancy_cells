@@ -794,8 +794,6 @@ module HMR_wrap import recovery_pkg::*; #(
 
       always_comb begin
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
-          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
-
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [TMRCoreIndex];
           core_cluster_id_o   [i] = sys_cluster_id_i   [TMRCoreIndex];
@@ -824,9 +822,10 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [TMRCoreIndex];
           core_data_r_valid_o [i] = sys_data_r_valid_i [TMRCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [TMRCoreIndex];
-        end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
-          core_setback_o      [i] = '0;
 
+          // Special signals
+          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
+        end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [DMRCoreIndex];
           core_cluster_id_o   [i] = sys_cluster_id_i   [DMRCoreIndex];
@@ -855,9 +854,10 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [DMRCoreIndex];
           core_data_r_valid_o [i] = sys_data_r_valid_i [DMRCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [DMRCoreIndex];
-        end else begin : independent_mode
+          
+          // Special signals
           core_setback_o      [i] = '0;
-
+        end else begin : independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
           core_cluster_id_o   [i] = sys_cluster_id_i   [i];
@@ -886,6 +886,9 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
           core_data_r_valid_o [i] = sys_data_r_valid_i [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
+          
+          // Special signals
+          core_setback_o      [i] = '0;
         end
       end
     end
@@ -914,9 +917,7 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_data_wdata_o    [i] = tmr_data_wdata_out[TMRCoreIndex];
             sys_data_user_o     [i] = tmr_data_user_out [TMRCoreIndex];
             sys_data_be_o       [i] = tmr_data_be_out   [TMRCoreIndex];
-
           end else begin : disable_core // Assign disable
-
             // CTLR
             sys_core_busy_o     [i] = '0;
 
@@ -935,7 +936,6 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_data_wdata_o    [i] = '0;
             sys_data_user_o     [i] = '0;
             sys_data_be_o       [i] = '0;
-
           end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
@@ -957,9 +957,7 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_data_wdata_o    [i] = dmr_data_wdata_out[DMRCoreIndex];
             sys_data_user_o     [i] = dmr_data_user_out [DMRCoreIndex];
             sys_data_be_o       [i] = dmr_data_be_out   [DMRCoreIndex];
-
           end else begin : disable_core // Assign disable
-
             // CTLR
             sys_core_busy_o     [i] = '0;
 
@@ -978,7 +976,6 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_data_wdata_o    [i] = '0;
             sys_data_user_o     [i] = '0;
             sys_data_be_o       [i] = '0;
-
           end
         end else begin : independent_mode
           // CTRL
@@ -1034,8 +1031,6 @@ module HMR_wrap import recovery_pkg::*; #(
       localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
         if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
-          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
-
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
           core_cluster_id_o   [i] = sys_cluster_id_i   [SysCoreIndex];
@@ -1065,9 +1060,9 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
 
+          // Special signals
+          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
         end else begin : independent_mode
-          core_setback_o      [i] = '0;
-
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
           core_cluster_id_o   [i] = sys_cluster_id_i   [i];
@@ -1096,6 +1091,9 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
           core_data_r_valid_o [i] = sys_data_r_valid_i [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
+
+          // Special signals
+          core_setback_o      [i] = '0;
         end
       end
     end
@@ -1145,7 +1143,6 @@ module HMR_wrap import recovery_pkg::*; #(
           always_comb begin
             if (core_in_tmr[i]) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
-                
                 // CTRL
                 sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
 
@@ -1164,9 +1161,7 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_data_wdata_o    [i] = tmr_data_wdata_out[CoreCoreIndex];
                 sys_data_user_o     [i] = tmr_data_user_out [CoreCoreIndex];
                 sys_data_be_o       [i] = tmr_data_be_out   [CoreCoreIndex];
-
               end else begin : disable_core // Assign disable
-
                 // CTLR
                 sys_core_busy_o     [i] = '0;
 
@@ -1185,7 +1180,6 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_data_wdata_o    [i] = '0;
                 sys_data_user_o     [i] = '0;
                 sys_data_be_o       [i] = '0;
-
               end
             end else begin : independent_mode
               // CTRL
@@ -1380,7 +1374,6 @@ module HMR_wrap import recovery_pkg::*; #(
           always_comb begin
             if (core_in_dmr[i]) begin : dmr_mode
               if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
-                
                 // CTRL
                 sys_core_busy_o     [i] = dmr_core_busy_out[CoreCoreIndex];
 
@@ -1399,9 +1392,7 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_data_wdata_o    [i] = dmr_data_wdata_out[CoreCoreIndex];
                 sys_data_user_o     [i] = dmr_data_user_out [CoreCoreIndex];
                 sys_data_be_o       [i] = dmr_data_be_out   [CoreCoreIndex];
-
               end else begin : disable_core // Assign disable
-
                 // CTLR
                 sys_core_busy_o     [i] = '0;
 
@@ -1420,7 +1411,6 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_data_wdata_o    [i] = '0;
                 sys_data_user_o     [i] = '0;
                 sys_data_be_o       [i] = '0;
-
               end
             end else begin : independent_mode
               // CTRL
@@ -1453,7 +1443,7 @@ module HMR_wrap import recovery_pkg::*; #(
      *****************/
     // Direct assignment, disable all
     assign core_setback_o       = '0;
-    
+
     // CTRL
     assign core_core_id_o       = sys_core_id_i;
     assign core_cluster_id_o    = sys_cluster_id_i;
@@ -1462,7 +1452,7 @@ module HMR_wrap import recovery_pkg::*; #(
     assign core_fetch_en_o      = sys_fetch_en_i;
     assign core_boot_addr_o     = sys_boot_addr_i;
     assign sys_core_busy_o      = core_core_busy_i;
-    
+
     assign core_debug_req_o     = sys_debug_req_i;
     assign core_perf_counters_o = sys_perf_counters_i;
 
