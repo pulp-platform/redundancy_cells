@@ -80,6 +80,9 @@ module hmr_tmr_regs_reg_top #(
   logic tmr_config_reload_setback_qs;
   logic tmr_config_reload_setback_wd;
   logic tmr_config_reload_setback_we;
+  logic tmr_config_rapid_recovery_qs;
+  logic tmr_config_rapid_recovery_wd;
+  logic tmr_config_rapid_recovery_we;
   logic tmr_config_force_resynch_qs;
   logic tmr_config_force_resynch_wd;
   logic tmr_config_force_resynch_we;
@@ -195,7 +198,33 @@ module hmr_tmr_regs_reg_top #(
   );
 
 
-  //   F[force_resynch]: 3:3
+  //   F[rapid_recovery]: 3:3
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h0)
+  ) u_tmr_config_rapid_recovery (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (tmr_config_rapid_recovery_we),
+    .wd     (tmr_config_rapid_recovery_wd),
+
+    // from internal hardware
+    .de     (hw2reg.tmr_config.rapid_recovery.de),
+    .d      (hw2reg.tmr_config.rapid_recovery.d ),
+
+    // to internal hardware
+    .qe     (reg2hw.tmr_config.rapid_recovery.qe),
+    .q      (reg2hw.tmr_config.rapid_recovery.q ),
+
+    // to register interface (read)
+    .qs     (tmr_config_rapid_recovery_qs)
+  );
+
+
+  //   F[force_resynch]: 4:4
   prim_subreg #(
     .DW      (1),
     .SWACCESS("RW"),
@@ -280,8 +309,11 @@ module hmr_tmr_regs_reg_top #(
   assign tmr_config_reload_setback_we = addr_hit[1] & reg_we & !reg_error;
   assign tmr_config_reload_setback_wd = reg_wdata[2];
 
+  assign tmr_config_rapid_recovery_we = addr_hit[1] & reg_we & !reg_error;
+  assign tmr_config_rapid_recovery_wd = reg_wdata[3];
+
   assign tmr_config_force_resynch_we = addr_hit[1] & reg_we & !reg_error;
-  assign tmr_config_force_resynch_wd = reg_wdata[3];
+  assign tmr_config_force_resynch_wd = reg_wdata[4];
 
   assign sp_store_we = addr_hit[2] & reg_we & !reg_error;
   assign sp_store_wd = reg_wdata[31:0];
@@ -298,7 +330,8 @@ module hmr_tmr_regs_reg_top #(
         reg_rdata_next[0] = tmr_config_delay_resynch_qs;
         reg_rdata_next[1] = tmr_config_setback_qs;
         reg_rdata_next[2] = tmr_config_reload_setback_qs;
-        reg_rdata_next[3] = tmr_config_force_resynch_qs;
+        reg_rdata_next[3] = tmr_config_rapid_recovery_qs;
+        reg_rdata_next[4] = tmr_config_force_resynch_qs;
       end
 
       addr_hit[2]: begin

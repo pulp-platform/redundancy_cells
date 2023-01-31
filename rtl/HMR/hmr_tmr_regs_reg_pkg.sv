@@ -34,6 +34,10 @@ package hmr_tmr_regs_reg_pkg;
     struct packed {
       logic        q;
       logic        qe;
+    } rapid_recovery;
+    struct packed {
+      logic        q;
+      logic        qe;
     } force_resynch;
   } hmr_tmr_regs_reg2hw_tmr_config_reg_t;
 
@@ -63,6 +67,10 @@ package hmr_tmr_regs_reg_pkg;
     struct packed {
       logic        d;
       logic        de;
+    } rapid_recovery;
+    struct packed {
+      logic        d;
+      logic        de;
     } force_resynch;
   } hmr_tmr_regs_hw2reg_tmr_config_reg_t;
 
@@ -73,15 +81,15 @@ package hmr_tmr_regs_reg_pkg;
 
   // Register -> HW type
   typedef struct packed {
-    hmr_tmr_regs_reg2hw_tmr_enable_reg_t tmr_enable; // [42:41]
-    hmr_tmr_regs_reg2hw_tmr_config_reg_t tmr_config; // [40:33]
+    hmr_tmr_regs_reg2hw_tmr_enable_reg_t tmr_enable; // [44:43]
+    hmr_tmr_regs_reg2hw_tmr_config_reg_t tmr_config; // [42:33]
     hmr_tmr_regs_reg2hw_sp_store_reg_t sp_store; // [32:0]
   } hmr_tmr_regs_reg2hw_t;
 
   // HW -> register type
   typedef struct packed {
-    hmr_tmr_regs_hw2reg_tmr_enable_reg_t tmr_enable; // [42:41]
-    hmr_tmr_regs_hw2reg_tmr_config_reg_t tmr_config; // [40:33]
+    hmr_tmr_regs_hw2reg_tmr_enable_reg_t tmr_enable; // [44:43]
+    hmr_tmr_regs_hw2reg_tmr_config_reg_t tmr_config; // [42:33]
     hmr_tmr_regs_hw2reg_sp_store_reg_t sp_store; // [32:0]
   } hmr_tmr_regs_hw2reg_t;
 

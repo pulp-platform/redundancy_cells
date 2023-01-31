@@ -74,6 +74,8 @@ module hmr_registers_reg_top #(
   logic avail_config_dual_re;
   logic avail_config_triple_qs;
   logic avail_config_triple_re;
+  logic avail_config_rapid_recovery_qs;
+  logic avail_config_rapid_recovery_re;
   logic [11:0] cores_en_qs;
   logic cores_en_re;
   logic [5:0] dmr_enable_qs;
@@ -84,6 +86,14 @@ module hmr_registers_reg_top #(
   logic [3:0] tmr_enable_wd;
   logic tmr_enable_we;
   logic tmr_enable_re;
+  logic dmr_config_rapid_recovery_qs;
+  logic dmr_config_rapid_recovery_wd;
+  logic dmr_config_rapid_recovery_we;
+  logic dmr_config_rapid_recovery_re;
+  logic dmr_config_force_recovery_qs;
+  logic dmr_config_force_recovery_wd;
+  logic dmr_config_force_recovery_we;
+  logic dmr_config_force_recovery_re;
   logic tmr_config_delay_resynch_qs;
   logic tmr_config_delay_resynch_wd;
   logic tmr_config_delay_resynch_we;
@@ -96,6 +106,10 @@ module hmr_registers_reg_top #(
   logic tmr_config_reload_setback_wd;
   logic tmr_config_reload_setback_we;
   logic tmr_config_reload_setback_re;
+  logic tmr_config_rapid_recovery_qs;
+  logic tmr_config_rapid_recovery_wd;
+  logic tmr_config_rapid_recovery_we;
+  logic tmr_config_rapid_recovery_re;
   logic tmr_config_force_resynch_qs;
   logic tmr_config_force_resynch_wd;
   logic tmr_config_force_resynch_we;
@@ -149,6 +163,21 @@ module hmr_registers_reg_top #(
   );
 
 
+  //   F[rapid_recovery]: 8:8
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_avail_config_rapid_recovery (
+    .re     (avail_config_rapid_recovery_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.avail_config.rapid_recovery.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .qs     (avail_config_rapid_recovery_qs)
+  );
+
+
   // R[cores_en]: V(True)
 
   prim_subreg_ext #(
@@ -194,6 +223,38 @@ module hmr_registers_reg_top #(
     .qe     (reg2hw.tmr_enable.qe),
     .q      (reg2hw.tmr_enable.q ),
     .qs     (tmr_enable_qs)
+  );
+
+
+  // R[dmr_config]: V(True)
+
+  //   F[rapid_recovery]: 0:0
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_dmr_config_rapid_recovery (
+    .re     (dmr_config_rapid_recovery_re),
+    .we     (dmr_config_rapid_recovery_we),
+    .wd     (dmr_config_rapid_recovery_wd),
+    .d      (hw2reg.dmr_config.rapid_recovery.d),
+    .qre    (),
+    .qe     (reg2hw.dmr_config.rapid_recovery.qe),
+    .q      (reg2hw.dmr_config.rapid_recovery.q ),
+    .qs     (dmr_config_rapid_recovery_qs)
+  );
+
+
+  //   F[force_recovery]: 1:1
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_dmr_config_force_recovery (
+    .re     (dmr_config_force_recovery_re),
+    .we     (dmr_config_force_recovery_we),
+    .wd     (dmr_config_force_recovery_wd),
+    .d      (hw2reg.dmr_config.force_recovery.d),
+    .qre    (),
+    .qe     (reg2hw.dmr_config.force_recovery.qe),
+    .q      (reg2hw.dmr_config.force_recovery.q ),
+    .qs     (dmr_config_force_recovery_qs)
   );
 
 
@@ -244,7 +305,22 @@ module hmr_registers_reg_top #(
   );
 
 
-  //   F[force_resynch]: 3:3
+  //   F[rapid_recovery]: 3:3
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_tmr_config_rapid_recovery (
+    .re     (tmr_config_rapid_recovery_re),
+    .we     (tmr_config_rapid_recovery_we),
+    .wd     (tmr_config_rapid_recovery_wd),
+    .d      (hw2reg.tmr_config.rapid_recovery.d),
+    .qre    (),
+    .qe     (reg2hw.tmr_config.rapid_recovery.qe),
+    .q      (reg2hw.tmr_config.rapid_recovery.q ),
+    .qs     (tmr_config_rapid_recovery_qs)
+  );
+
+
+  //   F[force_resynch]: 4:4
   prim_subreg_ext #(
     .DW    (1)
   ) u_tmr_config_force_resynch (
@@ -261,14 +337,15 @@ module hmr_registers_reg_top #(
 
 
 
-  logic [4:0] addr_hit;
+  logic [5:0] addr_hit;
   always_comb begin
     addr_hit = '0;
     addr_hit[0] = (reg_addr == HMR_REGISTERS_AVAIL_CONFIG_OFFSET);
     addr_hit[1] = (reg_addr == HMR_REGISTERS_CORES_EN_OFFSET);
     addr_hit[2] = (reg_addr == HMR_REGISTERS_DMR_ENABLE_OFFSET);
     addr_hit[3] = (reg_addr == HMR_REGISTERS_TMR_ENABLE_OFFSET);
-    addr_hit[4] = (reg_addr == HMR_REGISTERS_TMR_CONFIG_OFFSET);
+    addr_hit[4] = (reg_addr == HMR_REGISTERS_DMR_CONFIG_OFFSET);
+    addr_hit[5] = (reg_addr == HMR_REGISTERS_TMR_CONFIG_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -280,7 +357,8 @@ module hmr_registers_reg_top #(
                (addr_hit[1] & (|(HMR_REGISTERS_PERMIT[1] & ~reg_be))) |
                (addr_hit[2] & (|(HMR_REGISTERS_PERMIT[2] & ~reg_be))) |
                (addr_hit[3] & (|(HMR_REGISTERS_PERMIT[3] & ~reg_be))) |
-               (addr_hit[4] & (|(HMR_REGISTERS_PERMIT[4] & ~reg_be)))));
+               (addr_hit[4] & (|(HMR_REGISTERS_PERMIT[4] & ~reg_be))) |
+               (addr_hit[5] & (|(HMR_REGISTERS_PERMIT[5] & ~reg_be)))));
   end
 
   assign avail_config_independent_re = addr_hit[0] & reg_re & !reg_error;
@@ -288,6 +366,8 @@ module hmr_registers_reg_top #(
   assign avail_config_dual_re = addr_hit[0] & reg_re & !reg_error;
 
   assign avail_config_triple_re = addr_hit[0] & reg_re & !reg_error;
+
+  assign avail_config_rapid_recovery_re = addr_hit[0] & reg_re & !reg_error;
 
   assign cores_en_re = addr_hit[1] & reg_re & !reg_error;
 
@@ -299,21 +379,33 @@ module hmr_registers_reg_top #(
   assign tmr_enable_wd = reg_wdata[3:0];
   assign tmr_enable_re = addr_hit[3] & reg_re & !reg_error;
 
-  assign tmr_config_delay_resynch_we = addr_hit[4] & reg_we & !reg_error;
+  assign dmr_config_rapid_recovery_we = addr_hit[4] & reg_we & !reg_error;
+  assign dmr_config_rapid_recovery_wd = reg_wdata[0];
+  assign dmr_config_rapid_recovery_re = addr_hit[4] & reg_re & !reg_error;
+
+  assign dmr_config_force_recovery_we = addr_hit[4] & reg_we & !reg_error;
+  assign dmr_config_force_recovery_wd = reg_wdata[1];
+  assign dmr_config_force_recovery_re = addr_hit[4] & reg_re & !reg_error;
+
+  assign tmr_config_delay_resynch_we = addr_hit[5] & reg_we & !reg_error;
   assign tmr_config_delay_resynch_wd = reg_wdata[0];
-  assign tmr_config_delay_resynch_re = addr_hit[4] & reg_re & !reg_error;
+  assign tmr_config_delay_resynch_re = addr_hit[5] & reg_re & !reg_error;
 
-  assign tmr_config_setback_we = addr_hit[4] & reg_we & !reg_error;
+  assign tmr_config_setback_we = addr_hit[5] & reg_we & !reg_error;
   assign tmr_config_setback_wd = reg_wdata[1];
-  assign tmr_config_setback_re = addr_hit[4] & reg_re & !reg_error;
+  assign tmr_config_setback_re = addr_hit[5] & reg_re & !reg_error;
 
-  assign tmr_config_reload_setback_we = addr_hit[4] & reg_we & !reg_error;
+  assign tmr_config_reload_setback_we = addr_hit[5] & reg_we & !reg_error;
   assign tmr_config_reload_setback_wd = reg_wdata[2];
-  assign tmr_config_reload_setback_re = addr_hit[4] & reg_re & !reg_error;
+  assign tmr_config_reload_setback_re = addr_hit[5] & reg_re & !reg_error;
 
-  assign tmr_config_force_resynch_we = addr_hit[4] & reg_we & !reg_error;
-  assign tmr_config_force_resynch_wd = reg_wdata[3];
-  assign tmr_config_force_resynch_re = addr_hit[4] & reg_re & !reg_error;
+  assign tmr_config_rapid_recovery_we = addr_hit[5] & reg_we & !reg_error;
+  assign tmr_config_rapid_recovery_wd = reg_wdata[3];
+  assign tmr_config_rapid_recovery_re = addr_hit[5] & reg_re & !reg_error;
+
+  assign tmr_config_force_resynch_we = addr_hit[5] & reg_we & !reg_error;
+  assign tmr_config_force_resynch_wd = reg_wdata[4];
+  assign tmr_config_force_resynch_re = addr_hit[5] & reg_re & !reg_error;
 
   // Read data return
   always_comb begin
@@ -323,6 +415,7 @@ module hmr_registers_reg_top #(
         reg_rdata_next[0] = avail_config_independent_qs;
         reg_rdata_next[1] = avail_config_dual_qs;
         reg_rdata_next[2] = avail_config_triple_qs;
+        reg_rdata_next[8] = avail_config_rapid_recovery_qs;
       end
 
       addr_hit[1]: begin
@@ -338,10 +431,16 @@ module hmr_registers_reg_top #(
       end
 
       addr_hit[4]: begin
+        reg_rdata_next[0] = dmr_config_rapid_recovery_qs;
+        reg_rdata_next[1] = dmr_config_force_recovery_qs;
+      end
+
+      addr_hit[5]: begin
         reg_rdata_next[0] = tmr_config_delay_resynch_qs;
         reg_rdata_next[1] = tmr_config_setback_qs;
         reg_rdata_next[2] = tmr_config_reload_setback_qs;
-        reg_rdata_next[3] = tmr_config_force_resynch_qs;
+        reg_rdata_next[3] = tmr_config_rapid_recovery_qs;
+        reg_rdata_next[4] = tmr_config_force_resynch_qs;
       end
 
       default: begin
