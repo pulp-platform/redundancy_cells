@@ -44,6 +44,7 @@ module hmr_tmr_ctrl #(
   output logic       setback_o,
   output logic       sw_resynch_req_o,
   output logic       grp_in_independent_o,
+  output logic       rapid_recovery_en_o,
   output logic [2:0] tmr_incr_mismatches_o,
   input  logic       tmr_single_mismatch_i,
   input  logic [2:0] tmr_error_i,
@@ -64,6 +65,7 @@ module hmr_tmr_ctrl #(
   assign setback_o = tmr_setback_q;
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
   assign tmr_resynch_req_o = tmr_red_mode_q == TMR_UNLOAD;
+  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q && RapidRecovery;
 
   hmr_tmr_regs_reg_top #(
     .reg_req_t(reg_req_t),

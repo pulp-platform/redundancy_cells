@@ -38,6 +38,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   output logic       setback_o,
   output logic       sw_resynch_req_o,
   output logic       grp_in_independent_o,
+  output logic       rapid_recovery_en_o,
   output logic [1:0] dmr_incr_mismatches_o,
   input  logic       dmr_error_i,
   output logic       recovery_request_o,
@@ -58,6 +59,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
 
   assign setback_o = dmr_setback_q;
   assign grp_in_independent_o = dmr_red_mode_q == NON_DMR;
+  assign rapid_recovery_en_o = dmr_reg2hw.dmr_config.rapid_recovery.q && RapidRecovery;
 
   hmr_dmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
@@ -87,6 +89,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     dmr_setback_d = 1'b0;
     dmr_red_mode_d = dmr_red_mode_q;
     dmr_incr_mismatches_o = '0;
+    recovery_request_o = 1'b0;
 
     dmr_hw2reg.dmr_config.force_recovery.de = force_recovery_qe_i;
 

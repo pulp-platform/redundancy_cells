@@ -68,22 +68,25 @@ module HMR_wrap import recovery_pkg::*; #(
   output logic [NumDMRGroups-1:0] dmr_failure_o    ,
   output logic [ NumSysCores-1:0] dmr_error_o      , // Should this not be NumDMRCores? or NumCores?
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
-  output logic [    NumCores-1:0] dmr_rf_readback_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
   // Backup Port from Cores'Program Counter
-  input   logic          [    NumCores-1:0][DataWidth-1:0] backup_program_counter_i,
-  output  logic          [    NumCores-1:0]                pc_recover_o,
-  output  logic          [    NumCores-1:0][DataWidth-1:0] recovery_program_counter_o,
-  input   logic          [    NumCores-1:0]                backup_branch_i,
-  input   logic          [    NumCores-1:0][DataWidth-1:0] backup_branch_addr_i,
-  output  logic          [    NumCores-1:0]                recovery_branch_o,
-  output  logic          [    NumCores-1:0][DataWidth-1:0] recovery_branch_addr_o,
+  input  logic [   NumCores-1:0][DataWidth-1:0] backup_program_counter_i,
+  output logic [   NumCores-1:0]                pc_recover_o,
+  output logic [   NumCores-1:0][DataWidth-1:0] recovery_program_counter_o,
+  input  logic [   NumCores-1:0]                backup_branch_i,
+  input  logic [   NumCores-1:0][DataWidth-1:0] backup_branch_addr_i,
+  output logic [   NumCores-1:0]                recovery_branch_o,
+  output logic [   NumCores-1:0][DataWidth-1:0] recovery_branch_addr_o,
   // Backup ports from Cores' RFs
-  input  regfile_write_t [    NumCores-1:0] backup_regfile_wport_i,
-  output regfile_raddr_t [ NumSysCores-1:0] core_regfile_raddr_o,
-  output regfile_write_t [ NumSysCores-1:0] core_recovery_regfile_wport_o,
-  // TODO other required signals
+  input  regfile_write_t [NumCores-1:0]         backup_regfile_wport_i,
+  output regfile_raddr_t [NumCores-1:0]         core_regfile_raddr_o,
+  output regfile_write_t [NumCores-1:0]         core_recovery_regfile_wport_o,
+  // Nonstandard core control signals
+  output logic [   NumCores-1:0]                     core_setback_o      ,
+  output logic [   NumCores-1:0]                     core_instr_lock_o   ,
+  output logic [   NumCores-1:0]                     core_recover_o      ,
+  output logic [   NumCores-1:0]                     core_debug_resume_o ,
 
   // Ports connecting to System
   input  logic [NumSysCores-1:0][           3:0]     sys_core_id_i      ,
@@ -124,9 +127,6 @@ module HMR_wrap import recovery_pkg::*; #(
   input  logic [NumSysCores-1:0][NumExtPerf-1:0]     sys_perf_counters_i,
 
   // Ports connecting to the cores
-  output logic [   NumCores-1:0]                     core_setback_o      ,
-  output logic [   NumCores-1:0]                     core_recover_o      ,
-                                                                         
   output logic [   NumCores-1:0][           3:0]     core_core_id_o      ,
   output logic [   NumCores-1:0][           5:0]     core_cluster_id_o   ,
 
@@ -145,11 +145,9 @@ module HMR_wrap import recovery_pkg::*; #(
   input  logic [   NumCores-1:0][          31:0]     core_instr_addr_i   ,
   output logic [   NumCores-1:0][InstrDataWidth-1:0] core_instr_r_rdata_o,
   output logic [   NumCores-1:0]                     core_instr_r_valid_o,
-  output logic [   NumCores-1:0]                     core_instr_lock_o   ,
   output logic [   NumCores-1:0]                     core_instr_err_o    ,
 
   output logic [   NumCores-1:0]                     core_debug_req_o    ,
-  output logic [   NumCores-1:0]                     core_debug_resume_o ,
   input  logic [   NumCores-1:0]                     core_debug_halted_i ,
 
   input  logic [   NumCores-1:0]                     core_data_req_i     ,
@@ -180,6 +178,11 @@ module HMR_wrap import recovery_pkg::*; #(
     else                return (group_id * 3) + core_offset;
   endfunction
 
+  function int tmr_shared_id (int group_id);
+    if (InterleaveGrps) return group_id;
+    else                return group_id + group_id/2;
+  endfunction
+
   function int dmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumDMRGroups;
     else                return (core_id/2);
@@ -188,6 +191,10 @@ module HMR_wrap import recovery_pkg::*; #(
   function int dmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumDMRGroups;
     else                return (group_id * 2) + core_offset;
+  endfunction
+
+  function int dmr_shared_id(int group_id);
+    return group_id;
   endfunction
 
   if (TMRFixed && DMRFixed) $fatal(1, "Cannot fix both TMR and DMR!");
@@ -199,6 +206,8 @@ module HMR_wrap import recovery_pkg::*; #(
   localparam int unsigned MainConcatWidth = SeparateData ? CtrlConcatWidth : 
                                             CtrlConcatWidth + DataConcatWidth;
 
+  let max(a,b) = (a > b) ? a : b;
+  localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
   localparam int unsigned RFAddrWidth = 6;
 
   logic [    NumCores-1:0][MainConcatWidth-1:0] main_concat_in;
@@ -241,37 +250,39 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumDMRGroups-1:0][ UserWidth-1:0] dmr_data_user_out;
   logic [NumDMRGroups-1:0][   BeWidth-1:0] dmr_data_be_out;
 
-  logic [NumDMRGroups-1:0][ DataWidth-1:0] backup_branch_addr_int,
-                                           recovery_branch_addr_out,
-                                           backup_program_counter_int,
-                                           recovery_program_counter_out,
-                                           backup_regfile_wdata_a,
-                                           backup_regfile_wdata_b;
-  logic [NumDMRGroups-1:0]                 backup_branch_int,
-                                           recovery_branch_out,
-                                           backup_program_counter_error,
-                                           dmr_ctrl_pc_read_enable_out,
-                                           dmr_ctrl_pc_write_enable_out,
-                                           dmr_ctrl_core_clk_en_out,
-                                           backup_regfile_we_a,
-                                           backup_regfile_we_b,
-                                           backup_regfile_error_a,
-                                           backup_regfile_error_b,
-                                           backup_branch_error,
-                                           backup_branch_addr_error,
-                                           regfile_readback_out,
-                                           dmr_ctrl_core_rstn_out,
-                                           dmr_ctrl_core_debug_req_out,
-                                           dmr_ctrl_core_debug_halted_in,
-                                           dmr_ctrl_core_instr_lock_out,
-                                           dmr_ctrl_core_setback_out,
-                                           dmr_ctrl_core_recover_out,
-                                           dmr_ctrl_debug_resume_out;
-  logic                                    intruder_lock;
 
-  regfile_raddr_t [NumDMRGroups-1:0] core_regfile_raddr_out;
-  regfile_rdata_t [NumDMRGroups-1:0] core_recovery_regfile_rdata_out;
-  regfile_write_t [NumDMRGroups-1:0] backup_regfile_wport_in,
+  logic [     NumDMRGroups-1:0][ DataWidth-1:0] dmr_backup_program_counter;
+  logic [     NumTMRGroups-1:0][ DataWidth-1:0] tmr_backup_program_counter;
+  logic [NumBackupRegfiles-1:0][ DataWidth-1:0] backup_branch_addr_int,
+                                                recovery_branch_addr_out,
+                                                backup_program_counter_int,
+                                                recovery_program_counter_out,
+                                                backup_regfile_wdata_a,
+                                                backup_regfile_wdata_b;
+  logic [NumBackupRegfiles-1:0]                 backup_branch_int,
+                                                recovery_branch_out,
+                                                backup_program_counter_error,
+                                                backup_pc_enable_out, // dmr_ctrl_pc_read_enable_out,
+                                                recovery_pc_enable_out, // dmr_ctrl_pc_write_enable_out,
+                                                // dmr_ctrl_core_clk_en_out,
+                                                backup_regfile_we_a,
+                                                backup_regfile_we_b,
+                                                backup_regfile_error_a,
+                                                backup_regfile_error_b,
+                                                backup_branch_error,
+                                                backup_branch_addr_error,
+                                                // regfile_readback_out,
+                                                // dmr_ctrl_core_rstn_out,
+                                                recovery_debug_req_out, // dmr_ctrl_core_debug_req_out,
+                                                recovery_debug_halted_in, // dmr_ctrl_core_debug_halted_in,
+                                                recovery_instr_lock_out, // dmr_ctrl_core_instr_lock_out,
+                                                recovery_setback_out, // dmr_ctrl_core_setback_out,
+                                                recovery_trigger_out, // dmr_ctrl_core_recover_out, // TODO: for regfile only?!?
+                                                recovery_debug_resume_out; // dmr_ctrl_debug_resume_out;
+
+  regfile_raddr_t [NumBackupRegfiles-1:0] core_regfile_raddr_out;
+  regfile_rdata_t [NumBackupRegfiles-1:0] core_recovery_regfile_rdata_out;
+  regfile_write_t [NumBackupRegfiles-1:0] backup_regfile_wport_in,
                                      core_recovery_regfile_wport_out;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
@@ -296,19 +307,25 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumCores-1:0] core_in_independent;
   logic [NumCores-1:0] core_in_dmr;
   logic [NumCores-1:0] core_in_tmr;
+  logic [NumCores-1:0] dmr_core_rapid_recovery_en;
+  logic [NumCores-1:0] tmr_core_rapid_recovery_en;
 
   logic [NumDMRGroups-1:0] dmr_setback_q;
   logic [NumDMRGroups-1:0] dmr_grp_in_independent;
+  logic [NumDMRGroups-1:0] dmr_rapid_recovery_en;
 
   logic [NumTMRGroups-1:0] tmr_setback_q;
   logic [NumTMRGroups-1:0] tmr_grp_in_independent;
+  logic [NumTMRGroups-1:0] tmr_rapid_recovery_en;
 
   for (genvar i = 0; i < NumCores; i++) begin
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
-    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ? !dmr_grp_in_independent[dmr_group_id(i)] : '0;
-    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ? !tmr_grp_in_independent[tmr_group_id(i)] : '0;
+    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ? ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
+    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ? ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
     assign core_en_as_master[i] = ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[i]) &
                                   ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
+    assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) && i < NumDMRCores && RapidRecovery ? dmr_rapid_recovery_en[dmr_group_id(i)] : '0;
+    assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) && i < NumTMRCores && RapidRecovery ? tmr_rapid_recovery_en[tmr_group_id(i)] : '0;
   end
 
   reg_req_t  [3:0] top_register_reqs;
@@ -488,6 +505,7 @@ module HMR_wrap import recovery_pkg::*; #(
         .setback_o            ( tmr_setback_q[i] ),
         .sw_resynch_req_o     ( tmr_resynch_req_o[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
+        .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
         .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,2)]} ),
         .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
         .tmr_error_i          ( tmr_error[i] ),
@@ -497,9 +515,11 @@ module HMR_wrap import recovery_pkg::*; #(
       );
 
       assign tmr_failure[i]         = tmr_data_req_out[i] ?
-                          tmr_failure_main[i] | tmr_failure_data[i] : tmr_failure_main[i];
-      assign tmr_error[i]      = tmr_data_req_out[i] ?
-                          tmr_error_main[i] | tmr_error_data[i] : tmr_error_main[i];
+                                      tmr_failure_main[i] | tmr_failure_data[i] :
+                                      tmr_failure_main[i];
+      assign tmr_error[i]           = tmr_data_req_out[i] ?
+                                      tmr_error_main[i] | tmr_error_data[i] :
+                                      tmr_error_main[i];
       assign tmr_single_mismatch[i] = tmr_error[i] != 3'b000;
 
       bitwise_TMR_voter #(
@@ -564,12 +584,14 @@ module HMR_wrap import recovery_pkg::*; #(
   /************************************************************
    ******************** DMR Voters and Regs *******************
    ************************************************************/
-  for (genvar i = 0; i < NumCores; i++) begin
+  for (genvar i = 0; i < NumBackupRegfiles; i++) begin
+    // TODO fix assignment
     assign backup_regfile_wport_in [i] = backup_regfile_wport_i [dmr_core_id(dmr_group_id(i), 0)];
   end
   
   for (genvar i = 0; i < NumDMRGroups; i++) begin
-    assign dmr_ctrl_core_debug_halted_in [i] = core_debug_halted_i [dmr_core_id(dmr_group_id(i), 0)]
+    // TODO fix assignment
+    assign recovery_debug_halted_in [i] = core_debug_halted_i [dmr_core_id(dmr_group_id(i), 0)]
                                              & core_debug_halted_i [dmr_core_id(dmr_group_id(i), 1)];
   end
 
@@ -617,27 +639,28 @@ module HMR_wrap import recovery_pkg::*; #(
         .clk_i,
         .rst_ni,
 
-        .reg_req_i               ( dmr_register_reqs[i] ),
-        .reg_resp_o              ( dmr_register_resps[i] ),
+        .reg_req_i             ( dmr_register_reqs[i] ),
+        .reg_resp_o            ( dmr_register_resps[i] ),
 
-        .dmr_enable_q_i          ( hmr_reg2hw.dmr_enable.q[i] ),
-        .dmr_enable_qe_i         ( hmr_reg2hw.dmr_enable.qe ),
+        .dmr_enable_q_i        ( hmr_reg2hw.dmr_enable.q[i] ),
+        .dmr_enable_qe_i       ( hmr_reg2hw.dmr_enable.qe ),
         .rapid_recovery_q_i    ( hmr_reg2hw.dmr_config.rapid_recovery.q ),
         .rapid_recovery_qe_i   ( hmr_reg2hw.dmr_config.rapid_recovery.qe ),
         .force_recovery_q_i    ( hmr_reg2hw.dmr_config.force_recovery.q ),
         .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.force_recovery.qe ),
 
-        .setback_o               ( dmr_setback_q[i] ),
-        .sw_resynch_req_o        ( dmr_resynch_req_o[i] ),
-        .grp_in_independent_o    ( dmr_grp_in_independent[i] ),
-        .dmr_incr_mismatches_o   ( {dmr_incr_mismatches[dmr_core_id(i, 0)], dmr_incr_mismatches[dmr_core_id(i, 1)]} ),
-        .dmr_error_i             ( dmr_failure[i] ),
+        .setback_o             ( dmr_setback_q[i] ),
+        .sw_resynch_req_o      ( dmr_resynch_req_o[i] ),
+        .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
+        .rapid_recovery_en_o   ( dmr_rapid_recovery_en[i] ),
+        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 0)], dmr_incr_mismatches[dmr_core_id(i, 1)]} ),
+        .dmr_error_i           ( dmr_failure[i] ),
 
-        .fetch_en_i              ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
-        .cores_synch_i           ( dmr_cores_synch_i[i] ),
+        .fetch_en_i            ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
+        .cores_synch_i         ( dmr_cores_synch_i[i] ),
 
-        .recovery_request_o   (),
-        .recovery_finished_i  ()
+        .recovery_request_o    (),
+        .recovery_finished_i   ()
       );
 
       /*********************
@@ -678,6 +701,14 @@ module HMR_wrap import recovery_pkg::*; #(
 
       if (RapidRecovery) begin
 
+        assign dmr_failure [i] = (dmr_data_req_out [i] ? (dmr_failure_main[i] | dmr_failure_data[i])
+                                                       : dmr_failure_main[i]) |
+                                 backup_program_counter_error[i] |
+                                 backup_branch_error         [i] |
+                                 backup_branch_addr_error    [i] |
+                                 backup_regfile_error_a      [i] |
+                                 backup_regfile_error_b      [i];
+
         /******************
          * DMR PC Checker *
          ******************/
@@ -686,7 +717,7 @@ module HMR_wrap import recovery_pkg::*; #(
         ) dmr_pc_checker (
           .inp_a_i ( backup_program_counter_i[dmr_core_id(i, 0)] ),
           .inp_b_i ( backup_program_counter_i[dmr_core_id(i, 1)] ),
-          .check_o ( backup_program_counter_int [i]              ),
+          .check_o ( dmr_backup_program_counter[i] ),
           .error_o ( backup_program_counter_error [i]            )
         );
 
@@ -737,10 +768,10 @@ module HMR_wrap import recovery_pkg::*; #(
 
         assign backup_regfile_we_a [i] = backup_regfile_wport_i[i].we_a 
                                        & ~backup_regfile_error_a [i] 
-                                       & ~dmr_ctrl_core_recover_out [i];
+                                       & ~recovery_trigger_out [i];
         assign backup_regfile_we_b [i] = backup_regfile_wport_i[i].we_b 
                                        & ~backup_regfile_error_b [i] 
-                                       & ~dmr_ctrl_core_recover_out [i];
+                                       & ~recovery_trigger_out [i];
         
       end else begin
         assign dmr_failure [i] = dmr_data_req_out [i] ? (dmr_failure_main[i] | dmr_failure_data[i])
@@ -766,10 +797,173 @@ module HMR_wrap import recovery_pkg::*; #(
 
   // RapidRecovery output signals
   if (RapidRecovery) begin : gen_rapid_recovery
+    for (genvar i = 0; i < NumBackupRegfiles; i++) begin
+      hmr_rapid_recovery_ctrl #(
+        .RFAddrWidth( RFAddrWidth )
+      ) i_rapid_recovery_ctrl (
+        .clk_i,
+        .rst_ni,
+        .start_recovery_i         (),
+        .recovery_finished_o      (),
+        .setback_o                ( recovery_setback_out      [i] ),
+        .instr_lock_o             ( recovery_instr_lock_out   [i] ),
+        .debug_req_o              ( recovery_debug_req_out    [i] ),
+        .debug_halt_i             ( recovery_debug_halted_in  [i] ),
+        .debug_resume_o           ( recovery_debug_resume_out      [i] ),
+        .recovery_regfile_waddr_o ( core_recovery_regfile_wport_out[i] ),
+        .backup_pc_enable_o       ( backup_pc_enable_out    [i] ),
+        .recover_pc_enable_o      ( recovery_pc_enable_out  [i] ),
+        .recover_rf_enable_o      ( recovery_trigger_out      [i] )
+      );
+
+      /****************************
+       * Recovery Program Counter *
+       ****************************/
+      recovery_pc #(
+       .ECCEnabled ( 1 )
+      ) RPC (
+        // Control Ports
+        .clk_i,
+        .rst_ni,
+        .clear_i                    ( '0                                 ),
+        .read_enable_i              ( backup_pc_enable_out [i]    ),
+        .write_enable_i             ( ~backup_program_counter_error [i]
+                                     & recovery_pc_enable_out [i]  ),
+        // Backup Ports
+        .backup_program_counter_i   ( backup_program_counter_int [i]     ),
+        .backup_branch_i            ( backup_branch_int [i]              ),
+        .backup_branch_addr_i       ( backup_branch_addr_i [i]           ),
+        // Recovery Pors
+        .recovery_program_counter_o ( recovery_program_counter_out [i]   ),
+        .recovery_branch_o          ( recovery_branch_out [i]            ),
+        .recovery_branch_addr_o     ( recovery_branch_addr_out [i]       )
+      );
+
+      /***************************
+       * Recovery Register Files *
+       ***************************/
+      recovery_rf  #(
+       .ECCEnabled ( 1           ),
+       .ADDR_WIDTH ( RFAddrWidth )
+      ) RRF           (
+        .clk_i,
+        .rst_ni,
+        .test_en_i    ( '0     ),
+        //Read port A
+        .raddr_a_i    ( core_recovery_regfile_wport_out[i].waddr_a ),
+        .rdata_a_o    ( core_recovery_regfile_rdata_out[i].rdata_a ),
+        //Read port B
+        .raddr_b_i    ( core_recovery_regfile_wport_out[i].waddr_b ),
+        .rdata_b_o    ( core_recovery_regfile_rdata_out[i].rdata_b ),
+        //Read port C
+        .raddr_c_i    ( '0 ),
+        .rdata_c_o    (    ),
+        // Write Port A
+        .waddr_a_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_a ),
+        .wdata_a_i    ( backup_regfile_wdata_a [i]                        ),
+        .we_a_i       ( backup_regfile_we_a [i]                           ),
+        // Write Port B
+        .waddr_b_i    ( backup_regfile_wport_i[dmr_core_id(i, 0)].waddr_b ),
+        .wdata_b_i    ( backup_regfile_wdata_b [i]                        ),
+        .we_b_i       ( backup_regfile_we_b [i]                           )
+      );
+
+    end
+
+    
+    always_comb begin
+      backup_program_counter_int = '0;
+
+      for (int i = 0; i < NumDMRGroups; i++) begin
+        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) && dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
+          backup_program_counter_int[dmr_shared_id(i)] = dmr_backup_program_counter[i];
+        end
+      end
+
+      for (int i = 0; i < NumTMRGroups; i++) begin
+        if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) && tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
+          backup_program_counter_int[tmr_shared_id(i)] = tmr_backup_program_counter[i];
+        end
+      end
+    end
+
+    for (genvar i = 0; i < NumCores; i++) begin : gen_cores
+      always_comb begin
+        if ((DMRFixed || (DMRSupported && core_in_dmr[i])) && dmr_core_rapid_recovery_en[i]) begin
+
+          core_debug_resume_o        [i] = recovery_debug_resume_out [dmr_shared_id(dmr_group_id(i))];
+          
+          // Setback
+          core_recover_o      [i] = recovery_trigger_out [dmr_shared_id(dmr_group_id(i))];
+          core_instr_lock_o   [i] = recovery_instr_lock_out [dmr_shared_id(dmr_group_id(i))];
+
+          // PC
+          pc_recover_o               [i] = backup_pc_enable_out [dmr_shared_id(dmr_group_id(i))];
+          recovery_program_counter_o [i] = recovery_program_counter_out [dmr_shared_id(dmr_group_id(i))];
+          recovery_branch_o          [i] = recovery_branch_out [dmr_shared_id(dmr_group_id(i))];
+          recovery_branch_addr_o     [i] = recovery_branch_addr_out [dmr_shared_id(dmr_group_id(i))];
+
+          // RF
+          core_regfile_raddr_o         [i]         = core_regfile_raddr_out [dmr_shared_id(dmr_group_id(i))];
+          core_recovery_regfile_wport_o[i].we_a    = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].we_a;
+          core_recovery_regfile_wport_o[i].waddr_a = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].waddr_a;
+          core_recovery_regfile_wport_o[i].wdata_a = core_recovery_regfile_rdata_out[dmr_shared_id(dmr_group_id(i))].rdata_a;
+          core_recovery_regfile_wport_o[i].we_b    = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].we_b;
+          core_recovery_regfile_wport_o[i].waddr_b = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].waddr_b;
+          core_recovery_regfile_wport_o[i].wdata_b = core_recovery_regfile_rdata_out[dmr_shared_id(dmr_group_id(i))].rdata_b;
+
+        end else if ((TMRFixed || (TMRSupported && core_in_tmr[i])) && tmr_core_rapid_recovery_en[i]) begin
+          core_debug_resume_o        [i] = recovery_debug_resume_out [tmr_shared_id(tmr_group_id(i))];
+
+          // Setback
+          core_recover_o      [i] = recovery_trigger_out [tmr_shared_id(tmr_group_id(i))];
+          core_instr_lock_o   [i] = recovery_instr_lock_out [tmr_shared_id(tmr_group_id(i))];
+
+          // PC
+          pc_recover_o               [i] = backup_pc_enable_out [tmr_shared_id(tmr_group_id(i))];
+          recovery_program_counter_o [i] = recovery_program_counter_out [tmr_shared_id(tmr_group_id(i))];
+          recovery_branch_o          [i] = recovery_branch_out [tmr_shared_id(tmr_group_id(i))];
+          recovery_branch_addr_o     [i] = recovery_branch_addr_out [tmr_shared_id(tmr_group_id(i))];
+
+          // RF
+          core_regfile_raddr_o         [i]         = core_regfile_raddr_out [tmr_shared_id(tmr_group_id(i))];
+          core_recovery_regfile_wport_o[i].we_a    = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].we_a;
+          core_recovery_regfile_wport_o[i].waddr_a = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].waddr_a;
+          core_recovery_regfile_wport_o[i].wdata_a = core_recovery_regfile_rdata_out[tmr_shared_id(tmr_group_id(i))].rdata_a;
+          core_recovery_regfile_wport_o[i].we_b    = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].we_b;
+          core_recovery_regfile_wport_o[i].waddr_b = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].waddr_b;
+          core_recovery_regfile_wport_o[i].wdata_b = core_recovery_regfile_rdata_out[tmr_shared_id(tmr_group_id(i))].rdata_b;
+
+        end else begin
+          // Disable RapidRecovery
+          core_debug_resume_o [i] = '0;
+
+          // Setback
+          core_recover_o      [i] = '0;
+          core_instr_lock_o   [i] = '0;
+
+          // PC
+          pc_recover_o               [i] = '0;
+          recovery_program_counter_o [i] = '0;
+          recovery_branch_o          [i] = '0;
+          recovery_branch_addr_o     [i] = '0;
+
+          // RF
+          core_regfile_raddr_o         [i]         = '0;
+          core_recovery_regfile_wport_o[i].we_a    = '0;
+          core_recovery_regfile_wport_o[i].waddr_a = '0;
+          core_recovery_regfile_wport_o[i].wdata_a = '0;
+          core_recovery_regfile_wport_o[i].we_b    = '0;
+          core_recovery_regfile_wport_o[i].waddr_b = '0;
+          core_recovery_regfile_wport_o[i].wdata_b = '0;
+        end
+      end
+    end
+
     // TODO: 
   end else begin : gen_sw_recovery
     for (genvar i = 0; i < NumCores; i++) begin : gen_cores
-      // Temporary disable of RapidRecovery
+      // Disable RapidRecovery
       assign core_debug_resume_o [i] = '0;
 
       // Setback
@@ -783,7 +977,6 @@ module HMR_wrap import recovery_pkg::*; #(
       assign recovery_branch_addr_o     [i] = '0;
 
       // RF
-      assign dmr_rf_readback_o            [i]         = '0;
       assign core_regfile_raddr_o         [i]         = '0;
       assign core_recovery_regfile_wport_o[i].we_a    = '0;
       assign core_recovery_regfile_wport_o[i].waddr_a = '0;
@@ -1215,19 +1408,19 @@ module HMR_wrap import recovery_pkg::*; #(
           core_core_id_o      [i] = sys_core_id_i       [SysCoreIndex];
           core_cluster_id_o   [i] = sys_cluster_id_i    [SysCoreIndex];
 
-          if (RapidRecovery) begin
-            core_clock_en_o   [i] = sys_clock_en_i      [SysCoreIndex]
-                                  & dmr_ctrl_core_clk_en_out[SysGroupId];
-          end else begin
+          // if (RapidRecovery) begin
+          //   core_clock_en_o   [i] = sys_clock_en_i      [SysCoreIndex]
+          //                         & dmr_ctrl_core_clk_en_out[SysGroupId];
+          // end else begin
             core_clock_en_o   [i] = sys_clock_en_i      [SysCoreIndex];
-          end
+          // end
           core_fetch_en_o     [i] = sys_fetch_en_i      [SysCoreIndex];
           core_boot_addr_o    [i] = sys_boot_addr_i     [SysCoreIndex];
 
 
           if (RapidRecovery) begin
             core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex] 
-                                  | dmr_ctrl_core_debug_req_out [SysGroupId];
+                                  | recovery_debug_req_out [SysGroupId];
           end else begin
             core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex];
           end
@@ -1235,7 +1428,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
           // Setback
           if (RapidRecovery) begin
-            core_setback_o    [i] = dmr_ctrl_core_setback_out [SysGroupId];
+            core_setback_o    [i] = recovery_setback_out [SysGroupId];
           end else begin
             core_setback_o    [i] = '0;
           end

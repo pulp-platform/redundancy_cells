@@ -90,6 +90,7 @@ sources:
       - rtl/HMR/DMR_checker.sv
       - rtl/HMR/DMR_address_generator.sv
       # - rtl/HMR/DMR_controller.sv
+      - rtl/HMR/hmr_rapid_recovery_ctrl.sv
       - rtl/HMR/hmr_registers_reg_pkg.sv
       - rtl/HMR/hmr_core_regs_reg_pkg.sv
       - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
