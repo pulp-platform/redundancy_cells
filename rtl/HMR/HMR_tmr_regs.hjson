@@ -46,6 +46,10 @@
           desc: "Enable setback on mismatch during reload section of re-synch (only possible with `setback`)"
         },
         { bits: "3",
+          name: "rapid_recovery",
+          desc: "Enable rapid recovery using additional register file."
+        },
+        { bits: "4",
           name: "force_resynch",
           resval: "0",
           desc: "Forces a resynchronization routine"
