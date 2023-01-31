@@ -15,7 +15,8 @@ extern "C" {
 
 // DMR configuration bits.
 #define HMR_DMR_REGS_DMR_CONFIG_REG_OFFSET 0x4
-#define HMR_DMR_REGS_DMR_CONFIG_TODO_BIT 0
+#define HMR_DMR_REGS_DMR_CONFIG_RAPID_RECOVERY_BIT 0
+#define HMR_DMR_REGS_DMR_CONFIG_FORCE_RECOVERY_BIT 1
 
 // Address for the last checkpoint.
 #define HMR_DMR_REGS_CHECKPOINT_ADDR_REG_OFFSET 0x8
