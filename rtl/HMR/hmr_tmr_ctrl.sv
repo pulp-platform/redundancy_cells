@@ -100,6 +100,7 @@ module hmr_tmr_ctrl #(
     tmr_setback_d = 1'b0;
     tmr_red_mode_d = tmr_red_mode_q;
     tmr_incr_mismatches_o = '0;
+    sw_resynch_req_o = 1'b0;
 
     tmr_hw2reg.tmr_config.force_resynch.de = force_resynch_qe_i;
 
@@ -116,7 +117,7 @@ module hmr_tmr_ctrl #(
 
         // If error detected, do resynchronization
         if (tmr_single_mismatch_i) begin
-          $display("[ODRG] %t - mismatch detected", $realtime);
+          $display("[HMR-triple] %t - mismatch detected", $realtime);
           if (tmr_error_i[0]) tmr_incr_mismatches_o[0] = 1'b1;
           if (tmr_error_i[1]) tmr_incr_mismatches_o[1] = 1'b1;
           if (tmr_error_i[2]) tmr_incr_mismatches_o[2] = 1'b1;
@@ -129,6 +130,7 @@ module hmr_tmr_ctrl #(
       end
 
       TMR_UNLOAD: begin
+        sw_resynch_req_o = 1'b1;
         // If unload complete, go to reload (and reset)
         if (tmr_reg2hw.sp_store.q != '0) begin
           tmr_red_mode_d = TMR_RELOAD;
@@ -141,7 +143,7 @@ module hmr_tmr_ctrl #(
       TMR_RELOAD: begin
         // If reload complete, finish (or reset if error happens during reload)
         if (tmr_reg2hw.sp_store.q == '0) begin
-          $display("[ODRG] %t - mismatch restored", $realtime);
+          $display("[HMR-triple] %t - mismatch restored", $realtime);
           tmr_red_mode_d = TMR_RUN;
         end else begin
           if ((tmr_single_mismatch_i || tmr_failure_i) && tmr_reg2hw.tmr_config.setback.q &&
