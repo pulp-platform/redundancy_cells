@@ -123,7 +123,7 @@ generate
      * Output Assign *
      *****************/
     assign recovery_program_counter_o = (read_enable_i) ? pc_out : '0;
-    assign recovery_branch_addr_o = (read_enable_i) ? branch_addr_out : '0;
+    assign recovery_branch_addr_o = (read_enable_i && branch_q) ? branch_addr_out : '0;
     assign recovery_branch_o      = (read_enable_i) ? branch_q : '0;
   end else begin : gen_no_ecc_region
     /**************************
