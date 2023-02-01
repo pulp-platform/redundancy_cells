@@ -298,12 +298,12 @@ module HMR_wrap import recovery_pkg::*; #(
   regfile_write_t [NumBackupRegfiles-1:0] core_recovery_regfile_wport_out;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
-    if (SeparateData) begin
+    if (SeparateData) begin : gen_separate_data
       assign main_concat_in[i] = {core_core_busy_i[i], core_irq_ack_i[i], core_irq_ack_id_i[i],
         core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i]};
       assign data_concat_in[i] = {core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i],
                                core_data_be_i[i], core_data_user_i[i]};
-    end else begin
+    end else begin : gen_single_group
       assign main_concat_in[i] = {core_core_busy_i[i], core_irq_ack_i[i], core_irq_ack_id_i[i],
         core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i], core_data_add_i[i], 
         core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i], core_data_user_i[i]};
@@ -330,7 +330,7 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumTMRGroups-1:0] tmr_grp_in_independent;
   logic [NumTMRGroups-1:0] tmr_rapid_recovery_en;
 
-  for (genvar i = 0; i < NumCores; i++) begin
+  for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
     assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ? ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
     assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ? ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
@@ -385,7 +385,7 @@ module HMR_wrap import recovery_pkg::*; #(
   assign hmr_hw2reg.avail_config.triple.d = TMRFixed | TMRSupported;
   assign hmr_hw2reg.avail_config.rapid_recovery.d = RapidRecovery;
 
-  always_comb begin
+  always_comb begin : proc_reg_status
     hmr_hw2reg.cores_en.d = '0;
     hmr_hw2reg.cores_en.d = core_en_as_master;
 
@@ -431,7 +431,7 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumCores-1:0] tmr_incr_mismatches;
   logic [NumCores-1:0] dmr_incr_mismatches;
 
-  for (genvar i = 0; i < NumCores; i++) begin
+  for (genvar i = 0; i < NumCores; i++) begin : gen_core_registers
     hmr_core_regs_reg_top #(
       .reg_req_t(reg_req_t),
       .reg_rsp_t(reg_resp_t)
@@ -597,7 +597,7 @@ module HMR_wrap import recovery_pkg::*; #(
    ******************** DMR Voters and Regs *******************
    ************************************************************/
 
-  if (DMRSupported || DMRFixed) begin: gen_dmr_recovery_region
+  if (DMRSupported || DMRFixed) begin: gen_dmr_logic
 
     hmr_dmr_regs_reg_pkg::hmr_dmr_regs_reg2hw_t [NumDMRGroups-1:0] dmr_reg2hw;
     hmr_dmr_regs_reg_pkg::hmr_dmr_regs_hw2reg_t [NumDMRGroups-1:0] dmr_hw2reg;
@@ -628,7 +628,7 @@ module HMR_wrap import recovery_pkg::*; #(
       assign dmr_incr_mismatches[i] = '0;
     end
 
-    for (genvar i = 0; i < NumDMRGroups; i++) begin
+    for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_groups
 
       hmr_dmr_ctrl #(
         .reg_req_t     ( reg_req_t ),
@@ -701,7 +701,7 @@ module HMR_wrap import recovery_pkg::*; #(
                 = main_dmr_out[i];
       end
 
-      if (RapidRecovery) begin
+      if (RapidRecovery) begin : gen_rapid_recovery_connection
 
         assign dmr_failure [i] = (dmr_data_req_out [i] ? (dmr_failure_main[i] | dmr_failure_data[i])
                                                        : dmr_failure_main[i]) |
@@ -798,7 +798,7 @@ module HMR_wrap import recovery_pkg::*; #(
                                        & ~dmr_backup_regfile_error_b [i]
                                        & ~dmr_backup_regfile_addr_error_b [i];
 
-      end else begin
+      end else begin : gen_standard_failure
         assign dmr_failure [i] = dmr_data_req_out [i] ? (dmr_failure_main[i] | dmr_failure_data[i])
                                                       : dmr_failure_main[i];
       end
@@ -822,7 +822,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
   // RapidRecovery output signals
   if (RapidRecovery) begin : gen_rapid_recovery
-    for (genvar i = 0; i < NumBackupRegfiles; i++) begin
+    for (genvar i = 0; i < NumBackupRegfiles; i++) begin : gen_groups
       hmr_rapid_recovery_ctrl #(
         .RFAddrWidth( RFAddrWidth )
       ) i_rapid_recovery_ctrl (
@@ -895,7 +895,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
     end
 
-    always_comb begin
+    always_comb begin : proc_dmr_tmr_assignments
       backup_program_counter_int   = '0;
       backup_program_counter_error = '0;
       backup_branch_int            = '0;
@@ -1067,7 +1067,12 @@ module HMR_wrap import recovery_pkg::*; #(
           core_fetch_en_o     [i] = sys_fetch_en_i     [TMRCoreIndex];
           core_boot_addr_o    [i] = sys_boot_addr_i    [TMRCoreIndex];
 
-          core_debug_req_o    [i] = sys_debug_req_i    [TMRCoreIndex];
+          if (RapidRecovery) begin
+            core_debug_req_o  [i] = sys_debug_req_i     [TMRCoreIndex] 
+                                  | recovery_debug_req_out [tmr_shared_id(tmr_group_id(i))];
+          end else begin
+            core_debug_req_o  [i] = sys_debug_req_i     [TMRCoreIndex];
+          end
           core_perf_counters_o[i] = sys_perf_counters_i[TMRCoreIndex];
 
           // IRQ
@@ -1089,7 +1094,12 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_err_o     [i] = sys_data_err_i     [TMRCoreIndex];
 
           // Special signals
-          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
+          if (RapidRecovery) begin
+            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
+                                  | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+          end else begin
+            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
+          end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [DMRCoreIndex];
@@ -1099,7 +1109,12 @@ module HMR_wrap import recovery_pkg::*; #(
           core_fetch_en_o     [i] = sys_fetch_en_i     [DMRCoreIndex];
           core_boot_addr_o    [i] = sys_boot_addr_i    [DMRCoreIndex];
 
-          core_debug_req_o    [i] = sys_debug_req_i    [DMRCoreIndex];
+          if (RapidRecovery) begin
+            core_debug_req_o  [i] = sys_debug_req_i     [DMRCoreIndex] 
+                                  | recovery_debug_req_out [dmr_shared_id(dmr_group_id(i))];
+          end else begin
+            core_debug_req_o  [i] = sys_debug_req_i     [DMRCoreIndex];
+          end
           core_perf_counters_o[i] = sys_perf_counters_i[DMRCoreIndex];
 
           // IRQ
@@ -1121,7 +1136,11 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_err_o     [i] = sys_data_err_i     [DMRCoreIndex];
           
           // Special signals
-          core_setback_o      [i] = '0;
+          if (RapidRecovery) begin
+            core_setback_o    [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+          end else begin
+            core_setback_o    [i] = '0;
+          end
         end else begin : independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
@@ -1281,7 +1300,12 @@ module HMR_wrap import recovery_pkg::*; #(
           core_fetch_en_o     [i] = sys_fetch_en_i     [SysCoreIndex];
           core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
 
-          core_debug_req_o    [i] = sys_debug_req_i    [SysCoreIndex];
+          if (RapidRecovery) begin
+            core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex] 
+                                  | recovery_debug_req_out [tmr_shared_id(tmr_group_id(i))];
+          end else begin
+            core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex];
+          end
           core_perf_counters_o[i] = sys_perf_counters_i[SysCoreIndex];
 
           // IRQ
@@ -1303,7 +1327,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
 
           // Special signals
-          core_setback_o      [i] = tmr_setback_q   [tmr_group_id(i)];
+          // Setback
+          if (RapidRecovery) begin
+            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
+                                  | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+          end else begin
+            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
+          end
         end else begin : independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
@@ -1460,37 +1490,23 @@ module HMR_wrap import recovery_pkg::*; #(
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
-      localparam SysGroupId = DMRFixed ? i/2 : dmr_group_id(i);
       always_comb begin
         if (i < NumDMRCores && (DMRFixed || core_in_dmr[i])) begin : dmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i       [SysCoreIndex];
           core_cluster_id_o   [i] = sys_cluster_id_i    [SysCoreIndex];
 
-          // if (RapidRecovery) begin
-          //   core_clock_en_o   [i] = sys_clock_en_i      [SysCoreIndex]
-          //                         & dmr_ctrl_core_clk_en_out[SysGroupId];
-          // end else begin
-            core_clock_en_o   [i] = sys_clock_en_i      [SysCoreIndex];
-          // end
+          core_clock_en_o   [i] = sys_clock_en_i      [SysCoreIndex];
           core_fetch_en_o     [i] = sys_fetch_en_i      [SysCoreIndex];
           core_boot_addr_o    [i] = sys_boot_addr_i     [SysCoreIndex];
 
-
           if (RapidRecovery) begin
             core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex] 
-                                  | recovery_debug_req_out [SysGroupId];
+                                  | recovery_debug_req_out [dmr_shared_id(dmr_group_id(i))];
           end else begin
             core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex];
           end
           core_perf_counters_o[i] = sys_perf_counters_i [SysCoreIndex];
-
-          // Setback
-          if (RapidRecovery) begin
-            core_setback_o    [i] = recovery_setback_out [SysGroupId];
-          end else begin
-            core_setback_o    [i] = '0;
-          end
 
           // IRQ
           core_irq_req_o      [i] = sys_irq_req_i       [SysCoreIndex];
@@ -1510,6 +1526,12 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_valid_o [i] = sys_data_r_valid_i  [SysCoreIndex];
           core_data_err_o     [i] = sys_data_err_i      [SysCoreIndex];
 
+          // Setback
+          if (RapidRecovery) begin
+            core_setback_o    [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+          end else begin
+            core_setback_o    [i] = '0;
+          end
         end else begin : gen_independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
