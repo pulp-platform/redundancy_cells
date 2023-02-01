@@ -77,8 +77,8 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   // Global config update
   assign dmr_hw2reg.dmr_enable.de = dmr_enable_qe_i;
   assign dmr_hw2reg.dmr_enable.d  = dmr_enable_q_i;
-  assign dmr_hw2reg.dmr_config.rapid_recovery.de = rapid_recovery_qe_i;
-  assign dmr_hw2reg.dmr_config.rapid_recovery.d  = rapid_recovery_q_i;
+  assign dmr_hw2reg.dmr_config.rapid_recovery.de = rapid_recovery_qe_i || ~RapidRecovery;
+  assign dmr_hw2reg.dmr_config.rapid_recovery.d  = rapid_recovery_q_i && RapidRecovery;
   assign dmr_hw2reg.dmr_config.force_recovery.d  = force_recovery_qe_i ? force_recovery_q_i : 1'b0;
 
   /**************************
@@ -90,26 +90,34 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     dmr_red_mode_d = dmr_red_mode_q;
     dmr_incr_mismatches_o = '0;
     recovery_request_o = 1'b0;
+    sw_resynch_req_o = 1'b0;
 
     dmr_hw2reg.dmr_config.force_recovery.de = force_recovery_qe_i;
 
     case (dmr_red_mode_q)
       DMR_RUN: begin
         // If forced execute recovery
-        if (dmr_reg2hw.dmr_config.force_recovery.q && RapidRecovery) begin
+        if (dmr_reg2hw.dmr_config.force_recovery.q && RapidRecovery && dmr_reg2hw.dmr_config.rapid_recovery.q) begin
           dmr_hw2reg.dmr_config.force_recovery.de = 1'b1;
           dmr_red_mode_d = DMR_RESTORE;
         end
 
         // If error detected, restore
-        if (dmr_error_i && RapidRecovery) begin
+        if (dmr_error_i && RapidRecovery && dmr_reg2hw.dmr_config.rapid_recovery.q) begin
+          $display("[HMR-dual] %t - mismatch detected, rapid recovery starting", $realtime);
           dmr_red_mode_d = DMR_RESTORE;
-          recovery_request_o = 1'b1;
+        end
+
+        if (dmr_error_i && (!RapidRecovery || !dmr_reg2hw.dmr_config.rapid_recovery.q)) begin
+          $display("[HMR-dual] %t - mismatch detected, SW trigger", $realtime);
+          sw_resynch_req_o = 1'b1;
         end
       end
 
       DMR_RESTORE: begin
+        recovery_request_o = 1'b1;
         if (recovery_finished_i) begin
+          $display("[HMR-dual] %t - mismatch restored", $realtime);
           dmr_red_mode_d = DMR_RUN;
         end
       end
