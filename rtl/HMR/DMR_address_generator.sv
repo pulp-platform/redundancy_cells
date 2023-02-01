@@ -36,17 +36,17 @@ generate
   for (genvar i = 0; i < NumVotingSignals; i++) begin
     always_ff @(posedge clk_i, negedge  rst_ni) begin : address_generator_counter
       if (~rst_ni)
-        addr_count [i] <= '0;
+        addr_count [i] <= '1;
       else begin
         if (clear_i || addr_count_rst [i])
-          addr_count [i] <= '0;
+          addr_count [i] <= '1;
         else if (enable_i)
           addr_count [i] <= addr_count [i] + 1;
         else
           addr_count [i] <= addr_count [i];
       end
     end
-  assign addr_count_rst [i] = ( addr_count [i] == NumAddr/2 ) ? 1'b1 : 1'b0;
+  assign addr_count_rst [i] = ( addr_count [i] == NumAddr/2 - 1) ? 1'b1 : 1'b0;
   end
 endgenerate
 
