@@ -46,6 +46,18 @@
 ///   The 'error_after_i' signal does not affect the handshake signals, it only
 ///   effects the modules' internal state. This is done to prevent combinatorial
 ///   loops and reduce the critical timing path.
+///
+/// If the 'enable_i' signal is high, the module behaves as described above.
+/// If it is low, the checking features of the module are disabled:
+/// - Incomming error signals are ignored
+/// - The outgoing 'error_o' signal will always be 0
+/// - Handshakes will only be completed with source 0. 'data_o' and 'valid_o'
+///   will only show the data and valid signals from source 0, regardless if
+///   they match the data and valid signals from the other sources. Equally,
+///   The ready signal from the destination will only be forwarded to source 0,
+///   the 'ready_o' signals of all other sources are set to 0.
+/// It is in the responsibility of the user to make sure a change in the
+/// 'enable_i' signal will not violate any handshake rules.
 
 module dmr_handshake_join #(
   parameter type T      = logic,
@@ -54,6 +66,8 @@ module dmr_handshake_join #(
   // clock and reset
   input  logic clk_i,
   input  logic rst_ni,
+  // enable signal
+  input  logic enable_i,
   // error signals
   input  logic error_before_i,
   input  logic error_after_i,
@@ -87,23 +101,32 @@ module dmr_handshake_join #(
 
   // Destination
   always_comb begin
-    valid_o = valid_i;
+    valid_o = valid_i[0];
     data_o = data_i[0];
-    if (error_after_q) begin
-      valid_o = valid_i | valid_q;
-    end
-    if (error_before_i | error_o) begin
-      valid_o = valid_q;
-      data_o = data_q;
-    end
-    if (repeat_ready_q) begin
-      valid_o = 1'b0;
+    if(enable_i) begin
+      if (error_after_q) begin
+        valid_o = valid_i[0] | valid_q;
+      end
+      if (error_before_i | error_o) begin
+        valid_o = valid_q;
+        data_o = data_q;
+      end
+      if (repeat_ready_q) begin
+        valid_o = 1'b0;
+      end
     end
   end
 
   // Source
-  for(genvar i = 0; i < NUM_IN; i++) begin
-    assign ready_o[i] = ready_i | repeat_ready_q;
+  always_comb begin
+    if (enable_i) begin
+      for(int unsigned i = 0; i < NUM_IN; i++) begin
+        ready_o[i] = ready_i | repeat_ready_q;
+      end
+    end else begin
+      ready_o = '0;
+      ready_o[0] = ready_i;
+    end
   end
 
   // Error
@@ -125,6 +148,10 @@ module dmr_handshake_join #(
         end
       end
     end
+    // if module is disabled, no error is generated
+    if (!enable_i) begin
+      error_o = 1'b0;
+    end
   end
 
   // --------------------
@@ -145,6 +172,10 @@ module dmr_handshake_join #(
     if (dest_hs_complete | repeat_ready_q) begin
       valid_d = 1'b0;
     end
+    // Clear state if join is disabled
+    if (!enable_i) begin
+      valid_d = 1'b0;
+    end
   end
 
   // Ready (dest -> sources)
@@ -159,11 +190,20 @@ module dmr_handshake_join #(
     if (source_hs_complete) begin
       repeat_ready_d = 1'b0;
     end
+    // Clear state if join is disabled
+    if (!enable_i) begin
+      repeat_ready_d = 1'b0;
+    end
   end
 
   // Internal
   always_comb begin
     error_after_d = error_after_i & !(error_o | error_before_i);
+
+    // Clear state if join is disabled
+    if (!enable_i) begin
+      error_after_d = 1'b0;
+    end
   end
 
   // --------------------

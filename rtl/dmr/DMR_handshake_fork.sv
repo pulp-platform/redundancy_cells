@@ -36,6 +36,18 @@
 ///   The 'error_after_i' signal does not affect the handshake signals, it only
 ///   effects the modules' internal state. This is done to prevent combinatorial
 ///   loops and reduce the critical timing path.
+///
+/// If the 'enable_i' signal is high, the module behaves as described above.
+/// If it is low, the checking features of the module are disabled:
+/// - Incomming error signals are ignored
+/// - The outgoing 'error_o' signal will always be 0
+/// - Handshakes will only be completed with destination 0. While all
+///   desitinations still receive the same data via 'data_o', only the valid
+///   signal of destination 0 is used, all other valid signals are set to 0.
+///   Equally, only the ready signal of destination 0 is used to complete the
+///   handshake, all other ready signals are ignored.
+/// It is in the responsibility of the user to make sure a change in the
+/// 'enable_i' signal will not violate any handshake rules.
 
 module dmr_handshake_fork #(
   parameter type T           = logic,
@@ -44,6 +56,8 @@ module dmr_handshake_fork #(
   // clock and reset
   input  logic clk_i,
   input  logic rst_ni,
+  // enable signal
+  input  logic enable_i,
   // error signals
   input  logic error_before_i,
   input  logic error_after_i,
@@ -74,17 +88,34 @@ module dmr_handshake_fork #(
   //   Output signals
   // --------------------
 
-  // Destination
-  for(genvar i = 0; i < NUM_OUT; i++) begin
-    assign valid_o[i] = valid_i | data_latched_q;
-    assign data_o[i] = (data_latched_q) ? data_q : data_i;
+  always_comb begin
+    // check if module is enabled
+    if(enable_i) begin
+      // Destination
+      for (int unsigned i = 0; i < NUM_OUT; i++) begin
+        valid_o[i] = valid_i | data_latched_q;
+        data_o[i] = (data_latched_q) ? data_q : data_i;
+      end
+
+      // Source
+      ready_o = (ready_q | (&ready_i & ~error_before_i)) & ~data_latched_q;
+
+      // Error
+      error_o = ~((&ready_i) | (ready_i == '0));
+
+    end else begin
+      // Destination
+      valid_o = '0;
+      valid_o[0] = valid_i;
+      data_o = {NUM_OUT{data_i}};
+
+      // Source
+      ready_o = ready_i[0];
+
+      // Error
+      error_o = 1'b0;
+    end
   end
-
-  // Source
-  assign ready_o = (ready_q | (&ready_i & ~error_before_i)) & ~data_latched_q;
-
-  // Error
-  assign error_o = ~((&ready_i) | (ready_i == '0));
 
   // --------------------
   //  Compute next state
@@ -102,6 +133,10 @@ module dmr_handshake_fork #(
     if (source_hs_complete) begin
       ready_d = 1'b0;
     end
+    // Clear state if fork is disabled
+    if (!enable_i) begin
+      ready_d = 1'b0;
+    end
   end
 
   // Data (source -> dest)
@@ -116,6 +151,10 @@ module dmr_handshake_fork #(
     end
     // if handshake with destination is complete, clear data
     if (dest_hs_complete) begin
+      data_latched_d = 1'b0;
+    end
+    // Clear state if fork is disabled
+    if (!enable_i) begin
       data_latched_d = 1'b0;
     end
   end
@@ -149,7 +188,7 @@ module dmr_handshake_fork #(
                 (valid_i & ~ready_o |=> $stable(data_i))) else
                 $fatal(1, "Unstable data before complete source handshake.");
   dest_ready:   assert property( @(posedge clk_i) disable iff (~rst_ni)
-                ((error_after_i & ~error_before_i & ~error_o |=> $stable(ready_i)))) else
+                ((enable_i & error_after_i & ~error_before_i & ~error_o |=> $stable(ready_i)))) else
                 $warning("Ready signals were modified during a repetition cycle.");
   `endif
   // pragma translate_on

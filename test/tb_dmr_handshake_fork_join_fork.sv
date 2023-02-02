@@ -363,6 +363,7 @@ module tb_dmr_handshake_fork_join_fork;
   ) i_dut_fork_AB (
     .clk_i          ( clk             ),
     .rst_ni         ( rst_n           ),
+    .enable_i       ( 1'b1            ),
     .error_before_i ( error_before_AB ),
     .error_after_i  ( error_after_AB  ),
     .error_o        ( error_out_AB    ),
@@ -390,6 +391,7 @@ module tb_dmr_handshake_fork_join_fork;
   ) i_dut_join_CD (
     .clk_i          ( clk             ),
     .rst_ni         ( rst_n           ),
+    .enable_i       ( 1'b1            ),
     .error_before_i ( error_before_CD ),
     .error_after_i  ( error_after_CD  ),
     .error_o        ( error_out_CD    ),
@@ -413,6 +415,7 @@ module tb_dmr_handshake_fork_join_fork;
   ) i_dut_fork_EF (
     .clk_i          ( clk             ),
     .rst_ni         ( rst_n           ),
+    .enable_i       ( 1'b1            ),
     .error_before_i ( error_before_EF ),
     .error_after_i  ( error_after_EF  ),
     .error_o        ( error_out_EF    ),

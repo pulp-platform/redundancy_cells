@@ -234,6 +234,7 @@ module tb_dmr_handshake_join;
   ) i_dut (
     .clk_i          ( clk              ),
     .rst_ni         ( rst_n            ),
+    .enable_i       ( 1'b1             ),
     .error_before_i ( error_before     ),
     .error_after_i  ( error_after      ),
     .error_o        ( join_error       ),
