@@ -166,6 +166,8 @@ module HMR_wrap import recovery_pkg::*; #(
 
   // APU/SHARED_FPU not implemented
 );
+  let max(a,b) = (a > b) ? a : b;
+  localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
 
   function int tmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumTMRGroups;
@@ -178,7 +180,7 @@ module HMR_wrap import recovery_pkg::*; #(
   endfunction
 
   function int tmr_shared_id (int group_id);
-    if (InterleaveGrps) return group_id;
+    if (InterleaveGrps || !(DMRSupported || DMRFixed)) return group_id;
     else                return group_id + group_id/2;
   endfunction
 
@@ -205,8 +207,6 @@ module HMR_wrap import recovery_pkg::*; #(
   localparam int unsigned MainConcatWidth = SeparateData ? CtrlConcatWidth : 
                                             CtrlConcatWidth + DataConcatWidth;
 
-  let max(a,b) = (a > b) ? a : b;
-  localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
   localparam int unsigned RFAddrWidth = 6;
 
   logic [    NumCores-1:0][MainConcatWidth-1:0] main_concat_in;
