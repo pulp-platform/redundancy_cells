@@ -851,9 +851,9 @@ module HMR_wrap import recovery_pkg::*; #(
         .clk_i,
         .rst_ni,
         .clear_i                    ( '0                                ),
-        .read_enable_i              ( backup_pc_enable_out          [i] ),
+        .read_enable_i              (  recovery_pc_enable_out  [i]      ),
         .write_enable_i             ( ~backup_program_counter_error [i]
-                                     & recovery_pc_enable_out       [i] ),
+                                     & backup_pc_enable_out       [i]   ),
         // Backup Ports
         .backup_program_counter_i   ( backup_program_counter_int    [i] ),
         .backup_branch_i            ( backup_branch_int             [i] ),
