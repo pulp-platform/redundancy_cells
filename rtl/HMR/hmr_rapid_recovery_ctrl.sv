@@ -82,6 +82,8 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
       IDLE: begin
         // If requested start the routine in the reset state
         if (start_recovery_i) begin
+          // Disable reading for the backup PC
+          backup_pc_enable_d = 1'b0;
           rec_mode_d = RESET;
         end
       end
@@ -91,8 +93,6 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
         setback_d = 1'b1;
         // Lock the instruction requests
         instr_lock_d = 1'b1;
-        // Disable reading for the backup PC
-        backup_pc_enable_d = 1'b0;
         // Go to request halt of the core
         rec_mode_d = HALT;
       end
