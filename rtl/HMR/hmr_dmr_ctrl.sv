@@ -37,6 +37,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   // DMR control signals
   output logic       setback_o,
   output logic       sw_resynch_req_o,
+  output logic       sw_synch_req_o,
   output logic       grp_in_independent_o,
   output logic       rapid_recovery_en_o,
   output logic [1:0] dmr_incr_mismatches_o,
@@ -60,6 +61,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   assign setback_o = dmr_setback_q;
   assign grp_in_independent_o = dmr_red_mode_q == NON_DMR;
   assign rapid_recovery_en_o = dmr_reg2hw.dmr_config.rapid_recovery.q && RapidRecovery;
+  assign sw_synch_req_o = dmr_reg2hw.dmr_enable.q & dmr_red_mode_q == NON_DMR;
 
   hmr_dmr_regs_reg_top #(
     .reg_req_t(reg_req_t),

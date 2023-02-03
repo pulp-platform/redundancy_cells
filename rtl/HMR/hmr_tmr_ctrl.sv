@@ -43,6 +43,7 @@ module hmr_tmr_ctrl #(
   // TMR control signals
   output logic       setback_o,
   output logic       sw_resynch_req_o,
+  output logic       sw_synch_req_o,
   output logic       grp_in_independent_o,
   output logic       rapid_recovery_en_o,
   output logic [2:0] tmr_incr_mismatches_o,
@@ -65,7 +66,7 @@ module hmr_tmr_ctrl #(
   assign setback_o = tmr_setback_q;
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
   assign tmr_resynch_req_o = tmr_red_mode_q == TMR_UNLOAD;
-  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q && RapidRecovery;
+  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q & RapidRecovery;
 
   hmr_tmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
@@ -101,6 +102,7 @@ module hmr_tmr_ctrl #(
     tmr_red_mode_d = tmr_red_mode_q;
     tmr_incr_mismatches_o = '0;
     sw_resynch_req_o = 1'b0;
+    sw_synch_req_o = 1'b0;
 
     tmr_hw2reg.tmr_config.force_resynch.de = force_resynch_qe_i;
 
@@ -109,7 +111,7 @@ module hmr_tmr_ctrl #(
         // If forced execute resynchronization
         if (tmr_reg2hw.tmr_config.force_resynch.q) begin
           tmr_hw2reg.tmr_config.force_resynch.de = 1'b1;
-          if (tmr_reg2hw.tmr_config.delay_resynch == 0) begin
+          if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
             // TODO: buffer the restoration until delay_resynch is disabled
           end
@@ -175,9 +177,13 @@ module hmr_tmr_ctrl #(
         end
       end
       // Set TMR mode on external signal that cores are synchronized
-      if (tmr_red_mode_q == NON_TMR && cores_synch_i) begin
-        if (tmr_reg2hw.tmr_enable.q == 1'b1) begin
-          tmr_red_mode_d = TMR_RUN;
+      if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
+        sw_synch_req_o = 1'b1;
+        if (cores_synch_i) begin
+          tmr_red_mode_d = TMR_RELOAD;
+          if (tmr_reg2hw.tmr_config.setback.q) begin
+            tmr_setback_d = 1'b1;
+          end
         end
       end
     end

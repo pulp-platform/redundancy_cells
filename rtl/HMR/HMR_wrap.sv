@@ -62,12 +62,14 @@ module HMR_wrap import recovery_pkg::*; #(
   output logic [NumTMRGroups-1:0] tmr_failure_o    ,
   output logic [ NumSysCores-1:0] tmr_error_o      , // Should this not be NumTMRCores? or NumCores?
   output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
+  output logic [    NumCores-1:0] tmr_sw_synch_req_o,
   input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
 
   // DMR signals
   output logic [NumDMRGroups-1:0] dmr_failure_o    ,
   output logic [ NumSysCores-1:0] dmr_error_o      , // Should this not be NumDMRCores? or NumCores?
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
+  output logic [    NumCores-1:0] dmr_sw_synch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
   // Backup Port from Cores'Program Counter
@@ -465,6 +467,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
     reg_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
     reg_resp_t [NumTMRGroups-1:0] tmr_register_resps;
+    logic [NumTMRGroups-1:0] tmr_sw_synch_req;
 
     localparam TMRSelWidth = $clog2(NumTMRGroups);
 
@@ -487,6 +490,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
     for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign tmr_incr_mismatches[i] = '0;
+      assign tmr_sw_synch_req_o[i] = '0;
     end
 
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
@@ -519,6 +523,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
         .setback_o            ( tmr_setback_q[i] ),
         .sw_resynch_req_o     ( tmr_resynch_req_o[i] ),
+        .sw_synch_req_o       ( tmr_sw_synch_req[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
         .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
         .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,2)]} ),
@@ -528,6 +533,10 @@ module HMR_wrap import recovery_pkg::*; #(
         .fetch_en_i           ( sys_fetch_en_i[tmr_core_id(i, 0)] ),
         .cores_synch_i        ( tmr_cores_synch_i[i] )
       );
+
+      assign tmr_sw_synch_req_o[tmr_core_id(i, 0)] = tmr_sw_synch_req[i];
+      assign tmr_sw_synch_req_o[tmr_core_id(i, 1)] = tmr_sw_synch_req[i];
+      assign tmr_sw_synch_req_o[tmr_core_id(i, 2)] = tmr_sw_synch_req[i];
 
       assign tmr_failure[i]         = tmr_data_req_out[i] ?
                                       tmr_failure_main[i] | tmr_failure_data[i] :
@@ -594,6 +603,7 @@ module HMR_wrap import recovery_pkg::*; #(
     assign tmr_grp_in_independent = '0;
     assign tmr_setback_q = '0;
     assign tmr_resynch_req_o = '0;
+    assign tmr_sw_synch_req_o = '0;
   end
 
   /************************************************************
@@ -607,6 +617,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
     reg_req_t  [NumDMRGroups-1:0] dmr_register_reqs;
     reg_resp_t [NumDMRGroups-1:0] dmr_register_resps;
+    logic [NumDMRGroups-1:0] dmr_sw_synch_req;
 
     localparam DMRSelWidth = $clog2(NumDMRGroups);
 
@@ -629,6 +640,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
     for (genvar i = NumDMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign dmr_incr_mismatches[i] = '0;
+      assign dmr_sw_synch_req_o[i] = '0;
     end
 
     for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_groups
@@ -656,6 +668,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
         .setback_o             ( dmr_setback_q         [i] ),
         .sw_resynch_req_o      ( dmr_resynch_req_o     [i] ),
+        .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
         .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
         .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 0)], dmr_incr_mismatches[dmr_core_id(i, 1)]} ),
@@ -667,6 +680,9 @@ module HMR_wrap import recovery_pkg::*; #(
         .recovery_request_o    ( dmr_start_recovery   [i] ),
         .recovery_finished_i   ( dmr_recovery_finished[i] )
       );
+
+      assign dmr_sw_synch_req_o[dmr_core_id(i, 0)] = dmr_sw_synch_req[i];
+      assign dmr_sw_synch_req_o[dmr_core_id(i, 1)] = dmr_sw_synch_req[i];
 
       /*********************
        * DMR Core Checkers *
@@ -821,6 +837,7 @@ module HMR_wrap import recovery_pkg::*; #(
     assign top_register_resps[2].rdata = '0;
     assign top_register_resps[2].error = 1'b1;
     assign top_register_resps[2].ready = 1'b1;
+    assign dmr_sw_synch_req_o = '0;
   end
 
   // RapidRecovery output signals
