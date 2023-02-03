@@ -43,6 +43,7 @@ module hmr_tmr_ctrl #(
   // TMR control signals
   output logic       setback_o,
   output logic       sw_resynch_req_o,
+  output logic       sw_synch_req_o,
   output logic       grp_in_independent_o,
   output logic       rapid_recovery_en_o,
   output logic [2:0] tmr_incr_mismatches_o,
@@ -65,7 +66,8 @@ module hmr_tmr_ctrl #(
   assign setback_o = tmr_setback_q;
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
   assign tmr_resynch_req_o = tmr_red_mode_q == TMR_UNLOAD;
-  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q && RapidRecovery;
+  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q & RapidRecovery;
+  assign sw_synch_req_o = tmr_reg2hw.tmr_enable.q & tmr_red_mode_q == NON_TMR;
 
   hmr_tmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
@@ -177,7 +179,7 @@ module hmr_tmr_ctrl #(
       // Set TMR mode on external signal that cores are synchronized
       if (tmr_red_mode_q == NON_TMR && cores_synch_i) begin
         if (tmr_reg2hw.tmr_enable.q == 1'b1) begin
-          tmr_red_mode_d = TMR_RUN;
+          tmr_red_mode_d = TMR_RELOAD;
         end
       end
     end
