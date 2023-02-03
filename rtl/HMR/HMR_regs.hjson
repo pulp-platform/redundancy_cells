@@ -12,7 +12,7 @@
 
   param_list: [
     { name: "NumCores",
-      default: "12" # Supports up to 32 cores
+      default: "12" # Supports up to 16 cores
     },
     { name: "NumDMRGroups",
       default: "6"

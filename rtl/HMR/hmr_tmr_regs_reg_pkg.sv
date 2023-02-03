@@ -7,7 +7,7 @@
 package hmr_tmr_regs_reg_pkg;
 
   // Address widths within the block
-  parameter int BlockAw = 4;
+  parameter int BlockAw = 3;
 
   ////////////////////////////
   // Typedefs for registers //
@@ -42,11 +42,6 @@ package hmr_tmr_regs_reg_pkg;
   } hmr_tmr_regs_reg2hw_tmr_config_reg_t;
 
   typedef struct packed {
-    logic [31:0] q;
-    logic        qe;
-  } hmr_tmr_regs_reg2hw_sp_store_reg_t;
-
-  typedef struct packed {
     logic        d;
     logic        de;
   } hmr_tmr_regs_hw2reg_tmr_enable_reg_t;
@@ -74,42 +69,32 @@ package hmr_tmr_regs_reg_pkg;
     } force_resynch;
   } hmr_tmr_regs_hw2reg_tmr_config_reg_t;
 
-  typedef struct packed {
-    logic [31:0] d;
-    logic        de;
-  } hmr_tmr_regs_hw2reg_sp_store_reg_t;
-
   // Register -> HW type
   typedef struct packed {
-    hmr_tmr_regs_reg2hw_tmr_enable_reg_t tmr_enable; // [44:43]
-    hmr_tmr_regs_reg2hw_tmr_config_reg_t tmr_config; // [42:33]
-    hmr_tmr_regs_reg2hw_sp_store_reg_t sp_store; // [32:0]
+    hmr_tmr_regs_reg2hw_tmr_enable_reg_t tmr_enable; // [11:10]
+    hmr_tmr_regs_reg2hw_tmr_config_reg_t tmr_config; // [9:0]
   } hmr_tmr_regs_reg2hw_t;
 
   // HW -> register type
   typedef struct packed {
-    hmr_tmr_regs_hw2reg_tmr_enable_reg_t tmr_enable; // [44:43]
-    hmr_tmr_regs_hw2reg_tmr_config_reg_t tmr_config; // [42:33]
-    hmr_tmr_regs_hw2reg_sp_store_reg_t sp_store; // [32:0]
+    hmr_tmr_regs_hw2reg_tmr_enable_reg_t tmr_enable; // [11:10]
+    hmr_tmr_regs_hw2reg_tmr_config_reg_t tmr_config; // [9:0]
   } hmr_tmr_regs_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] HMR_TMR_REGS_TMR_ENABLE_OFFSET = 4'h 0;
-  parameter logic [BlockAw-1:0] HMR_TMR_REGS_TMR_CONFIG_OFFSET = 4'h 4;
-  parameter logic [BlockAw-1:0] HMR_TMR_REGS_SP_STORE_OFFSET = 4'h 8;
+  parameter logic [BlockAw-1:0] HMR_TMR_REGS_TMR_ENABLE_OFFSET = 3'h 0;
+  parameter logic [BlockAw-1:0] HMR_TMR_REGS_TMR_CONFIG_OFFSET = 3'h 4;
 
   // Register index
   typedef enum int {
     HMR_TMR_REGS_TMR_ENABLE,
-    HMR_TMR_REGS_TMR_CONFIG,
-    HMR_TMR_REGS_SP_STORE
+    HMR_TMR_REGS_TMR_CONFIG
   } hmr_tmr_regs_id_e;
 
   // Register width information to check illegal writes
-  parameter logic [3:0] HMR_TMR_REGS_PERMIT [3] = '{
+  parameter logic [3:0] HMR_TMR_REGS_PERMIT [2] = '{
     4'b 0001, // index[0] HMR_TMR_REGS_TMR_ENABLE
-    4'b 0001, // index[1] HMR_TMR_REGS_TMR_CONFIG
-    4'b 1111  // index[2] HMR_TMR_REGS_SP_STORE
+    4'b 0001  // index[1] HMR_TMR_REGS_TMR_CONFIG
   };
 
 endpackage
