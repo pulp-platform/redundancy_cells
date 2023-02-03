@@ -43,6 +43,18 @@
           desc: "mismatch counter of the core"
         }
       ]
+    },
+    { name: "sp_store",
+      desc: "Stack Pointer storage register",
+      swaccess: "rw",
+      hwaccess: "hro",
+      hwqe: "true",
+      fields: [
+        { bits: "31:0",
+          name: "SP",
+          desc: "Stack Pointer"
+        }
+      ]
     }
   ]
 }

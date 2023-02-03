@@ -10,7 +10,7 @@
 module hmr_core_regs_reg_top #(
   parameter type reg_req_t = logic,
   parameter type reg_rsp_t = logic,
-  parameter int AW = 3
+  parameter int AW = 4
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -77,6 +77,9 @@ module hmr_core_regs_reg_top #(
   logic [31:0] mismatches_qs;
   logic [31:0] mismatches_wd;
   logic mismatches_we;
+  logic [31:0] sp_store_qs;
+  logic [31:0] sp_store_wd;
+  logic sp_store_we;
 
   // Register instances
   // R[current_mode]: V(True)
@@ -153,13 +156,41 @@ module hmr_core_regs_reg_top #(
   );
 
 
+  // R[sp_store]: V(False)
+
+  prim_subreg #(
+    .DW      (32),
+    .SWACCESS("RW"),
+    .RESVAL  (32'h0)
+  ) u_sp_store (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (sp_store_we),
+    .wd     (sp_store_wd),
+
+    // from internal hardware
+    .de     (1'b0),
+    .d      ('0  ),
+
+    // to internal hardware
+    .qe     (reg2hw.sp_store.qe),
+    .q      (reg2hw.sp_store.q ),
+
+    // to register interface (read)
+    .qs     (sp_store_qs)
+  );
 
 
-  logic [1:0] addr_hit;
+
+
+  logic [2:0] addr_hit;
   always_comb begin
     addr_hit = '0;
     addr_hit[0] = (reg_addr == HMR_CORE_REGS_CURRENT_MODE_OFFSET);
     addr_hit[1] = (reg_addr == HMR_CORE_REGS_MISMATCHES_OFFSET);
+    addr_hit[2] = (reg_addr == HMR_CORE_REGS_SP_STORE_OFFSET);
   end
 
   assign addrmiss = (reg_re || reg_we) ? ~|addr_hit : 1'b0 ;
@@ -168,7 +199,8 @@ module hmr_core_regs_reg_top #(
   always_comb begin
     wr_err = (reg_we &
               ((addr_hit[0] & (|(HMR_CORE_REGS_PERMIT[0] & ~reg_be))) |
-               (addr_hit[1] & (|(HMR_CORE_REGS_PERMIT[1] & ~reg_be)))));
+               (addr_hit[1] & (|(HMR_CORE_REGS_PERMIT[1] & ~reg_be))) |
+               (addr_hit[2] & (|(HMR_CORE_REGS_PERMIT[2] & ~reg_be)))));
   end
 
   assign current_mode_independent_re = addr_hit[0] & reg_re & !reg_error;
@@ -179,6 +211,9 @@ module hmr_core_regs_reg_top #(
 
   assign mismatches_we = addr_hit[1] & reg_we & !reg_error;
   assign mismatches_wd = reg_wdata[31:0];
+
+  assign sp_store_we = addr_hit[2] & reg_we & !reg_error;
+  assign sp_store_wd = reg_wdata[31:0];
 
   // Read data return
   always_comb begin
@@ -192,6 +227,10 @@ module hmr_core_regs_reg_top #(
 
       addr_hit[1]: begin
         reg_rdata_next[31:0] = mismatches_qs;
+      end
+
+      addr_hit[2]: begin
+        reg_rdata_next[31:0] = sp_store_qs;
       end
 
       default: begin
@@ -216,7 +255,7 @@ endmodule
 
 module hmr_core_regs_reg_top_intf
 #(
-  parameter int AW = 3,
+  parameter int AW = 4,
   localparam int DW = 32
 ) (
   input logic clk_i,

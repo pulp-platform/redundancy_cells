@@ -50,6 +50,8 @@ module hmr_tmr_ctrl #(
   input  logic       tmr_single_mismatch_i,
   input  logic [2:0] tmr_error_i,
   input  logic       tmr_failure_i,
+  input  logic       sp_store_is_zero,
+  input  logic       sp_store_will_be_zero,
   input  logic       fetch_en_i,
   input  logic       cores_synch_i
 );
@@ -134,7 +136,7 @@ module hmr_tmr_ctrl #(
       TMR_UNLOAD: begin
         sw_resynch_req_o = 1'b1;
         // If unload complete, go to reload (and reset)
-        if (tmr_reg2hw.sp_store.q != '0) begin
+        if (!sp_store_is_zero) begin
           tmr_red_mode_d = TMR_RELOAD;
           if (tmr_reg2hw.tmr_config.setback.q) begin
             tmr_setback_d = 1'b1;
@@ -144,13 +146,13 @@ module hmr_tmr_ctrl #(
 
       TMR_RELOAD: begin
         // If reload complete, finish (or reset if error happens during reload)
-        if (tmr_reg2hw.sp_store.q == '0) begin
+        if (sp_store_is_zero) begin
           $display("[HMR-triple] %t - mismatch restored", $realtime);
           tmr_red_mode_d = TMR_RUN;
         end else begin
           if ((tmr_single_mismatch_i || tmr_failure_i) && tmr_reg2hw.tmr_config.setback.q &&
               tmr_reg2hw.tmr_config.reload_setback.q &&
-              !(tmr_reg2hw.sp_store.qe && reg_req_i.wdata == '0)) begin
+              !sp_store_will_be_zero) begin
             tmr_setback_d = 1'b1;
           end
         end
