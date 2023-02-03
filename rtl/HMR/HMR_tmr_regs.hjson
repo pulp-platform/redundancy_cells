@@ -55,18 +55,6 @@
           desc: "Forces a resynchronization routine"
         }
       ]
-    },
-    { name: "sp_store",
-      desc: "Stack Pointer storage register",
-      swaccess: "rw",
-      hwaccess: "hrw",
-      hwqe: "true",
-      fields: [
-        { bits: "31:0",
-          name: "SP",
-          desc: "Stack Pointer"
-        }
-      ]
     }
   ]
 }

@@ -332,6 +332,9 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumTMRGroups-1:0] tmr_grp_in_independent;
   logic [NumTMRGroups-1:0] tmr_rapid_recovery_en;
 
+  logic [NumCores-1:0] sp_store_is_zero;
+  logic [NumCores-1:0] sp_store_will_be_zero;
+
   for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
     assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ? ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
@@ -411,7 +414,7 @@ module HMR_wrap import recovery_pkg::*; #(
   reg_req_t  [NumCores-1:0] core_register_reqs;
   reg_resp_t [NumCores-1:0] core_register_resps;
 
-  // 2 words per core
+  // 4 words per core
 
   reg_demux #(
     .NoPorts    ( NumCores ),
@@ -420,7 +423,7 @@ module HMR_wrap import recovery_pkg::*; #(
   ) i_core_reg_demux (
     .clk_i,
     .rst_ni,
-    .in_select_i( top_register_reqs [1].addr[3+$clog2(NumCores)-1:3] ),
+    .in_select_i( top_register_reqs [1].addr[4+$clog2(NumCores)-1:4] ),
     .in_req_i   ( top_register_reqs [1] ),
     .in_rsp_o   ( top_register_resps[1] ),
     .out_req_o  ( core_register_reqs ),
@@ -452,6 +455,8 @@ module HMR_wrap import recovery_pkg::*; #(
     assign core_config_hw2reg[i].current_mode.independent.d = core_in_independent[i];
     assign core_config_hw2reg[i].current_mode.dual.d        = core_in_dmr[i];
     assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
+    assign sp_store_is_zero[i] = core_config_reg2hw[i].sp_store.q == '0;
+    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe && core_register_reqs[i].wdata == '0;
   end
 
 
@@ -527,6 +532,8 @@ module HMR_wrap import recovery_pkg::*; #(
         .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
         .tmr_error_i          ( tmr_error[i] ),
         .tmr_failure_i        ( tmr_failure[i] ),
+        .sp_store_is_zero     ( sp_store_is_zero[tmr_core_id(i, 0)] ),
+        .sp_store_will_be_zero( sp_store_will_be_zero[tmr_core_id(i, 0)] ),
         .fetch_en_i           ( sys_fetch_en_i[tmr_core_id(i, 0)] ),
         .cores_synch_i        ( tmr_cores_synch_i[i] )
       );
