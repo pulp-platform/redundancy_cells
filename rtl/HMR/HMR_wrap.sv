@@ -168,7 +168,10 @@ module HMR_wrap import recovery_pkg::*; #(
 
   // APU/SHARED_FPU not implemented
 );
-  let max(a,b) = (a > b) ? a : b;
+  function int max(int a, int b);
+    return (a > b) ? a : b;
+  endfunction
+
   localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
 
   function int tmr_group_id (int core_id);
