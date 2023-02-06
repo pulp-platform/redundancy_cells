@@ -41,7 +41,7 @@ module hmr_tmr_ctrl #(
   input  logic       force_resynch_qe_i,
   
   // TMR control signals
-  output logic       setback_o,
+  output logic [2:0] setback_o,
   output logic       sw_resynch_req_o,
   output logic       sw_synch_req_o,
   output logic       grp_in_independent_o,
@@ -63,7 +63,7 @@ module hmr_tmr_ctrl #(
   hmr_tmr_regs_reg_pkg::hmr_tmr_regs_hw2reg_t tmr_hw2reg;
 
   tmr_mode_e tmr_red_mode_d, tmr_red_mode_q;
-  logic tmr_setback_d, tmr_setback_q;
+  logic [2:0] tmr_setback_d, tmr_setback_q;
 
   assign setback_o = tmr_setback_q;
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
@@ -100,7 +100,7 @@ module hmr_tmr_ctrl #(
    *  FSM for TMR lockstep  *
    **************************/
   always_comb begin : proc_fsm
-    tmr_setback_d = 1'b0;
+    tmr_setback_d = 3'b000;
     tmr_red_mode_d = tmr_red_mode_q;
     tmr_incr_mismatches_o = '0;
     sw_resynch_req_o = 1'b0;
@@ -139,7 +139,7 @@ module hmr_tmr_ctrl #(
         if (!sp_store_is_zero) begin
           tmr_red_mode_d = TMR_RELOAD;
           if (tmr_reg2hw.tmr_config.setback.q) begin
-            tmr_setback_d = 1'b1;
+            tmr_setback_d = 3'b111;
           end
         end
       end
@@ -153,7 +153,7 @@ module hmr_tmr_ctrl #(
           if ((tmr_single_mismatch_i || tmr_failure_i) && tmr_reg2hw.tmr_config.setback.q &&
               tmr_reg2hw.tmr_config.reload_setback.q &&
               !sp_store_will_be_zero) begin
-            tmr_setback_d = 1'b1;
+            tmr_setback_d = 3'b111;
           end
         end
       end
@@ -175,16 +175,19 @@ module hmr_tmr_ctrl #(
       // split tolerant mode to performance mode anytime (but require correct core state)
       if (tmr_red_mode_q == TMR_RUN) begin
         if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
+          if (tmr_reg2hw.tmr_config.setback.q) begin
+            tmr_setback_d = 3'b110;
+          end
           tmr_red_mode_d = NON_TMR;
         end
       end
       // Set TMR mode on external signal that cores are synchronized
       if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
         sw_synch_req_o = 1'b1;
-        if (cores_synch_i) begin
+        if (cores_synch_i == 1'b1) begin
           tmr_red_mode_d = TMR_RELOAD;
-          if (tmr_reg2hw.tmr_config.setback.q) begin
-            tmr_setback_d = 1'b1;
+          if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
+            tmr_setback_d = 3'b111;
           end
         end
       end

@@ -35,7 +35,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   input  logic       force_recovery_qe_i,
 
   // DMR control signals
-  output logic       setback_o,
+  output logic [1:0] setback_o,
   output logic       sw_resynch_req_o,
   output logic       sw_synch_req_o,
   output logic       grp_in_independent_o,
@@ -56,12 +56,11 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   hmr_dmr_regs_reg_pkg::hmr_dmr_regs_hw2reg_t dmr_hw2reg;
 
   dmr_mode_e dmr_red_mode_d, dmr_red_mode_q;
-  logic dmr_setback_d, dmr_setback_q;
+  logic [1:0] dmr_setback_d, dmr_setback_q;
 
   assign setback_o = dmr_setback_q;
   assign grp_in_independent_o = dmr_red_mode_q == NON_DMR;
   assign rapid_recovery_en_o = dmr_reg2hw.dmr_config.rapid_recovery.q && RapidRecovery;
-  assign sw_synch_req_o = dmr_reg2hw.dmr_enable.q & dmr_red_mode_q == NON_DMR;
 
   hmr_dmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
@@ -88,11 +87,12 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
    **************************/
 
   always_comb begin : proc_fsm
-    dmr_setback_d = 1'b0;
+    dmr_setback_d = 2'b00;
     dmr_red_mode_d = dmr_red_mode_q;
     dmr_incr_mismatches_o = '0;
     recovery_request_o = 1'b0;
     sw_resynch_req_o = 1'b0;
+    sw_synch_req_o = 1'b0;
 
     dmr_hw2reg.dmr_config.force_recovery.de = force_recovery_qe_i;
 
@@ -141,12 +141,15 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
       if (dmr_red_mode_q == DMR_RUN) begin
         if (dmr_reg2hw.dmr_enable.q == 1'b0) begin
           dmr_red_mode_d = NON_DMR;
+          dmr_setback_d = 2'b10;
         end
       end
       // Set DMR mode on external signal that cores are synchronized
-      if (dmr_red_mode_q == NON_DMR && cores_synch_i) begin
-        if (dmr_reg2hw.dmr_enable.q == 1'b1) begin
+      if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
+        sw_synch_req_o = 1'b1;
+        if (cores_synch_i == 1'b1) begin
           dmr_red_mode_d = DMR_RUN;
+          dmr_setback_d = 2'b11;
         end
       end
     end
