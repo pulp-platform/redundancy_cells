@@ -769,7 +769,7 @@ module HMR_wrap import recovery_pkg::*; #(
         );
 
         /******************
-         * DMR PC Checker *
+         * Recovery Checker *
          ******************/
         DMR_checker # (
           .DataWidth ( DataWidth )
@@ -982,6 +982,21 @@ module HMR_wrap import recovery_pkg::*; #(
       start_recovery               = '0;
       dmr_recovery_finished        = '0;
       recovery_debug_halted_in     = '0;
+
+      // Continually backup master cores in interleaved mode for fast entry
+      if (InterleaveGrps) begin
+        for (int i = 0; i < NumBackupRegfiles; i++) begin
+          backup_program_counter_int  [i] = backup_program_counter_i [i];
+          backup_branch_int           [i] = backup_branch_i          [i];
+          backup_branch_addr_int      [i] = backup_branch_addr_i     [i];
+          backup_regfile_wdata_a      [i] = backup_regfile_wport_i[i].wdata_a;
+          backup_regfile_wdata_b      [i] = backup_regfile_wport_i[i].wdata_b;
+          backup_regfile_we_a         [i] = backup_regfile_wport_i[i].we_a;
+          backup_regfile_we_b         [i] = backup_regfile_wport_i[i].we_b;
+          backup_regfile_waddr_a      [i] = backup_regfile_wport_i[i].waddr_a;
+          backup_regfile_waddr_b      [i] = backup_regfile_wport_i[i].waddr_b;
+        end
+      end
 
       for (int i = 0; i < NumDMRGroups; i++) begin
         if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) && dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
