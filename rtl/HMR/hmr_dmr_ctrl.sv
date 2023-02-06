@@ -56,9 +56,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   hmr_dmr_regs_reg_pkg::hmr_dmr_regs_hw2reg_t dmr_hw2reg;
 
   dmr_mode_e dmr_red_mode_d, dmr_red_mode_q;
-  logic [1:0] dmr_setback_d, dmr_setback_q;
 
-  assign setback_o = dmr_setback_q;
   assign grp_in_independent_o = dmr_red_mode_q == NON_DMR;
   assign rapid_recovery_en_o = dmr_reg2hw.dmr_config.rapid_recovery.q && RapidRecovery;
 
@@ -87,7 +85,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
    **************************/
 
   always_comb begin : proc_fsm
-    dmr_setback_d = 2'b00;
+    setback_o = 2'b00;
     dmr_red_mode_d = dmr_red_mode_q;
     dmr_incr_mismatches_o = '0;
     recovery_request_o = 1'b0;
@@ -141,7 +139,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
       if (dmr_red_mode_q == DMR_RUN) begin
         if (dmr_reg2hw.dmr_enable.q == 1'b0) begin
           dmr_red_mode_d = NON_DMR;
-          dmr_setback_d = 2'b10;
+          setback_o = 2'b10;
         end
       end
       // Set DMR mode on external signal that cores are synchronized
@@ -149,7 +147,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
         sw_synch_req_o = 1'b1;
         if (cores_synch_i == 1'b1) begin
           dmr_red_mode_d = DMR_RUN;
-          dmr_setback_d = 2'b11;
+          setback_o = 2'b11;
         end
       end
     end
@@ -158,10 +156,8 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
       dmr_red_mode_q <= DefaultDMRMode;
-      dmr_setback_q <= '0;
     end else begin
       dmr_red_mode_q <= dmr_red_mode_d;
-      dmr_setback_q <= dmr_setback_d;
     end
   end
 
