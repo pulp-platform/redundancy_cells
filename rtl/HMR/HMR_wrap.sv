@@ -193,6 +193,11 @@ module HMR_wrap import recovery_pkg::*; #(
     else                return group_id + group_id/2;
   endfunction
 
+  function int tmr_offset_id (int core_id);
+    if (InterleaveGrps) return core_id / NumTMRGroups;
+    else                return core_id % 3;
+  endfunction
+
   function int dmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumDMRGroups;
     else                return (core_id/2);
@@ -203,8 +208,13 @@ module HMR_wrap import recovery_pkg::*; #(
     else                return (group_id * 2) + core_offset;
   endfunction
 
-  function int dmr_shared_id(int group_id);
+  function int dmr_shared_id (int group_id);
     return group_id;
+  endfunction
+
+  function int dmr_offset_id (int core_id);
+    if (InterleaveGrps) return core_id / NumTMRGroups;
+    else                return core_id % 2;
   endfunction
 
   if (TMRFixed && DMRFixed) $fatal(1, "Cannot fix both TMR and DMR!");
@@ -335,11 +345,11 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumCores-1:0] dmr_core_rapid_recovery_en;
   logic [NumCores-1:0] tmr_core_rapid_recovery_en;
 
-  logic [NumDMRGroups-1:0] dmr_setback_q;
+  logic [NumDMRGroups-1:0][1:0] dmr_setback_q;
   logic [NumDMRGroups-1:0] dmr_grp_in_independent;
   logic [NumDMRGroups-1:0] dmr_rapid_recovery_en;
 
-  logic [NumTMRGroups-1:0] tmr_setback_q;
+  logic [NumTMRGroups-1:0][2:0] tmr_setback_q;
   logic [NumTMRGroups-1:0] tmr_grp_in_independent;
   logic [NumTMRGroups-1:0] tmr_rapid_recovery_en;
 
@@ -1170,10 +1180,10 @@ module HMR_wrap import recovery_pkg::*; #(
 
           // Special signals
           if (RapidRecovery) begin
-            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
+            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
                                   | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
           end else begin
-            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
+            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)];
           end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           // CTRL
