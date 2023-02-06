@@ -1158,6 +1158,18 @@ module HMR_wrap import recovery_pkg::*; #(
       localparam DMRCoreIndex = dmr_core_id(dmr_group_id(i), 0);
 
       always_comb begin
+        // Special signals
+        if (RapidRecovery) begin
+          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
+                                | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+        end else begin
+          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)];
+        end
+        if (i >= NumTMRCores && RapidRecovery) begin
+          core_setback_o [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+        end else if (i >= NumTMRCores) begin
+          core_setback_o [i] = '0;
+        end
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [TMRCoreIndex];
@@ -1192,14 +1204,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [TMRCoreIndex];
           core_data_r_valid_o [i] = sys_data_r_valid_i [TMRCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [TMRCoreIndex];
-
-          // Special signals
-          if (RapidRecovery) begin
-            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                  | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
-          end else begin
-            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)];
-          end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [DMRCoreIndex];
@@ -1234,13 +1238,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [DMRCoreIndex];
           core_data_r_valid_o [i] = sys_data_r_valid_i [DMRCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [DMRCoreIndex];
-          
-          // Special signals
-          if (RapidRecovery) begin
-            core_setback_o    [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
-          end else begin
-            core_setback_o    [i] = '0;
-          end
         end else begin : independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
@@ -1270,9 +1267,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
           core_data_r_valid_o [i] = sys_data_r_valid_i [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
-          
-          // Special signals
-          core_setback_o      [i] = '0;
         end
       end
     end
@@ -1391,6 +1385,17 @@ module HMR_wrap import recovery_pkg::*; #(
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
+        // Special signals
+        // Setback
+        if (RapidRecovery) begin
+          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
+                                | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+        end else begin
+          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
+        end
+        if (i >= NumTMRCores) begin
+          core_setback_o [i] = '0;
+        end
         if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [SysCoreIndex];
@@ -1425,15 +1430,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
           core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
-
-          // Special signals
-          // Setback
-          if (RapidRecovery) begin
-            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
-                                  | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
-          end else begin
-            core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
-          end
         end else begin : independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
@@ -1463,9 +1459,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
           core_data_r_valid_o [i] = sys_data_r_valid_i [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
-
-          // Special signals
-          core_setback_o      [i] = '0;
         end
       end
     end
@@ -1591,6 +1584,12 @@ module HMR_wrap import recovery_pkg::*; #(
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       always_comb begin
+        // Setback
+        if (RapidRecovery) begin
+          core_setback_o    [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+        end else begin
+          core_setback_o    [i] = '0;
+        end
         if (i < NumDMRCores && (DMRFixed || core_in_dmr[i])) begin : dmr_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i       [SysCoreIndex];
@@ -1625,13 +1624,6 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_user_o  [i] = sys_data_r_user_i   [SysCoreIndex];
           core_data_r_valid_o [i] = sys_data_r_valid_i  [SysCoreIndex];
           core_data_err_o     [i] = sys_data_err_i      [SysCoreIndex];
-
-          // Setback
-          if (RapidRecovery) begin
-            core_setback_o    [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
-          end else begin
-            core_setback_o    [i] = '0;
-          end
         end else begin : gen_independent_mode
           // CTRL
           core_core_id_o      [i] = sys_core_id_i      [i];
@@ -1643,9 +1635,6 @@ module HMR_wrap import recovery_pkg::*; #(
 
           core_debug_req_o    [i] = sys_debug_req_i    [i];
           core_perf_counters_o[i] = sys_perf_counters_i[i];
-
-          // Setback
-          core_setback_o      [i] = '0;
 
           // IRQ
           core_irq_req_o      [i] = sys_irq_req_i      [i];
