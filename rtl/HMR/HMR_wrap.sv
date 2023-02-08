@@ -283,7 +283,18 @@ module HMR_wrap import recovery_pkg::*; #(
                                                  dmr_backup_regfile_we_a,
                                                  dmr_backup_regfile_we_b,
                                                  dmr_recovery_finished;
-  logic [     NumTMRGroups-1:0][ DataWidth-1:0] tmr_backup_program_counter;
+  logic [     NumTMRGroups-1:0][RFAddrWidth-1:0] tmr_backup_regfile_waddr_a,
+                                                 tmr_backup_regfile_waddr_b;
+  logic [     NumTMRGroups-1:0][ DataWidth-1:0]  tmr_backup_program_counter,
+                                                 tmr_backup_regfile_wdata_a,
+                                                 tmr_backup_regfile_wdata_b,
+                                                 tmr_backup_branch_addr_int;
+  logic [     NumTMRGroups-1:0]                  tmr_backup_branch_int,
+                                                 tmr_start_recovery,
+                                                 tmr_backup_regfile_we_a,
+                                                 tmr_backup_regfile_we_b,
+                                                 tmr_recovery_finished;
+ 
   logic [NumBackupRegfiles-1:0][RFAddrWidth-1:0] backup_regfile_waddr_a,
                                                 backup_regfile_waddr_b;
   logic [NumBackupRegfiles-1:0][ DataWidth-1:0] backup_branch_addr_int,
@@ -313,7 +324,7 @@ module HMR_wrap import recovery_pkg::*; #(
   regfile_raddr_t [NumBackupRegfiles-1:0] core_regfile_raddr_out;
   regfile_rdata_t [NumBackupRegfiles-1:0] core_recovery_regfile_rdata_out;
   regfile_write_t [NumBackupRegfiles-1:0] core_recovery_regfile_wport_out;
-  csrs_intf_t     [NumBackupRegfiles-1:0] backup_csr_int, dmr_backup_csr, recovery_csr_out;
+  csrs_intf_t     [NumBackupRegfiles-1:0] backup_csr_int, dmr_backup_csr, tmr_backup_csr, recovery_csr_out;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
     if (SeparateData) begin : gen_separate_data
@@ -550,7 +561,8 @@ module HMR_wrap import recovery_pkg::*; #(
         .reg_resp_t     ( reg_resp_t     ),
         .TMRFixed       ( TMRFixed       ),
         .InterleaveGrps ( InterleaveGrps ),
-        .DefaultInTMR   ( 1'b0           )
+        .DefaultInTMR   ( 1'b0           ),
+        .RapidRecovery  ( RapidRecovery  )
       ) i_tmr_ctrl (
         .clk_i,
         .rst_ni,
@@ -582,8 +594,12 @@ module HMR_wrap import recovery_pkg::*; #(
         .tmr_failure_i        ( tmr_failure[i] ),
         .sp_store_is_zero     ( sp_store_is_zero[tmr_core_id(i, 0)] ),
         .sp_store_will_be_zero( sp_store_will_be_zero[tmr_core_id(i, 0)] ),
+
         .fetch_en_i           ( sys_fetch_en_i[tmr_core_id(i, 0)] ),
-        .cores_synch_i        ( tmr_cores_synch_i[i] )
+        .cores_synch_i        ( tmr_cores_synch_i[i] ),
+
+        .recovery_request_o   ( tmr_start_recovery [i] ),
+        .recovery_finished_i  ( tmr_recovery_finished [i] )
       );
 
       assign tmr_sw_synch_req_o[tmr_core_id(i, 0)] = tmr_sw_synch_req[i];
@@ -623,8 +639,24 @@ module HMR_wrap import recovery_pkg::*; #(
         );
 
         assign {tmr_core_busy_out[i], tmr_irq_ack_out[i], tmr_irq_ack_id_out[i],
-               tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i]}
-               = main_tmr_out[i][MainConcatWidth-1:MainConcatWidth-CtrlConcatWidth];
+               tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i],
+               // CSRs signals
+               tmr_backup_csr[i].csr_mstatus , //  7-bits
+               tmr_backup_csr[i].csr_mie     , // 32-bits
+               tmr_backup_csr[i].csr_mtvec   , // 24-bits
+               tmr_backup_csr[i].csr_mscratch, // 32-bits
+               tmr_backup_csr[i].csr_mip     , // 32-bits
+               tmr_backup_csr[i].csr_mepc    , // 32-bits
+               tmr_backup_csr[i].csr_mcause  , //  6-bits
+               // PC signals
+               tmr_backup_program_counter[i], // 32-bits
+               tmr_backup_branch_int[i], tmr_backup_branch_addr_int[i], // 1-bits + 32-bits
+               // RF signals
+               tmr_backup_regfile_wdata_a[i], // 32-bits
+               tmr_backup_regfile_waddr_a[i], //  6-bits
+               tmr_backup_regfile_wdata_b[i], // 32-bits
+               tmr_backup_regfile_waddr_b[i]}
+               = main_tmr_out[i];
         assign {tmr_data_add_out[i], tmr_data_wen_out[i], tmr_data_wdata_out[i],
                tmr_data_be_out[i], tmr_data_user_out[i]} = data_tmr_out[i];
       end else begin : gen_data_in_main
@@ -633,7 +665,54 @@ module HMR_wrap import recovery_pkg::*; #(
         assign {tmr_core_busy_out[i], tmr_irq_ack_out[i], tmr_irq_ack_id_out[i],
                 tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i],
                tmr_data_add_out[i], tmr_data_wen_out[i], tmr_data_wdata_out[i],
-               tmr_data_be_out[i], tmr_data_user_out[i]} = main_tmr_out[i];
+               tmr_data_be_out[i], tmr_data_user_out[i],
+               // CSRs signals
+               tmr_backup_csr[i].csr_mstatus , //  7-bits
+               tmr_backup_csr[i].csr_mie     , // 32-bits
+               tmr_backup_csr[i].csr_mtvec   , // 24-bits
+               tmr_backup_csr[i].csr_mscratch, // 32-bits
+               tmr_backup_csr[i].csr_mip     , // 32-bits
+               tmr_backup_csr[i].csr_mepc    , // 32-bits
+               tmr_backup_csr[i].csr_mcause  , //  6-bits
+               // PC signals
+               tmr_backup_program_counter[i], // 32-bits
+               tmr_backup_branch_int[i], tmr_backup_branch_addr_int[i], // 1-bits + 32-bits
+               // RF signals
+               tmr_backup_regfile_wdata_a[i], // 32-bits
+               tmr_backup_regfile_waddr_a[i], //  6-bits
+               tmr_backup_regfile_wdata_b[i], // 32-bits
+               tmr_backup_regfile_waddr_b[i]} = main_tmr_out[i];
+      end
+
+      if (RapidRecovery) begin : gen_rapid_recovery_connection
+
+        bitwise_TMR_voter #(
+          .DataWidth( 1 ),
+          .VoterType( 0 )
+        ) i_voter_regfile_we_a (
+          .a_i        ( backup_regfile_wport_i[tmr_core_id(i, 0)].we_a ),
+          .b_i        ( backup_regfile_wport_i[tmr_core_id(i, 1)].we_a ),
+          .c_i        ( backup_regfile_wport_i[tmr_core_id(i, 2)].we_a ),
+          .majority_o ( tmr_backup_regfile_we_a [i] ),
+          .error_o    ( ),
+          .error_cba_o( )
+        );
+
+        bitwise_TMR_voter #(
+          .DataWidth( 1 ),
+          .VoterType( 0 )
+        ) i_voter_regfile_we_b (
+          .a_i        ( backup_regfile_wport_i[tmr_core_id(i, 0)].we_b ),
+          .b_i        ( backup_regfile_wport_i[tmr_core_id(i, 1)].we_b ),
+          .c_i        ( backup_regfile_wport_i[tmr_core_id(i, 2)].we_b ),
+          .majority_o ( tmr_backup_regfile_we_b [i] ),
+          .error_o    ( ),
+          .error_cba_o( )
+        );
+
+      end else begin : gen_standard_failure
+        assign tmr_failure [i] = tmr_data_req_out [i] ? (tmr_failure_main[i] | tmr_failure_data[i])
+                                                      : tmr_failure_main[i];
       end
     end
   end else begin : gen_no_tmr_voted
@@ -808,10 +887,6 @@ module HMR_wrap import recovery_pkg::*; #(
 
         assign dmr_failure [i] = (dmr_data_req_out [i] ? (dmr_failure_main[i] | dmr_failure_data[i])
                                                        : dmr_failure_main[i]) ;
-        // Write Enable signal for backup registers
-        assign rapid_recovery_backup_enable[i] = tmr_core_rapid_recovery_en[i] ? backup_enable[i]                      // TMR mode
-                                               : dmr_core_rapid_recovery_en[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
-                                               : 1'b1;                                                                 // Independent mode
 
         assign dmr_backup_regfile_we_a [i] = backup_regfile_wport_i[dmr_core_id(i, 0)].we_a
                                        & backup_regfile_wport_i[dmr_core_id(i, 1)].we_a
@@ -847,6 +922,11 @@ module HMR_wrap import recovery_pkg::*; #(
   // RapidRecovery output signals
   if (RapidRecovery) begin : gen_rapid_recovery
     for (genvar i = 0; i < NumBackupRegfiles; i++) begin : gen_groups
+      // Write Enable signal for backup registers
+      assign rapid_recovery_backup_enable[i] = tmr_core_rapid_recovery_en[i] ? backup_enable[i]                      // TMR mode
+                                             : dmr_core_rapid_recovery_en[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
+                                             : 1'b1;                                                                 // Independent mode
+
       hmr_rapid_recovery_ctrl #(
         .RFAddrWidth( RFAddrWidth )
       ) i_rapid_recovery_ctrl (
@@ -949,6 +1029,7 @@ module HMR_wrap import recovery_pkg::*; #(
       backup_regfile_waddr_b       = '0;
       start_recovery               = '0;
       dmr_recovery_finished        = '0;
+      tmr_recovery_finished        = '0;
       recovery_debug_halted_in     = '0;
 
       // Continually backup master cores in interleaved mode for fast entry
@@ -988,22 +1069,21 @@ module HMR_wrap import recovery_pkg::*; #(
 
       for (int i = 0; i < NumTMRGroups; i++) begin
         if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) && tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
-          // backup_csr_int              [tmr_shared_id(i)] = tmr_backup_csr [i];
-          // backup_program_counter_int  [tmr_shared_id(i)] = tmr_backup_program_counter      [i];
-          // backup_program_counter_error[tmr_shared_id(i)] = tmr_backup_program_counter_error[i];
-          // backup_branch_int           [tmr_shared_id(i)] = tmr_backup_branch_int           [i];
-          // backup_branch_addr_int      [tmr_shared_id(i)] = tmr_backup_branch_addr_int      [i];
-          // backup_regfile_wdata_a      [tmr_shared_id(i)] = tmr_backup_regfile_wdata_a      [i];
-          // backup_regfile_wdata_b      [tmr_shared_id(i)] = tmr_backup_regfile_wdata_b      [i];
-          // backup_regfile_we_a         [tmr_shared_id(i)] = tmr_backup_regfile_we_a         [i];
-          // backup_regfile_we_b         [tmr_shared_id(i)] = tmr_backup_regfile_we_b         [i];
-          // backup_regfile_waddr_a      [tmr_shared_id(i)] = tmr_backup_regfile_waddr_a      [i];
-          // backup_regfile_waddr_b      [tmr_shared_id(i)] = tmr_backup_regfile_waddr_b      [i];
-          // start_recovery              [tmr_shared_id(i)] = tmr_start_recovery              [i];
-          // tmr_recovery_finished[i] = recovery_finished[tmr_shared_id(i)];
-          // recovery_debug_halted_in    [tmr_shared_id(i)] = core_debug_halted_i [tmr_core_id(tmr_group_id(i), 0)]
-          //                                                & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 1)];
-          //                                                & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 2)];
+          backup_csr_int              [tmr_shared_id(i)] = tmr_backup_csr [i];
+          backup_program_counter_int  [tmr_shared_id(i)] = tmr_backup_program_counter      [i];
+          backup_branch_int           [tmr_shared_id(i)] = tmr_backup_branch_int           [i];
+          backup_branch_addr_int      [tmr_shared_id(i)] = tmr_backup_branch_addr_int      [i];
+          backup_regfile_wdata_a      [tmr_shared_id(i)] = tmr_backup_regfile_wdata_a      [i];
+          backup_regfile_wdata_b      [tmr_shared_id(i)] = tmr_backup_regfile_wdata_b      [i];
+          backup_regfile_we_a         [tmr_shared_id(i)] = tmr_backup_regfile_we_a         [i];
+          backup_regfile_we_b         [tmr_shared_id(i)] = tmr_backup_regfile_we_b         [i];
+          backup_regfile_waddr_a      [tmr_shared_id(i)] = tmr_backup_regfile_waddr_a      [i];
+          backup_regfile_waddr_b      [tmr_shared_id(i)] = tmr_backup_regfile_waddr_b      [i];
+          start_recovery              [tmr_shared_id(i)] = tmr_start_recovery              [i];
+          tmr_recovery_finished[i] = recovery_finished[tmr_shared_id(i)];
+          recovery_debug_halted_in    [tmr_shared_id(i)] = core_debug_halted_i [tmr_core_id(tmr_group_id(i), 0)]
+                                                         & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 1)]
+                                                         & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 2)];
         end
       end
     end
