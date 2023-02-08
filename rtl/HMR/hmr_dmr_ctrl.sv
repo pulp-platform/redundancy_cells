@@ -127,11 +127,20 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
 
     // Logic to switch in and out of DMR
     if (!DMRFixed) begin
+      // Set DMR mode on external signal that cores are synchronized
+      if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
+        sw_synch_req_o = 1'b1;
+        if (cores_synch_i == 1'b1) begin
+          dmr_red_mode_d = DMR_RUN;
+          setback_o = 2'b11;
+        end
+      end
       // Before core startup: set DMR mode from reg2hw.dmr_enable
       if (fetch_en_i == 0) begin
         if (dmr_reg2hw.dmr_enable.q == 1'b0) begin
           dmr_red_mode_d = NON_DMR;
         end else begin
+          sw_synch_req_o = 1'b0;
           dmr_red_mode_d = DMR_RUN;
         end
       end
@@ -140,14 +149,6 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
         if (dmr_reg2hw.dmr_enable.q == 1'b0) begin
           dmr_red_mode_d = NON_DMR;
           setback_o = 2'b10;
-        end
-      end
-      // Set DMR mode on external signal that cores are synchronized
-      if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
-        sw_synch_req_o = 1'b1;
-        if (cores_synch_i == 1'b1) begin
-          dmr_red_mode_d = DMR_RUN;
-          setback_o = 2'b11;
         end
       end
     end
