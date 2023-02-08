@@ -623,7 +623,8 @@ module HMR_wrap import recovery_pkg::*; #(
         );
 
         assign {tmr_core_busy_out[i], tmr_irq_ack_out[i], tmr_irq_ack_id_out[i],
-               tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i]} = main_tmr_out[i];
+               tmr_instr_req_out[i], tmr_instr_addr_out[i], tmr_data_req_out[i]}
+               = main_tmr_out[i][MainConcatWidth-1:MainConcatWidth-CtrlConcatWidth];
         assign {tmr_data_add_out[i], tmr_data_wen_out[i], tmr_data_wdata_out[i],
                tmr_data_be_out[i], tmr_data_user_out[i]} = data_tmr_out[i];
       end else begin : gen_data_in_main
@@ -757,8 +758,24 @@ module HMR_wrap import recovery_pkg::*; #(
           .error_o ( dmr_failure_data           [i]     )
         );
         assign {dmr_core_busy_out[i], dmr_irq_ack_out[i]   , dmr_irq_ack_id_out[i],
-                dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i]  }
-                = main_dmr_out[i][MainConcatWidth-1:MainConcatWidth-CtrlConcatWidth];
+                dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i],
+                // CSRs signals
+                dmr_backup_csr[i].csr_mstatus , //  7-bits
+                dmr_backup_csr[i].csr_mie     , // 32-bits
+                dmr_backup_csr[i].csr_mtvec   , // 24-bits
+                dmr_backup_csr[i].csr_mscratch, // 32-bits
+                dmr_backup_csr[i].csr_mip     , // 32-bits
+                dmr_backup_csr[i].csr_mepc    , // 32-bits
+                dmr_backup_csr[i].csr_mcause  , //  6-bits
+                // PC signals
+                dmr_backup_program_counter[i], // 32-bits
+                dmr_backup_branch_int[i], dmr_backup_branch_addr_int[i], // 1-bits + 32-bits
+                // RF signals
+                dmr_backup_regfile_wdata_a[i], // 32-bits
+                dmr_backup_regfile_waddr_a[i], //  6-bits
+                dmr_backup_regfile_wdata_b[i], // 32-bits
+                dmr_backup_regfile_waddr_b[i]} //  6-bits
+                = main_dmr_out[i];
         assign {dmr_data_add_out[i], dmr_data_wen_out[i] , dmr_data_wdata_out[i],
                 dmr_data_be_out[i] , dmr_data_user_out[i]                       }
                 = data_dmr_out[i];
@@ -767,8 +784,24 @@ module HMR_wrap import recovery_pkg::*; #(
         assign {dmr_core_busy_out[i], dmr_irq_ack_out[i]   , dmr_irq_ack_id_out[i],
                 dmr_instr_req_out[i], dmr_instr_addr_out[i], dmr_data_req_out[i]  ,
                 dmr_data_add_out[i] , dmr_data_wen_out[i]  , dmr_data_wdata_out[i],
-                dmr_data_be_out[i]  , dmr_data_user_out[i]}
-                = main_dmr_out[i][MainConcatWidth-1:MainConcatWidth-(CtrlConcatWidth+DataConcatWidth)];
+                dmr_data_be_out[i]  , dmr_data_user_out[i],
+                // CSRs signals
+                dmr_backup_csr[i].csr_mstatus , //  7-bits
+                dmr_backup_csr[i].csr_mie     , // 32-bits
+                dmr_backup_csr[i].csr_mtvec   , // 24-bits
+                dmr_backup_csr[i].csr_mscratch, // 32-bits
+                dmr_backup_csr[i].csr_mip     , // 32-bits
+                dmr_backup_csr[i].csr_mepc    , // 32-bits
+                dmr_backup_csr[i].csr_mcause  , //  6-bits
+                // PC signals
+                dmr_backup_program_counter[i], // 32-bits
+                dmr_backup_branch_int[i], dmr_backup_branch_addr_int[i], // 1-bits + 32-bits
+                // RF signals
+                dmr_backup_regfile_wdata_a[i], // 32-bits
+                dmr_backup_regfile_waddr_a[i], //  6-bits
+                dmr_backup_regfile_wdata_b[i], // 32-bits
+                dmr_backup_regfile_waddr_b[i]} //  6-bits
+                = main_dmr_out[i];
       end
 
       if (RapidRecovery) begin : gen_rapid_recovery_connection
@@ -779,24 +812,6 @@ module HMR_wrap import recovery_pkg::*; #(
         assign rapid_recovery_backup_enable[i] = tmr_core_rapid_recovery_en[i] ? backup_enable[i]                      // TMR mode
                                                : dmr_core_rapid_recovery_en[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
                                                : 1'b1;                                                                 // Independent mode
-        // Building checked singals back from DMR checker
-        // CSRs
-        assign dmr_backup_csr[i].csr_mstatus  = main_dmr_out[i][305:299];
-        assign dmr_backup_csr[i].csr_mie      = main_dmr_out[i][298:267];
-        assign dmr_backup_csr[i].csr_mtvec    = main_dmr_out[i][266:243];
-        assign dmr_backup_csr[i].csr_mscratch = main_dmr_out[i][242:211];
-        assign dmr_backup_csr[i].csr_mip      = main_dmr_out[i][210:179];
-        assign dmr_backup_csr[i].csr_mepc     = main_dmr_out[i][178:147];
-        assign dmr_backup_csr[i].csr_mcause   = main_dmr_out[i][146:141];
-        // PC
-        assign dmr_backup_program_counter[i]  = main_dmr_out[i][140:109];
-        assign dmr_backup_branch_int     [i]  = main_dmr_out[i][    108];
-        assign dmr_backup_branch_addr_int[i]  = main_dmr_out[i][107: 76];
-        // RF
-        assign dmr_backup_regfile_wdata_a[i] = main_dmr_out[i][75:44];
-        assign dmr_backup_regfile_waddr_a[i] = main_dmr_out[i][43:38];
-        assign dmr_backup_regfile_wdata_b[i] = main_dmr_out[i][37:6];
-        assign dmr_backup_regfile_waddr_b[i] = main_dmr_out[i][5:0];
 
         assign dmr_backup_regfile_we_a [i] = backup_regfile_wport_i[dmr_core_id(i, 0)].we_a
                                        & backup_regfile_wport_i[dmr_core_id(i, 1)].we_a
