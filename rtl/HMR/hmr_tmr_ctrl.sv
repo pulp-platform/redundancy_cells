@@ -177,12 +177,23 @@ module hmr_tmr_ctrl #(
 
     // Logic to switch in and out of TMR
     if (!TMRFixed) begin
+      // Set TMR mode on external signal that cores are synchronized
+      if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
+        sw_synch_req_o = 1'b1;
+        if (cores_synch_i == 1'b1) begin
+          tmr_red_mode_d = TMR_RELOAD;
+          if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
+            setback_o = 3'b111;
+          end
+        end
+      end
       // Before core startup: set TMR mode from reg2hw.tmr_enable
       if (fetch_en_i == 0) begin
         if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
           tmr_red_mode_d = NON_TMR;
         end else begin
           tmr_red_mode_d = TMR_RUN;
+          sw_synch_req_o = 1'b0;
         end
       end
       // split tolerant mode to performance mode anytime (but require correct core state)
@@ -192,16 +203,6 @@ module hmr_tmr_ctrl #(
             setback_o = 3'b110;
           end
           tmr_red_mode_d = NON_TMR;
-        end
-      end
-      // Set TMR mode on external signal that cores are synchronized
-      if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
-        sw_synch_req_o = 1'b1;
-        if (cores_synch_i == 1'b1) begin
-          tmr_red_mode_d = TMR_RELOAD;
-          if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
-            setback_o = 3'b111;
-          end
         end
       end
     end
