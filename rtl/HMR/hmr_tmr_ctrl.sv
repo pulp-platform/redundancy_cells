@@ -53,10 +53,12 @@ module hmr_tmr_ctrl #(
   input  logic       sp_store_is_zero,
   input  logic       sp_store_will_be_zero,
   input  logic       fetch_en_i,
-  input  logic       cores_synch_i
+  input  logic       cores_synch_i,
+  output logic       recovery_request_o,
+  input  logic       recovery_finished_i
 );
 
-  typedef enum logic [1:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD} tmr_mode_e;
+  typedef enum logic [2:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD, TMR_RAPID} tmr_mode_e;
   localparam tmr_mode_e DefaultTMRMode = DefaultInTMR || TMRFixed ? TMR_RUN : NON_TMR;
 
   hmr_tmr_regs_reg_pkg::hmr_tmr_regs_reg2hw_t tmr_reg2hw;
@@ -101,6 +103,7 @@ module hmr_tmr_ctrl #(
     setback_o = 3'b000;
     tmr_red_mode_d = tmr_red_mode_q;
     tmr_incr_mismatches_o = '0;
+    recovery_request_o = 1'b0;
     sw_resynch_req_o = 1'b0;
     sw_synch_req_o = 1'b0;
 
@@ -111,7 +114,9 @@ module hmr_tmr_ctrl #(
         // If forced execute resynchronization
         if (tmr_reg2hw.tmr_config.force_resynch.q) begin
           tmr_hw2reg.tmr_config.force_resynch.de = 1'b1;
-          if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
+            tmr_red_mode_d = TMR_RAPID;
+          end else if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
             // TODO: buffer the restoration until delay_resynch is disabled
           end
@@ -124,7 +129,9 @@ module hmr_tmr_ctrl #(
           if (tmr_error_i[1]) tmr_incr_mismatches_o[1] = 1'b1;
           if (tmr_error_i[2]) tmr_incr_mismatches_o[2] = 1'b1;
 
-          if (tmr_reg2hw.tmr_config.delay_resynch == 0) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
+            tmr_red_mode_d = TMR_RAPID;
+          end else if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
             // TODO: buffer the restoration until delay_resynch is disabled
           end
@@ -153,6 +160,14 @@ module hmr_tmr_ctrl #(
               !sp_store_will_be_zero) begin
             setback_o = 3'b111;
           end
+        end
+      end
+
+      TMR_RAPID: begin
+        recovery_request_o = 1'b1;
+        if (recovery_finished_i) begin
+          $display("[HMR-triple] %t - mismatch restored", $realtime);
+          tmr_red_mode_d = TMR_RUN;
         end
       end
 
