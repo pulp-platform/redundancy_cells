@@ -49,6 +49,9 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   input  logic       cores_synch_i
 );
 
+  logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
+  logic resynch_req, resynch_req_sent_d, resynch_req_sent_q;
+
   typedef enum logic [2:0] {NON_DMR, DMR_RUN, DMR_RESTORE} dmr_mode_e;
   localparam dmr_mode_e DefaultDMRMode = DefaultInDMR || DMRFixed ? DMR_RUN : NON_DMR;
 
@@ -59,6 +62,11 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
 
   assign grp_in_independent_o = dmr_red_mode_q == NON_DMR;
   assign rapid_recovery_en_o = dmr_reg2hw.dmr_config.rapid_recovery.q && RapidRecovery;
+
+  assign sw_synch_req_o = synch_req & ~synch_req_sent_q;
+  assign synch_req_sent_d = synch_req;
+  assign sw_resynch_req_o = resynch_req & ~resynch_req_sent_q;
+  assign resynch_req_sent_d = resynch_req;
 
   hmr_dmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
@@ -89,8 +97,8 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     dmr_red_mode_d = dmr_red_mode_q;
     dmr_incr_mismatches_o = '0;
     recovery_request_o = 1'b0;
-    sw_resynch_req_o = 1'b0;
-    sw_synch_req_o = 1'b0;
+    resynch_req = 1'b0;
+    synch_req = 1'b0;
 
     dmr_hw2reg.dmr_config.force_recovery.de = force_recovery_qe_i;
 
@@ -110,7 +118,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
 
         if (dmr_error_i && (!RapidRecovery || !dmr_reg2hw.dmr_config.rapid_recovery.q)) begin
           $display("[HMR-dual] %t - mismatch detected, SW trigger", $realtime);
-          sw_resynch_req_o = 1'b1;
+          resynch_req = 1'b1;
         end
       end
 
@@ -129,7 +137,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     if (!DMRFixed) begin
       // Set DMR mode on external signal that cores are synchronized
       if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
-        sw_synch_req_o = 1'b1;
+        synch_req = 1'b1;
         if (cores_synch_i == 1'b1) begin
           dmr_red_mode_d = DMR_RUN;
           setback_o = 2'b11;
@@ -140,7 +148,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
         if (dmr_reg2hw.dmr_enable.q == 1'b0) begin
           dmr_red_mode_d = NON_DMR;
         end else begin
-          sw_synch_req_o = 1'b0;
+          synch_req = 1'b0;
           dmr_red_mode_d = DMR_RUN;
         end
       end
@@ -157,8 +165,12 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
       dmr_red_mode_q <= DefaultDMRMode;
+      synch_req_sent_q <= '0;
+      resynch_req_sent_q <= '0;
     end else begin
       dmr_red_mode_q <= dmr_red_mode_d;
+      synch_req_sent_q <= synch_req_sent_d;
+      resynch_req_sent_q <= resynch_req_sent_d;
     end
   end
 
