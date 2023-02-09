@@ -60,6 +60,7 @@ module hmr_tmr_ctrl #(
 
   logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
   logic resynch_req, resynch_req_sent_d, resynch_req_sent_q;
+  logic cores_synch_q;
 
   typedef enum logic [2:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD, TMR_RAPID} tmr_mode_e;
   localparam tmr_mode_e DefaultTMRMode = DefaultInTMR || TMRFixed ? TMR_RUN : NON_TMR;
@@ -188,7 +189,7 @@ module hmr_tmr_ctrl #(
       // Set TMR mode on external signal that cores are synchronized
       if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
         synch_req = 1'b1;
-        if (cores_synch_i == 1'b1) begin
+        if (cores_synch_q == 1'b1) begin
           tmr_red_mode_d = TMR_RELOAD;
           if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
             setback_o = 3'b111;
@@ -221,10 +222,12 @@ module hmr_tmr_ctrl #(
       tmr_red_mode_q <= DefaultTMRMode;
       synch_req_sent_q <= '0;
       resynch_req_sent_q <= '0;
+      cores_synch_q <= '0;
     end else begin
       tmr_red_mode_q <= tmr_red_mode_d;
       synch_req_sent_q <= synch_req_sent_d;
       resynch_req_sent_q <= resynch_req_sent_d;
+      cores_synch_q <= cores_synch_i;
     end
   end
 

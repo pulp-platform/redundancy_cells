@@ -51,6 +51,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
 
   logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
   logic resynch_req, resynch_req_sent_d, resynch_req_sent_q;
+  logic cores_synch_q;
 
   typedef enum logic [2:0] {NON_DMR, DMR_RUN, DMR_RESTORE} dmr_mode_e;
   localparam dmr_mode_e DefaultDMRMode = DefaultInDMR || DMRFixed ? DMR_RUN : NON_DMR;
@@ -138,7 +139,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
       // Set DMR mode on external signal that cores are synchronized
       if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
         synch_req = 1'b1;
-        if (cores_synch_i == 1'b1) begin
+        if (cores_synch_q == 1'b1) begin
           dmr_red_mode_d = DMR_RUN;
           setback_o = 2'b11;
         end
@@ -167,10 +168,12 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
       dmr_red_mode_q <= DefaultDMRMode;
       synch_req_sent_q <= '0;
       resynch_req_sent_q <= '0;
+      cores_synch_q <= '0;
     end else begin
       dmr_red_mode_q <= dmr_red_mode_d;
       synch_req_sent_q <= synch_req_sent_d;
       resynch_req_sent_q <= resynch_req_sent_d;
+      cores_synch_q <= cores_synch_i;
     end
   end
 
