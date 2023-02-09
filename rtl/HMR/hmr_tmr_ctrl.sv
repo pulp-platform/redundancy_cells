@@ -58,6 +58,9 @@ module hmr_tmr_ctrl #(
   input  logic       recovery_finished_i
 );
 
+  logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
+  logic resynch_req, resynch_req_sent_d, resynch_req_sent_q;
+
   typedef enum logic [2:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD, TMR_RAPID} tmr_mode_e;
   localparam tmr_mode_e DefaultTMRMode = DefaultInTMR || TMRFixed ? TMR_RUN : NON_TMR;
 
@@ -69,6 +72,11 @@ module hmr_tmr_ctrl #(
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
   assign tmr_resynch_req_o = tmr_red_mode_q == TMR_UNLOAD;
   assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q & RapidRecovery;
+
+  assign sw_synch_req_o = synch_req & ~synch_req_sent_q;
+  assign synch_req_sent_d = synch_req;
+  assign sw_resynch_req_o = resynch_req & ~resynch_req_sent_q;
+  assign resynch_req_sent_d = resynch_req;
 
   hmr_tmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
@@ -104,8 +112,8 @@ module hmr_tmr_ctrl #(
     tmr_red_mode_d = tmr_red_mode_q;
     tmr_incr_mismatches_o = '0;
     recovery_request_o = 1'b0;
-    sw_resynch_req_o = 1'b0;
-    sw_synch_req_o = 1'b0;
+    resynch_req = 1'b0;
+    synch_req = 1'b0;
 
     tmr_hw2reg.tmr_config.force_resynch.de = force_resynch_qe_i;
 
@@ -139,7 +147,7 @@ module hmr_tmr_ctrl #(
       end
 
       TMR_UNLOAD: begin
-        sw_resynch_req_o = 1'b1;
+        resynch_req = 1'b1;
         // If unload complete, go to reload (and reset)
         if (!sp_store_is_zero) begin
           tmr_red_mode_d = TMR_RELOAD;
@@ -179,7 +187,7 @@ module hmr_tmr_ctrl #(
     if (!TMRFixed) begin
       // Set TMR mode on external signal that cores are synchronized
       if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
-        sw_synch_req_o = 1'b1;
+        synch_req = 1'b1;
         if (cores_synch_i == 1'b1) begin
           tmr_red_mode_d = TMR_RELOAD;
           if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
@@ -193,7 +201,7 @@ module hmr_tmr_ctrl #(
           tmr_red_mode_d = NON_TMR;
         end else begin
           tmr_red_mode_d = TMR_RUN;
-          sw_synch_req_o = 1'b0;
+          synch_req = 1'b0;
         end
       end
       // split tolerant mode to performance mode anytime (but require correct core state)
@@ -211,8 +219,12 @@ module hmr_tmr_ctrl #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
       tmr_red_mode_q <= DefaultTMRMode;
+      synch_req_sent_q <= '0;
+      resynch_req_sent_q <= '0;
     end else begin
       tmr_red_mode_q <= tmr_red_mode_d;
+      synch_req_sent_q <= synch_req_sent_d;
+      resynch_req_sent_q <= resynch_req_sent_d;
     end
   end
 

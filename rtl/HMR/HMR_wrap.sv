@@ -652,7 +652,7 @@ module HMR_wrap import recovery_pkg::*; #(
         bitwise_TMR_voter #(
           .DataWidth( DataConcatWidth ),
           .VoterType( 0 )
-        ) i_main_voter (
+        ) i_data_voter (
           .a_i        ( data_concat_in[tmr_core_id(i, 0)] ),
           .b_i        ( data_concat_in[tmr_core_id(i, 1)] ),
           .c_i        ( data_concat_in[tmr_core_id(i, 2)] ),
