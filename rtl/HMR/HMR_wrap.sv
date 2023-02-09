@@ -372,6 +372,29 @@ module HMR_wrap import recovery_pkg::*; #(
     end
   end
 
+  logic [NumSysCores-1:0] filt_instr_r_valid, filt_data_r_valid;
+
+  for (genvar i = 0; i < NumSysCores; i++) begin
+    resp_suppress i_instr_suppress (
+      .clk_i,
+      .rst_ni,
+      .setback_i (core_setback_o[i]),
+      .req_i (sys_instr_req_o[i]),
+      .gnt_i (sys_instr_gnt_i[i]),
+      .r_valid_i (sys_instr_r_valid_i[i]),
+      .r_valid_o (filt_instr_r_valid[i])
+    );
+    resp_suppress i_data_suppress (
+      .clk_i,
+      .rst_ni,
+      .setback_i (core_setback_o[i]),
+      .req_i (sys_data_req_o[i]),
+      .gnt_i (sys_data_gnt_i[i]),
+      .r_valid_i (sys_data_r_valid_i[i]),
+      .r_valid_o (filt_data_r_valid[i])
+    );
+  end
+
   /***************************
    *  HMR Control Registers  *
    ***************************/
@@ -1244,7 +1267,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i    [TMRCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[TMRCoreIndex];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i[TMRCoreIndex];
+          core_instr_r_valid_o[i] = filt_instr_r_valid[TMRCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i    [TMRCoreIndex];
 
           // DATA
@@ -1252,7 +1275,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [TMRCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [TMRCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i  [TMRCoreIndex];
-          core_data_r_valid_o [i] = sys_data_r_valid_i [TMRCoreIndex];
+          core_data_r_valid_o [i] = filt_data_r_valid [TMRCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [TMRCoreIndex];
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           // CTRL
@@ -1278,7 +1301,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i    [DMRCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[DMRCoreIndex];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i[DMRCoreIndex];
+          core_instr_r_valid_o[i] = filt_instr_r_valid[DMRCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i    [DMRCoreIndex];
 
           // DATA
@@ -1286,7 +1309,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [DMRCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [DMRCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i  [DMRCoreIndex];
-          core_data_r_valid_o [i] = sys_data_r_valid_i [DMRCoreIndex];
+          core_data_r_valid_o [i] = filt_data_r_valid [DMRCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [DMRCoreIndex];
         end else begin : independent_mode
           // CTRL
@@ -1307,7 +1330,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+          core_instr_r_valid_o[i] = filt_instr_r_valid[i];
           core_instr_err_o    [i] = sys_instr_err_i    [i];
 
           // DATA
@@ -1315,7 +1338,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
-          core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+          core_data_r_valid_o [i] = filt_data_r_valid [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
         end
       end
@@ -1470,7 +1493,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i[SysCoreIndex];
+          core_instr_r_valid_o[i] = filt_instr_r_valid[SysCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
 
           // DATA
@@ -1478,7 +1501,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
-          core_data_r_valid_o [i] = sys_data_r_valid_i [SysCoreIndex];
+          core_data_r_valid_o [i] = filt_data_r_valid [SysCoreIndex];
           core_data_err_o     [i] = sys_data_err_i     [SysCoreIndex];
         end else begin : independent_mode
           // CTRL
@@ -1499,7 +1522,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+          core_instr_r_valid_o[i] = filt_instr_r_valid[i];
           core_instr_err_o    [i] = sys_instr_err_i    [i];
 
           // DATA
@@ -1507,7 +1530,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
-          core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+          core_data_r_valid_o [i] = filt_data_r_valid [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
         end
       end
@@ -1664,7 +1687,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i     [SysCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i [SysCoreIndex];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i [SysCoreIndex];
+          core_instr_r_valid_o[i] = filt_instr_r_valid [SysCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i     [SysCoreIndex];
 
           // DATA
@@ -1672,7 +1695,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i    [SysCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i  [SysCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i   [SysCoreIndex];
-          core_data_r_valid_o [i] = sys_data_r_valid_i  [SysCoreIndex];
+          core_data_r_valid_o [i] = filt_data_r_valid  [SysCoreIndex];
           core_data_err_o     [i] = sys_data_err_i      [SysCoreIndex];
         end else begin : gen_independent_mode
           // CTRL
@@ -1693,7 +1716,7 @@ module HMR_wrap import recovery_pkg::*; #(
           // INSTR
           core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
-          core_instr_r_valid_o[i] = sys_instr_r_valid_i[i];
+          core_instr_r_valid_o[i] = filt_instr_r_valid[i];
           core_instr_err_o    [i] = sys_instr_err_i    [i];
 
           // DATA
@@ -1701,7 +1724,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
-          core_data_r_valid_o [i] = sys_data_r_valid_i [i];
+          core_data_r_valid_o [i] = filt_data_r_valid [i];
           core_data_err_o     [i] = sys_data_err_i     [i];
         end
       end
@@ -1845,7 +1868,7 @@ module HMR_wrap import recovery_pkg::*; #(
     assign core_instr_gnt_o     = sys_instr_gnt_i;
     assign sys_instr_addr_o     = core_instr_addr_i;
     assign core_instr_r_rdata_o = sys_instr_r_rdata_i;
-    assign core_instr_r_valid_o = sys_instr_r_valid_i;
+    assign core_instr_r_valid_o = filt_instr_r_valid;
     assign core_instr_err_o     = sys_instr_err_i;
 
     // DATA
@@ -1859,7 +1882,7 @@ module HMR_wrap import recovery_pkg::*; #(
     assign core_data_r_opc_o    = sys_data_r_opc_i;
     assign core_data_r_rdata_o  = sys_data_r_rdata_i;
     assign core_data_r_user_o   = sys_data_r_user_i;
-    assign core_data_r_valid_o  = sys_data_r_valid_i;
+    assign core_data_r_valid_o  = filt_data_r_valid;
     assign core_data_err_o      = sys_data_err_i;
   end
 
