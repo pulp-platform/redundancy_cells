@@ -31,6 +31,7 @@ sources:
   - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
+  - rtl/HMR/resp_suppress.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
