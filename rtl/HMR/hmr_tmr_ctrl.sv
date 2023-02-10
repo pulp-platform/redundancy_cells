@@ -190,9 +190,13 @@ module hmr_tmr_ctrl #(
       if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
         synch_req = 1'b1;
         if (cores_synch_q == 1'b1) begin
-          tmr_red_mode_d = TMR_RELOAD;
-          if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
-            setback_o = 3'b111;
+          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
+            tmr_red_mode_d = TMR_RAPID;
+          end else begin
+            tmr_red_mode_d = TMR_RELOAD;
+            if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
+              setback_o = 3'b111;
+            end
           end
         end
       end
