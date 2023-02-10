@@ -140,8 +140,12 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
       if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
         synch_req = 1'b1;
         if (cores_synch_q == 1'b1) begin
-          dmr_red_mode_d = DMR_RUN;
-          setback_o = 2'b11;
+          if (dmr_reg2hw.dmr_config.rapid_recovery.q == 1'b1) begin
+            dmr_red_mode_d = DMR_RESTORE;
+          end else begin
+            dmr_red_mode_d = DMR_RUN;
+            setback_o = 2'b11;
+          end
         end
       end
       // Before core startup: set DMR mode from reg2hw.dmr_enable
