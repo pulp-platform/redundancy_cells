@@ -19,8 +19,8 @@
       resval: "0",
       fields: [
         { bits: "0",
-          name: "TMR_enable",
-          desc: "TMR configuration enable."
+          name: "DMR_enable",
+          desc: "DMR configuration enable."
         }
       ]
     },
