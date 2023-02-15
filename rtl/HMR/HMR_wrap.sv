@@ -213,7 +213,7 @@ module HMR_wrap import recovery_pkg::*; #(
   endfunction
 
   function int dmr_offset_id (int core_id);
-    if (InterleaveGrps) return core_id / NumTMRGroups;
+    if (InterleaveGrps) return core_id / NumDMRGroups;
     else                return core_id % 2;
   endfunction
 
@@ -1234,14 +1234,21 @@ module HMR_wrap import recovery_pkg::*; #(
         // Special signals
         if (RapidRecovery) begin
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
+                                | (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] : 
+                                  (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0));
         end else begin
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)];
+          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
+                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)];
         end
-        if (i >= NumTMRCores && RapidRecovery) begin
-          core_setback_o [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
-        end else if (i >= NumTMRCores) begin
-          core_setback_o [i] = '0;
+        if (i >= NumTMRCores && i >= NumDMRCores) begin
+          core_setback_o    [i] = '0;
+        end else if (i < NumTMRCores && i >= NumDMRCores) begin
+          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)]
+                                | (RapidRecovery ? (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
+        end else if (i >= NumTMRCores && i < NumDMRCores) begin
+          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)]
+                                | (RapidRecovery ? (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
         end
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           // CTRL
@@ -1462,7 +1469,7 @@ module HMR_wrap import recovery_pkg::*; #(
         // Setback
         if (RapidRecovery) begin
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
-                                | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+                                | recovery_setback_out [tmr_shared_id(tmr_group_id(i))];
         end else begin
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
         end
@@ -1659,8 +1666,12 @@ module HMR_wrap import recovery_pkg::*; #(
       always_comb begin
         // Setback
         if (RapidRecovery) begin
-          core_setback_o    [i] = recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
+          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)]
+                                | recovery_setback_out [dmr_shared_id(dmr_group_id(i))];
         end else begin
+          core_setback_o    [i] = '0;
+        end
+        if (i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
         end
         if (i < NumDMRCores && (DMRFixed || core_in_dmr[i])) begin : dmr_mode
