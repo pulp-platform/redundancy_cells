@@ -1061,6 +1061,7 @@ module HMR_wrap import recovery_pkg::*; #(
       // Continually backup master cores in interleaved mode for fast entry
       if (InterleaveGrps) begin
         for (int i = 0; i < NumBackupRegfiles; i++) begin
+          backup_csr_int              [i] = backup_csr_i              [i];
           backup_program_counter_int  [i] = backup_program_counter_i [i];
           backup_branch_int           [i] = backup_branch_i          [i];
           backup_branch_addr_int      [i] = backup_branch_addr_i     [i];
