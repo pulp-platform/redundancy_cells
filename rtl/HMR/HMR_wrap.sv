@@ -946,9 +946,12 @@ module HMR_wrap import recovery_pkg::*; #(
   if (RapidRecovery) begin : gen_rapid_recovery
     for (genvar i = 0; i < NumBackupRegfiles; i++) begin : gen_groups
       // Write Enable signal for backup registers
-      assign rapid_recovery_backup_enable[i] = tmr_core_rapid_recovery_en[i] ? backup_enable[i]                      // TMR mode
-                                             : dmr_core_rapid_recovery_en[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
-                                             : 1'b1;                                                                 // Independent mode
+      assign rapid_recovery_backup_enable[i] = core_in_tmr[i] ? (i < NumTMRGroups ? backup_enable[i] : 1'b0) // TMR mode
+                                             : core_in_dmr[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
+                                             : 1'b1;                                                  // Independent mode
+      // TODO: Only supports interleaved mode!!!
+
+
 
       hmr_rapid_recovery_ctrl #(
         .RFAddrWidth( RFAddrWidth )
