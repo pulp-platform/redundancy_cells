@@ -1150,7 +1150,7 @@ module HMR_wrap import recovery_pkg::*; #(
           core_instr_lock_o          [i] = recovery_instr_lock_out      [tmr_shared_id(tmr_group_id(i))];
 
           // CSRs
-          recovery_csr_o             [i] = recovery_csr_out             [dmr_shared_id(dmr_group_id(i))];
+          recovery_csr_o             [i] = recovery_csr_out             [tmr_shared_id(tmr_group_id(i))];
 
           // PC
           pc_recover_o               [i] = recovery_pc_enable_out       [tmr_shared_id(tmr_group_id(i))];
