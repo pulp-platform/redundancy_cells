@@ -372,26 +372,64 @@ module HMR_wrap import recovery_pkg::*; #(
     end
   end
 
+  logic [NumSysCores-1:0] filt_instr_req, filt_data_req;
   logic [NumSysCores-1:0] filt_instr_r_valid, filt_data_r_valid;
+  logic [NumSysCores-1:0] filt_instr_gnt, filt_data_gnt;
+  logic [NumSysCores-1:0] filt_data_we;
+  logic [NumSysCores-1:0][31:0] filt_instr_addr, filt_data_addr;
+  logic [NumSysCores-1:0][DataWidth-1:0] filt_data_data;
+  logic [NumSysCores-1:0][BeWidth-1:0] filt_data_be;
 
   for (genvar i = 0; i < NumSysCores; i++) begin
-    resp_suppress i_instr_suppress (
+    resp_suppress #(
+      .AW (32),
+      .DW (DataWidth)
+    ) i_instr_suppress (
       .clk_i,
       .rst_ni,
-      .setback_i (core_setback_o[i]),
-      .req_i (sys_instr_req_o[i]),
-      .gnt_i (sys_instr_gnt_i[i]),
+
+      .ctrl_setback_i (core_setback_o[i]),
+
+      .req_i     (filt_instr_req    [i]),
+      .gnt_o     (filt_instr_gnt    [i]),
+      .r_valid_o (filt_instr_r_valid[i]),
+      .we_i      ('0),
+      .addr_i    (filt_instr_addr   [i]),
+      .data_i    ('0),
+      .be_i      ('0),
+
+      .req_o     (sys_instr_req_o[i]),
+      .gnt_i     (sys_instr_gnt_i[i]),
       .r_valid_i (sys_instr_r_valid_i[i]),
-      .r_valid_o (filt_instr_r_valid[i])
+      .we_o      (),
+      .addr_o    (sys_instr_addr_o[i]),
+      .data_o    (),
+      .be_o      ()
     );
-    resp_suppress i_data_suppress (
+    resp_suppress #(
+      .AW (32),
+      .DW (DataWidth)
+    ) i_data_suppress (
       .clk_i,
       .rst_ni,
-      .setback_i (core_setback_o[i]),
-      .req_i (sys_data_req_o[i]),
-      .gnt_i (sys_data_gnt_i[i]),
+
+      .ctrl_setback_i (core_setback_o[i]),
+
+      .req_i     (filt_data_req    [i]),
+      .gnt_o     (filt_data_gnt    [i]),
+      .r_valid_o (filt_data_r_valid[i]),
+      .we_i      (filt_data_we     [i]),
+      .addr_i    (filt_data_addr   [i]),
+      .data_i    (filt_data_data   [i]),
+      .be_i      (filt_data_be     [i]),
+
+      .req_o     (sys_data_req_o    [i]),
+      .gnt_i     (sys_data_gnt_i    [i]),
       .r_valid_i (sys_data_r_valid_i[i]),
-      .r_valid_o (filt_data_r_valid[i])
+      .we_o      (sys_data_wen_o    [i]),
+      .addr_o    (sys_data_add_o    [i]),
+      .data_o    (sys_data_wdata_o  [i]),
+      .be_o      (sys_data_be_o     [i])
     );
   end
 
@@ -1276,13 +1314,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i       [TMRCoreIndex];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i    [TMRCoreIndex];
+          core_instr_gnt_o    [i] = filt_instr_gnt    [TMRCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[TMRCoreIndex];
           core_instr_r_valid_o[i] = filt_instr_r_valid[TMRCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i    [TMRCoreIndex];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i     [TMRCoreIndex];
+          core_data_gnt_o     [i] = filt_data_gnt     [TMRCoreIndex];
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [TMRCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [TMRCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i  [TMRCoreIndex];
@@ -1310,13 +1348,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i       [DMRCoreIndex];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i    [DMRCoreIndex];
+          core_instr_gnt_o    [i] = filt_instr_gnt    [DMRCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[DMRCoreIndex];
           core_instr_r_valid_o[i] = filt_instr_r_valid[DMRCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i    [DMRCoreIndex];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i     [DMRCoreIndex];
+          core_data_gnt_o     [i] = filt_data_gnt     [DMRCoreIndex];
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [DMRCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [DMRCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i  [DMRCoreIndex];
@@ -1339,13 +1377,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i       [i];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+          core_instr_gnt_o    [i] = filt_instr_gnt    [i];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
           core_instr_r_valid_o[i] = filt_instr_r_valid[i];
           core_instr_err_o    [i] = sys_instr_err_i    [i];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+          core_data_gnt_o     [i] = filt_data_gnt     [i];
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
@@ -1369,16 +1407,16 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_irq_ack_id_o    [i] = tmr_irq_ack_id_out[TMRCoreIndex];
 
             // INSTR
-            sys_instr_req_o     [i] = tmr_instr_req_out [TMRCoreIndex];
-            sys_instr_addr_o    [i] = tmr_instr_addr_out[TMRCoreIndex];
+            filt_instr_req     [i] = tmr_instr_req_out [TMRCoreIndex];
+            filt_instr_addr    [i] = tmr_instr_addr_out[TMRCoreIndex];
 
             // DATA
-            sys_data_req_o      [i] = tmr_data_req_out  [TMRCoreIndex];
-            sys_data_add_o      [i] = tmr_data_add_out  [TMRCoreIndex];
-            sys_data_wen_o      [i] = tmr_data_wen_out  [TMRCoreIndex];
-            sys_data_wdata_o    [i] = tmr_data_wdata_out[TMRCoreIndex];
+            filt_data_req      [i] = tmr_data_req_out  [TMRCoreIndex];
+            filt_data_addr      [i] = tmr_data_add_out  [TMRCoreIndex];
+            filt_data_we      [i] = tmr_data_wen_out  [TMRCoreIndex];
+            filt_data_data    [i] = tmr_data_wdata_out[TMRCoreIndex];
             sys_data_user_o     [i] = tmr_data_user_out [TMRCoreIndex];
-            sys_data_be_o       [i] = tmr_data_be_out   [TMRCoreIndex];
+            filt_data_be       [i] = tmr_data_be_out   [TMRCoreIndex];
           end else begin : disable_core // Assign disable
             // CTLR
             sys_core_busy_o     [i] = '0;
@@ -1388,16 +1426,16 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_irq_ack_id_o    [i] = '0;
 
             // INSTR
-            sys_instr_req_o     [i] = '0;
-            sys_instr_addr_o    [i] = '0;
+            filt_instr_req     [i] = '0;
+            filt_instr_addr    [i] = '0;
 
             // DATA
-            sys_data_req_o      [i] = '0;
-            sys_data_add_o      [i] = '0;
-            sys_data_wen_o      [i] = '0;
-            sys_data_wdata_o    [i] = '0;
+            filt_data_req      [i] = '0;
+            filt_data_addr      [i] = '0;
+            filt_data_we      [i] = '0;
+            filt_data_data    [i] = '0;
             sys_data_user_o     [i] = '0;
-            sys_data_be_o       [i] = '0;
+            filt_data_be       [i] = '0;
           end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
@@ -1409,16 +1447,16 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_irq_ack_id_o    [i] = dmr_irq_ack_id_out[DMRCoreIndex];
 
             // INSTR
-            sys_instr_req_o     [i] = dmr_instr_req_out [DMRCoreIndex];
-            sys_instr_addr_o    [i] = dmr_instr_addr_out[DMRCoreIndex];
+            filt_instr_req     [i] = dmr_instr_req_out [DMRCoreIndex];
+            filt_instr_addr    [i] = dmr_instr_addr_out[DMRCoreIndex];
 
             // DATA
-            sys_data_req_o      [i] = dmr_data_req_out  [DMRCoreIndex];
-            sys_data_add_o      [i] = dmr_data_add_out  [DMRCoreIndex];
-            sys_data_wen_o      [i] = dmr_data_wen_out  [DMRCoreIndex];
-            sys_data_wdata_o    [i] = dmr_data_wdata_out[DMRCoreIndex];
+            filt_data_req      [i] = dmr_data_req_out  [DMRCoreIndex];
+            filt_data_addr      [i] = dmr_data_add_out  [DMRCoreIndex];
+            filt_data_we      [i] = dmr_data_wen_out  [DMRCoreIndex];
+            filt_data_data    [i] = dmr_data_wdata_out[DMRCoreIndex];
             sys_data_user_o     [i] = dmr_data_user_out [DMRCoreIndex];
-            sys_data_be_o       [i] = dmr_data_be_out   [DMRCoreIndex];
+            filt_data_be       [i] = dmr_data_be_out   [DMRCoreIndex];
           end else begin : disable_core // Assign disable
             // CTLR
             sys_core_busy_o     [i] = '0;
@@ -1428,16 +1466,16 @@ module HMR_wrap import recovery_pkg::*; #(
             sys_irq_ack_id_o    [i] = '0;
 
             // INSTR
-            sys_instr_req_o     [i] = '0;
-            sys_instr_addr_o    [i] = '0;
+            filt_instr_req     [i] = '0;
+            filt_instr_addr    [i] = '0;
 
             // DATA
-            sys_data_req_o      [i] = '0;
-            sys_data_add_o      [i] = '0;
-            sys_data_wen_o      [i] = '0;
-            sys_data_wdata_o    [i] = '0;
+            filt_data_req      [i] = '0;
+            filt_data_addr      [i] = '0;
+            filt_data_we      [i] = '0;
+            filt_data_data    [i] = '0;
             sys_data_user_o     [i] = '0;
-            sys_data_be_o       [i] = '0;
+            filt_data_be       [i] = '0;
           end
         end else begin : independent_mode
           // CTRL
@@ -1448,16 +1486,16 @@ module HMR_wrap import recovery_pkg::*; #(
           sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
 
           // INSTR
-          sys_instr_req_o     [i] = core_instr_req_i [i];
-          sys_instr_addr_o    [i] = core_instr_addr_i[i];
+          filt_instr_req     [i] = core_instr_req_i [i];
+          filt_instr_addr    [i] = core_instr_addr_i[i];
 
           // DATA
-          sys_data_req_o      [i] = core_data_req_i  [i];
-          sys_data_add_o      [i] = core_data_add_i  [i];
-          sys_data_wen_o      [i] = core_data_wen_i  [i];
-          sys_data_wdata_o    [i] = core_data_wdata_i[i];
+          filt_data_req      [i] = core_data_req_i  [i];
+          filt_data_addr      [i] = core_data_add_i  [i];
+          filt_data_we      [i] = core_data_wen_i  [i];
+          filt_data_data    [i] = core_data_wdata_i[i];
           sys_data_user_o     [i] = core_data_user_i [i];
-          sys_data_be_o       [i] = core_data_be_i   [i];
+          filt_data_be       [i] = core_data_be_i   [i];
         end
       end
     end
@@ -1502,13 +1540,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i       [SysCoreIndex];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i    [SysCoreIndex];
+          core_instr_gnt_o    [i] = filt_instr_gnt    [SysCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[SysCoreIndex];
           core_instr_r_valid_o[i] = filt_instr_r_valid[SysCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i    [SysCoreIndex];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i     [SysCoreIndex];
+          core_data_gnt_o     [i] = filt_data_gnt     [SysCoreIndex];
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [SysCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [SysCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i  [SysCoreIndex];
@@ -1531,13 +1569,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i       [i];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+          core_instr_gnt_o    [i] = filt_instr_gnt    [i];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
           core_instr_r_valid_o[i] = filt_instr_r_valid[i];
           core_instr_err_o    [i] = sys_instr_err_i    [i];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+          core_data_gnt_o     [i] = filt_data_gnt     [i];
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
@@ -1558,16 +1596,16 @@ module HMR_wrap import recovery_pkg::*; #(
         assign sys_irq_ack_id_o    [i] = tmr_irq_ack_id_out[CoreCoreIndex];
 
         // INSTR
-        assign sys_instr_req_o     [i] = tmr_instr_req_out [CoreCoreIndex];
-        assign sys_instr_addr_o    [i] = tmr_instr_addr_out[CoreCoreIndex];
+        assign filt_instr_req     [i] = tmr_instr_req_out [CoreCoreIndex];
+        assign filt_instr_addr    [i] = tmr_instr_addr_out[CoreCoreIndex];
 
         // DATA
-        assign sys_data_req_o      [i] = tmr_data_req_out  [CoreCoreIndex];
-        assign sys_data_add_o      [i] = tmr_data_add_out  [CoreCoreIndex];
-        assign sys_data_wen_o      [i] = tmr_data_wen_out  [CoreCoreIndex];
-        assign sys_data_wdata_o    [i] = tmr_data_wdata_out[CoreCoreIndex];
+        assign filt_data_req      [i] = tmr_data_req_out  [CoreCoreIndex];
+        assign filt_data_addr      [i] = tmr_data_add_out  [CoreCoreIndex];
+        assign filt_data_we      [i] = tmr_data_wen_out  [CoreCoreIndex];
+        assign filt_data_data    [i] = tmr_data_wdata_out[CoreCoreIndex];
         assign sys_data_user_o     [i] = tmr_data_user_out [CoreCoreIndex];
-        assign sys_data_be_o       [i] = tmr_data_be_out   [CoreCoreIndex];
+        assign filt_data_be       [i] = tmr_data_be_out   [CoreCoreIndex];
       end else begin
         if (i >= NumTMRCores) begin : independent_stragglers
           // CTRL
@@ -1578,16 +1616,16 @@ module HMR_wrap import recovery_pkg::*; #(
           assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // INSTR
-          assign sys_instr_req_o     [i] = core_instr_req_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_instr_addr_o    [i] = core_instr_addr_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_req     [i] = core_instr_req_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_addr    [i] = core_instr_addr_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // DATA
-          assign sys_data_req_o      [i] = core_data_req_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_add_o      [i] = core_data_add_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_wen_o      [i] = core_data_wen_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_wdata_o    [i] = core_data_wdata_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_req      [i] = core_data_req_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_addr      [i] = core_data_add_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_we      [i] = core_data_wen_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_data    [i] = core_data_wdata_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
           assign sys_data_user_o     [i] = core_data_user_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_be_o       [i] = core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_be       [i] = core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin
           always_comb begin
             if (core_in_tmr[i]) begin : tmr_mode
@@ -1600,16 +1638,16 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_irq_ack_id_o    [i] = tmr_irq_ack_id_out[CoreCoreIndex];
 
                 // INSTR
-                sys_instr_req_o     [i] = tmr_instr_req_out [CoreCoreIndex];
-                sys_instr_addr_o    [i] = tmr_instr_addr_out[CoreCoreIndex];
+                filt_instr_req     [i] = tmr_instr_req_out [CoreCoreIndex];
+                filt_instr_addr    [i] = tmr_instr_addr_out[CoreCoreIndex];
 
                 // DATA
-                sys_data_req_o      [i] = tmr_data_req_out  [CoreCoreIndex];
-                sys_data_add_o      [i] = tmr_data_add_out  [CoreCoreIndex];
-                sys_data_wen_o      [i] = tmr_data_wen_out  [CoreCoreIndex];
-                sys_data_wdata_o    [i] = tmr_data_wdata_out[CoreCoreIndex];
+                filt_data_req      [i] = tmr_data_req_out  [CoreCoreIndex];
+                filt_data_addr      [i] = tmr_data_add_out  [CoreCoreIndex];
+                filt_data_we      [i] = tmr_data_wen_out  [CoreCoreIndex];
+                filt_data_data    [i] = tmr_data_wdata_out[CoreCoreIndex];
                 sys_data_user_o     [i] = tmr_data_user_out [CoreCoreIndex];
-                sys_data_be_o       [i] = tmr_data_be_out   [CoreCoreIndex];
+                filt_data_be       [i] = tmr_data_be_out   [CoreCoreIndex];
               end else begin : disable_core // Assign disable
                 // CTLR
                 sys_core_busy_o     [i] = '0;
@@ -1619,16 +1657,16 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_irq_ack_id_o    [i] = '0;
 
                 // INSTR
-                sys_instr_req_o     [i] = '0;
-                sys_instr_addr_o    [i] = '0;
+                filt_instr_req     [i] = '0;
+                filt_instr_addr    [i] = '0;
 
                 // DATA
-                sys_data_req_o      [i] = '0;
-                sys_data_add_o      [i] = '0;
-                sys_data_wen_o      [i] = '0;
-                sys_data_wdata_o    [i] = '0;
+                filt_data_req      [i] = '0;
+                filt_data_addr      [i] = '0;
+                filt_data_we      [i] = '0;
+                filt_data_data    [i] = '0;
                 sys_data_user_o     [i] = '0;
-                sys_data_be_o       [i] = '0;
+                filt_data_be       [i] = '0;
               end
             end else begin : independent_mode
               // CTRL
@@ -1639,16 +1677,16 @@ module HMR_wrap import recovery_pkg::*; #(
               sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
 
               // INSTR
-              sys_instr_req_o     [i] = core_instr_req_i [i];
-              sys_instr_addr_o    [i] = core_instr_addr_i[i];
+              filt_instr_req     [i] = core_instr_req_i [i];
+              filt_instr_addr    [i] = core_instr_addr_i[i];
 
               // DATA
-              sys_data_req_o      [i] = core_data_req_i  [i];
-              sys_data_add_o      [i] = core_data_add_i  [i];
-              sys_data_wen_o      [i] = core_data_wen_i  [i];
-              sys_data_wdata_o    [i] = core_data_wdata_i[i];
+              filt_data_req      [i] = core_data_req_i  [i];
+              filt_data_addr      [i] = core_data_add_i  [i];
+              filt_data_we      [i] = core_data_wen_i  [i];
+              filt_data_data    [i] = core_data_wdata_i[i];
               sys_data_user_o     [i] = core_data_user_i [i];
-              sys_data_be_o       [i] = core_data_be_i   [i];
+              filt_data_be       [i] = core_data_be_i   [i];
             end
           end
         end
@@ -1700,13 +1738,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i        [SysCoreIndex];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i     [SysCoreIndex];
+          core_instr_gnt_o    [i] = filt_instr_gnt     [SysCoreIndex];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i [SysCoreIndex];
           core_instr_r_valid_o[i] = filt_instr_r_valid [SysCoreIndex];
           core_instr_err_o    [i] = sys_instr_err_i     [SysCoreIndex];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i      [SysCoreIndex];
+          core_data_gnt_o     [i] = filt_data_gnt      [SysCoreIndex];
           core_data_r_opc_o   [i] = sys_data_r_opc_i    [SysCoreIndex];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i  [SysCoreIndex];
           core_data_r_user_o  [i] = sys_data_r_user_i   [SysCoreIndex];
@@ -1729,13 +1767,13 @@ module HMR_wrap import recovery_pkg::*; #(
           core_irq_id_o       [i] = sys_irq_id_i       [i];
 
           // INSTR
-          core_instr_gnt_o    [i] = sys_instr_gnt_i    [i];
+          core_instr_gnt_o    [i] = filt_instr_gnt    [i];
           core_instr_r_rdata_o[i] = sys_instr_r_rdata_i[i];
           core_instr_r_valid_o[i] = filt_instr_r_valid[i];
           core_instr_err_o    [i] = sys_instr_err_i    [i];
 
           // DATA
-          core_data_gnt_o     [i] = sys_data_gnt_i     [i];
+          core_data_gnt_o     [i] = filt_data_gnt     [i];
           core_data_r_opc_o   [i] = sys_data_r_opc_i   [i];
           core_data_r_rdata_o [i] = sys_data_r_rdata_i [i];
           core_data_r_user_o  [i] = sys_data_r_user_i  [i];
@@ -1756,16 +1794,16 @@ module HMR_wrap import recovery_pkg::*; #(
         assign sys_irq_ack_id_o    [i] = dmr_irq_ack_id_out[CoreCoreIndex];
 
         // INSTR
-        assign sys_instr_req_o     [i] = dmr_instr_req_out [CoreCoreIndex];
-        assign sys_instr_addr_o    [i] = dmr_instr_addr_out[CoreCoreIndex];
+        assign filt_instr_req     [i] = dmr_instr_req_out [CoreCoreIndex];
+        assign filt_instr_addr    [i] = dmr_instr_addr_out[CoreCoreIndex];
 
         // DATA
-        assign sys_data_req_o      [i] = dmr_data_req_out  [CoreCoreIndex];
-        assign sys_data_add_o      [i] = dmr_data_add_out  [CoreCoreIndex];
-        assign sys_data_wen_o      [i] = dmr_data_wen_out  [CoreCoreIndex];
-        assign sys_data_wdata_o    [i] = dmr_data_wdata_out[CoreCoreIndex];
+        assign filt_data_req      [i] = dmr_data_req_out  [CoreCoreIndex];
+        assign filt_data_addr      [i] = dmr_data_add_out  [CoreCoreIndex];
+        assign filt_data_we      [i] = dmr_data_wen_out  [CoreCoreIndex];
+        assign filt_data_data    [i] = dmr_data_wdata_out[CoreCoreIndex];
         assign sys_data_user_o     [i] = dmr_data_user_out [CoreCoreIndex];
-        assign sys_data_be_o       [i] = dmr_data_be_out   [CoreCoreIndex];
+        assign filt_data_be       [i] = dmr_data_be_out   [CoreCoreIndex];
       end else begin
         if (i >= NumDMRCores) begin : independent_stragglers
           // CTRL
@@ -1776,16 +1814,16 @@ module HMR_wrap import recovery_pkg::*; #(
           assign sys_irq_ack_id_o    [i] = dmr_irq_ack_id_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // INSTR
-          assign sys_instr_req_o     [i] = dmr_instr_req_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_instr_addr_o    [i] = dmr_instr_addr_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_req     [i] = dmr_instr_req_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_addr    [i] = dmr_instr_addr_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // DATA
-          assign sys_data_req_o      [i] = dmr_data_req_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_add_o      [i] = dmr_data_add_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_wen_o      [i] = dmr_data_wen_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_wdata_o    [i] = dmr_data_wdata_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_req      [i] = dmr_data_req_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_addr      [i] = dmr_data_add_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_we      [i] = dmr_data_wen_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_data    [i] = dmr_data_wdata_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
           assign sys_data_user_o     [i] = dmr_data_user_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_be_o       [i] = dmr_data_be_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_be       [i] = dmr_data_be_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin
           always_comb begin
             if (core_in_dmr[i]) begin : dmr_mode
@@ -1798,16 +1836,16 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_irq_ack_id_o    [i] = dmr_irq_ack_id_out[CoreCoreIndex];
 
                 // INSTR
-                sys_instr_req_o     [i] = dmr_instr_req_out [CoreCoreIndex];
-                sys_instr_addr_o    [i] = dmr_instr_addr_out[CoreCoreIndex];
+                filt_instr_req     [i] = dmr_instr_req_out [CoreCoreIndex];
+                filt_instr_addr    [i] = dmr_instr_addr_out[CoreCoreIndex];
 
                 // DATA
-                sys_data_req_o      [i] = dmr_data_req_out  [CoreCoreIndex];
-                sys_data_add_o      [i] = dmr_data_add_out  [CoreCoreIndex];
-                sys_data_wen_o      [i] = dmr_data_wen_out  [CoreCoreIndex];
-                sys_data_wdata_o    [i] = dmr_data_wdata_out[CoreCoreIndex];
+                filt_data_req      [i] = dmr_data_req_out  [CoreCoreIndex];
+                filt_data_addr      [i] = dmr_data_add_out  [CoreCoreIndex];
+                filt_data_we      [i] = dmr_data_wen_out  [CoreCoreIndex];
+                filt_data_data    [i] = dmr_data_wdata_out[CoreCoreIndex];
                 sys_data_user_o     [i] = dmr_data_user_out [CoreCoreIndex];
-                sys_data_be_o       [i] = dmr_data_be_out   [CoreCoreIndex];
+                filt_data_be       [i] = dmr_data_be_out   [CoreCoreIndex];
               end else begin : disable_core // Assign disable
                 // CTLR
                 sys_core_busy_o     [i] = '0;
@@ -1817,16 +1855,16 @@ module HMR_wrap import recovery_pkg::*; #(
                 sys_irq_ack_id_o    [i] = '0;
 
                 // INSTR
-                sys_instr_req_o     [i] = '0;
-                sys_instr_addr_o    [i] = '0;
+                filt_instr_req     [i] = '0;
+                filt_instr_addr    [i] = '0;
 
                 // DATA
-                sys_data_req_o      [i] = '0;
-                sys_data_add_o      [i] = '0;
-                sys_data_wen_o      [i] = '0;
-                sys_data_wdata_o    [i] = '0;
+                filt_data_req      [i] = '0;
+                filt_data_addr      [i] = '0;
+                filt_data_we      [i] = '0;
+                filt_data_data    [i] = '0;
                 sys_data_user_o     [i] = '0;
-                sys_data_be_o       [i] = '0;
+                filt_data_be       [i] = '0;
               end
             end else begin : independent_mode
               // CTRL
@@ -1837,16 +1875,16 @@ module HMR_wrap import recovery_pkg::*; #(
               sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
 
               // INSTR
-              sys_instr_req_o     [i] = core_instr_req_i [i];
-              sys_instr_addr_o    [i] = core_instr_addr_i[i];
+              filt_instr_req     [i] = core_instr_req_i [i];
+              filt_instr_addr    [i] = core_instr_addr_i[i];
 
               // DATA
-              sys_data_req_o      [i] = core_data_req_i  [i];
-              sys_data_add_o      [i] = core_data_add_i  [i];
-              sys_data_wen_o      [i] = core_data_wen_i  [i];
-              sys_data_wdata_o    [i] = core_data_wdata_i[i];
+              filt_data_req      [i] = core_data_req_i  [i];
+              filt_data_addr      [i] = core_data_add_i  [i];
+              filt_data_we      [i] = core_data_wen_i  [i];
+              filt_data_data    [i] = core_data_wdata_i[i];
               sys_data_user_o     [i] = core_data_user_i [i];
-              sys_data_be_o       [i] = core_data_be_i   [i];
+              filt_data_be       [i] = core_data_be_i   [i];
             end
           end
         end
@@ -1879,21 +1917,21 @@ module HMR_wrap import recovery_pkg::*; #(
     assign sys_irq_ack_id_o     = core_irq_ack_id_i;
 
     // INSTR
-    assign sys_instr_req_o      = core_instr_req_i;
-    assign core_instr_gnt_o     = sys_instr_gnt_i;
-    assign sys_instr_addr_o     = core_instr_addr_i;
+    assign filt_instr_req      = core_instr_req_i;
+    assign core_instr_gnt_o     = filt_instr_gnt;
+    assign filt_instr_addr     = core_instr_addr_i;
     assign core_instr_r_rdata_o = sys_instr_r_rdata_i;
     assign core_instr_r_valid_o = filt_instr_r_valid;
     assign core_instr_err_o     = sys_instr_err_i;
 
     // DATA
-    assign sys_data_req_o       = core_data_req_i;
-    assign sys_data_add_o       = core_data_add_i;
-    assign sys_data_wen_o       = core_data_wen_i;
-    assign sys_data_wdata_o     = core_data_wdata_i;
+    assign filt_data_req       = core_data_req_i;
+    assign filt_data_addr       = core_data_add_i;
+    assign filt_data_we       = core_data_wen_i;
+    assign filt_data_data     = core_data_wdata_i;
     assign sys_data_user_o      = core_data_user_i;
-    assign sys_data_be_o        = core_data_be_i;
-    assign core_data_gnt_o      = sys_data_gnt_i;
+    assign filt_data_be        = core_data_be_i;
+    assign core_data_gnt_o      = filt_data_gnt;
     assign core_data_r_opc_o    = sys_data_r_opc_i;
     assign core_data_r_rdata_o  = sys_data_r_rdata_i;
     assign core_data_r_user_o   = sys_data_r_user_i;
