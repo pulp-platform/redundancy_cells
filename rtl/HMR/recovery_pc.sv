@@ -61,7 +61,7 @@ generate
       else begin
         if (clear_i)
           pc_q <= '0;
-        else if (write_enable_i)
+        else if (write_enable_i && pc_d != '0)
           pc_q <= pc_d;
         else
           pc_q <= pc_q;
