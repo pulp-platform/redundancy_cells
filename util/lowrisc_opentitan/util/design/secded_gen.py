@@ -128,9 +128,9 @@ def print_fn(n, k, m, codes, suffix, codetype):
 
 
 def print_enc(n, k, m, codes):
-    outstr = "    out = {}'(in);\n".format(n)
-    format_str = "    out[{}] = ^(out & " + str(n) + "'h{:0" + str(
-        (n + 3) // 4) + "X});\n"
+    outstr = "    out[{}:0] = in;\n".format(k-1)
+    format_str = "    out[{}] = ^(in & " + str(k) + "'h{:0" + str(
+        (k + 3) // 4) + "X});\n"
     # Print parity computation
     for j, mask in enumerate(calc_bitmasks(k, m, codes, False)):
         outstr += format_str.format(j + k, mask)
@@ -412,15 +412,11 @@ def hamming_code(k, m):
                     pos, parity_pos, parity_chk))
 
                 # valid for inclusion or final parity bit that includes everything
-                if is_odd(parity_chk) or p == m - 1:
+                if is_odd(parity_chk) or (p == m - 1 and (len(code) % 2) == 0):
                     code = code + (p, )
                     log.info("add {} to tuple {}".format(p, code))
 
             codes.append(code)
-
-    # final parity bit includes all ECC bits
-    for p in range(m - 1):
-        codes.append((m - 1, ))
 
     log.info("Hamming codes {}".format(codes))
     return codes

@@ -11,13 +11,13 @@ module prim_secded_28_22_enc (
 );
 
   always_comb begin : p_encode
-    out = 28'(in);
-    out[22] = ^(out & 28'h03003FF);
-    out[23] = ^(out & 28'h020FC0F);
-    out[24] = ^(out & 28'h0171C71);
-    out[25] = ^(out & 28'h03B6592);
-    out[26] = ^(out & 28'h03DAAA4);
-    out[27] = ^(out & 28'h03ED348);
+    out[21:0] = in;
+    out[22] = ^(in & 22'h3003FF);
+    out[23] = ^(in & 22'h20FC0F);
+    out[24] = ^(in & 22'h171C71);
+    out[25] = ^(in & 22'h3B6592);
+    out[26] = ^(in & 22'h3DAAA4);
+    out[27] = ^(in & 22'h3ED348);
   end
 
 endmodule : prim_secded_28_22_enc
