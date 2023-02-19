@@ -11,13 +11,13 @@ module prim_secded_hamming_22_16_enc (
 );
 
   always_comb begin : p_encode
-    out = 22'(in);
-    out[16] = ^(out & 22'h00AD5B);
-    out[17] = ^(out & 22'h00366D);
-    out[18] = ^(out & 22'h00C78E);
-    out[19] = ^(out & 22'h0007F0);
-    out[20] = ^(out & 22'h00F800);
-    out[21] = ^(out & 22'h1FFFFF);
+    out[15:0] = in;
+    out[16] = ^(in & 16'hAD5B);
+    out[17] = ^(in & 16'h366D);
+    out[18] = ^(in & 16'hC78E);
+    out[19] = ^(in & 16'h07F0);
+    out[20] = ^(in & 16'hF800);
+    out[21] = ^(in & 16'h5CB7);
   end
 
 endmodule : prim_secded_hamming_22_16_enc

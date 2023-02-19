@@ -1,7 +1,8 @@
 package:
   name: redundancy_cells
-  authors: 
+  authors:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
+    - "Luca Rufer <lrufer@student.ethz.ch>"
 
 dependencies:
   tech_cells_generic:  { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.3 }
@@ -9,24 +10,64 @@ dependencies:
   register_interface:  { git: "https://github.com/pulp-platform/register_interface.git", version: 0.3.1 }
   common_cells:        { git: "https://github.com/pulp-platform/common_cells.git", version: 1.24.0 }
 
+export_include_dirs:
+  - rtl/ECC_reg/include
 sources:
     # Source files grouped in levels. Files in level 0 have no dependencies on files in this
     # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
+  - rtl/dmr/DMR_handshake_fork.sv
+  - rtl/dmr/DMR_handshake_join.sv
+  - rtl/dmr/DMR_instr_join_fork.sv
+  - rtl/dmr/DMR_interrupt_fork.sv
+  - rtl/dmr/DMR_write_mux.sv
+  - rtl/ECC_reg/hamming.sv
+  - rtl/ECC_reg/tmr_reg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
+  - rtl/lowrisc_ecc/prim_secded_4_1_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_4_1_dec.svq
+  - rtl/lowrisc_ecc/prim_secded_4_1_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_8_4_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_8_4_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_8_4_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_13_8_cor.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
   - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_16_11_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_16_11_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_16_11_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_22_16_cor.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
   - rtl/lowrisc_ecc/prim_secded_22_16_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_28_22_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_28_22_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_28_22_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_32_26_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_32_26_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_32_26_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_39_32_cor.sv
   - rtl/lowrisc_ecc/prim_secded_39_32_dec.sv
   - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_64_57_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_64_57_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_64_57_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_72_64_cor.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
   - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_128_120_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_128_120_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_128_120_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_256_247_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_256_247_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_256_247_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_512_502_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_512_502_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_512_502_enc.sv
   - rtl/lowrisc_ecc/prim_secded_pkg.sv
   - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv
@@ -57,14 +98,19 @@ sources:
       - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
       - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
       - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
+  - rtl/ECC_reg/ecc_enc.sv
+  - rtl/ECC_reg/ecc_cor.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
+  - rtl/ECC_reg/ecc_reg.sv
   - rtl/ecc_wrap/ecc_manager.sv
   - rtl/ecc_wrap/ecc_manager_2.sv
   - rtl/ecc_wrap/ecc_manager_8.sv
   - rtl/ecc_wrap/ecc_sram_wrap.sv
     # Level 3
+  - rtl/ECC_reg/dmr_io_tmr_reg.sv
+    # Level 4
   - include_dirs:
       - rtl/ODRG_unit
     files:
@@ -75,11 +121,19 @@ sources:
       - rtl/pulpissimo_tcls/TCLS_unit.sv
   - target: test
     files:
+      # Level 0
+      - test/dmr/dmr_handshake.sv
+      - test/tb_ecc_enc_cor.sv
+      - test/tb_ecc_reg.sv
       - test/tb_ecc_scrubber.sv
       - test/tb_ecc_secded.sv
       - test/tb_ecc_sram.sv
+      - test/tb_tmr_reg.sv
       - test/tb_tmr_voter.sv
       - test/tb_tmr_voter_detect.sv
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
-
+      # Level 1
+      - test/tb_dmr_handshake_fork.sv
+      - test/tb_dmr_handshake_join.sv
+      - test/tb_dmr_handshake_fork_join_fork.sv

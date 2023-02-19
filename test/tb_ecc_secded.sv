@@ -57,16 +57,16 @@ module tb_ecc_secded #(
 
     function prot_t get_inject;
       inject = '0;
-      if (error_pos_1 < DataWidth)
+      if (error_pos_1 < DataWidth+ProtectBits)
         inject[error_pos_1] = 1'b1;
-      if (error_pos_2 < DataWidth)
+      if (error_pos_2 < DataWidth+ProtectBits)
         inject[error_pos_2] = 1'b1;
       return inject;
     endfunction : get_inject
 
-    constraint no_error {error_pos_1 > DataWidth; error_pos_2 > DataWidth;}
-    constraint single_error {error_pos_1 < DataWidth; error_pos_2 > DataWidth;}
-    constraint double_error {error_pos_1 < DataWidth; error_pos_2 < DataWidth; error_pos_1 != error_pos_2;}
+    constraint no_error {error_pos_1 > DataWidth+ProtectBits; error_pos_2 > DataWidth+ProtectBits;}
+    constraint single_error {error_pos_1 < DataWidth+ProtectBits; error_pos_2 > DataWidth+ProtectBits;}
+    constraint double_error {error_pos_1 < DataWidth+ProtectBits; error_pos_2 < DataWidth+ProtectBits; error_pos_1 != error_pos_2;}
   endclass : stimuli_t
 
   // Stimuli
@@ -75,8 +75,8 @@ module tb_ecc_secded #(
   // Golden values
   typedef struct packed {
     data_t out;
-    synd_t syndrome;
-    logic [1:0] error;
+    synd_t syndrome, syndrome_corrector, syndrome_corrector_decoder;
+    logic [1:0] error, error_corrector, error_correcter_decoder;
   } result_t;
   result_t golden_queue[$];
 
@@ -94,7 +94,10 @@ module tb_ecc_secded #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in, syndrome: {ProtectBits{1'b0}}, error: 2'b00});
+          golden_queue.push_back('{out: stimuli.in,
+                                   syndrome: {ProtectBits{1'b0}}, error: 2'b00,
+                                   syndrome_corrector: {ProtectBits{1'b0}}, error_corrector: 2'b00,
+                                   syndrome_corrector_decoder: {ProtectBits{1'b0}}, error_correcter_decoder: 2'b00});
         end else begin
           $error("Could not randomize.");
         end
@@ -113,7 +116,10 @@ module tb_ecc_secded #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in, syndrome: {ProtectBits{1'b?}}, error: 2'b01});
+          golden_queue.push_back('{out: stimuli.in,
+                                   syndrome: {ProtectBits{1'b?}}, error: 2'b01,
+                                   syndrome_corrector: {ProtectBits{1'b?}}, error_corrector: 2'b01,
+                                   syndrome_corrector_decoder: {ProtectBits{1'b0}}, error_correcter_decoder: 2'b00});
         end else begin
           $error("Could not randomize.");
         end
@@ -132,7 +138,10 @@ module tb_ecc_secded #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: {DataWidth{1'b?}}, syndrome: {ProtectBits{1'b?}}, error: 2'b10});
+          golden_queue.push_back('{out: {DataWidth{1'b?}},
+                                   syndrome: {ProtectBits{1'b?}}, error: 2'b10,
+                                   syndrome_corrector: {ProtectBits{1'b?}}, error_corrector: 2'b10,
+                                   syndrome_corrector_decoder: {ProtectBits{1'b?}}, error_correcter_decoder: 2'b??});
         end else begin
           $error("Could not randomize.");
         end
@@ -141,7 +150,7 @@ module tb_ecc_secded #(
 
   // Apply stimuli
   data_t in;
-  data_t inject;
+  prot_t inject;
 
   task automatic apply_stimuli();
     automatic stimuli_t stimuli;
@@ -162,10 +171,21 @@ module tb_ecc_secded #(
    *  Device Under Test  *
    ***********************/
 
-  data_t out;
-  synd_t syndrome;
-  prot_t prot_out, prot_in;
-  logic [1:0] error;
+  //        __________     __________      __________
+  //       |          |   |          |    |          |
+  // in -->|  ENCODE  |-->|  Inject  | -->|  DECODE  | --> out
+  //       |__________|   |__________|  | |__________|
+  //                                    |
+  //                                    |  ___________      __________
+  //                                    | |           |    |          |
+  //                                    ->|  CORRECT  | -->|  DECODE  | --> out_corrected
+  //                                      |___________|    |__________|
+  //
+
+  data_t out, out_corrected;
+  synd_t syndrome, syndrome_corrector, syndrome_corrector_decoder;
+  prot_t prot_out, prot_in, prot_corrected;
+  logic [1:0] error, error_corrector, error_correcter_decoder;
 
   if (DataWidth == 8) begin
     prim_secded_13_8_enc i_dut_encode (
@@ -179,6 +199,18 @@ module tb_ecc_secded #(
       .syndrome_o(syndrome),
       .err_o     (error)
     );
+    prim_secded_13_8_cor i_dut_correct (
+      .d_i       (prot_in),
+      .d_o       (prot_corrected),
+      .syndrome_o(syndrome_corrector),
+      .err_o     (error_corrector)
+    );
+    prim_secded_13_8_dec i_dut_correct_decode (
+      .in        (prot_corrected),
+      .d_o       (out_corrected),
+      .syndrome_o(syndrome_corrector_decoder),
+      .err_o     (error_correcter_decoder)
+    );
   end else if (DataWidth == 16) begin
     prim_secded_22_16_enc i_dut_encode (
       .in (in),
@@ -190,6 +222,18 @@ module tb_ecc_secded #(
       .d_o       (out),
       .syndrome_o(syndrome),
       .err_o     (error)
+    );
+    prim_secded_22_16_cor i_dut_correct (
+      .d_i       (prot_in),
+      .d_o       (prot_corrected),
+      .syndrome_o(syndrome_corrector),
+      .err_o     (error_corrector)
+    );
+    prim_secded_22_16_dec i_dut_correct_decode (
+      .in        (prot_corrected),
+      .d_o       (out_corrected),
+      .syndrome_o(syndrome_corrector_decoder),
+      .err_o     (error_correcter_decoder)
     );
   end else if (DataWidth == 32) begin
     prim_secded_39_32_enc i_dut_encode (
@@ -203,6 +247,18 @@ module tb_ecc_secded #(
       .syndrome_o(syndrome),
       .err_o     (error)
     );
+    prim_secded_39_32_cor i_dut_correct (
+      .d_i       (prot_in),
+      .d_o       (prot_corrected),
+      .syndrome_o(syndrome_corrector),
+      .err_o     (error_corrector)
+    );
+    prim_secded_39_32_dec i_dut_correct_decode (
+      .in        (prot_corrected),
+      .d_o       (out_corrected),
+      .syndrome_o(syndrome_corrector_decoder),
+      .err_o     (error_correcter_decoder)
+    );
   end else if (DataWidth == 64) begin
     prim_secded_72_64_enc i_dut_encode (
       .in (in),
@@ -215,6 +271,18 @@ module tb_ecc_secded #(
       .syndrome_o(syndrome),
       .err_o     (error)
     );
+    prim_secded_72_64_cor i_dut_correct (
+      .d_i       (prot_in),
+      .d_o       (prot_corrected),
+      .syndrome_o(syndrome_corrector),
+      .err_o     (error_corrector)
+    );
+    prim_secded_72_64_dec i_dut_correct_decode (
+      .in        (prot_corrected),
+      .d_o       (out_corrected),
+      .syndrome_o(syndrome_corrector_decoder),
+      .err_o     (error_correcter_decoder)
+    );
   end
 
   /***********************
@@ -224,7 +292,13 @@ module tb_ecc_secded #(
   result_t result_queue [$];
 
   function automatic void collect_result;
-    result_queue.push_back('{out: out, syndrome: syndrome, error: error});
+    result_queue.push_back('{out: out,
+                             syndrome: syndrome,
+                             error: error,
+                             syndrome_corrector: syndrome_corrector,
+                             error_corrector: error_corrector,
+                             syndrome_corrector_decoder: syndrome_corrector_decoder,
+                             error_correcter_decoder: error_correcter_decoder});
   endfunction: collect_result
 
   task automatic check_result;

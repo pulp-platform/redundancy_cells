@@ -11,14 +11,14 @@ module prim_secded_64_57_enc (
 );
 
   always_comb begin : p_encode
-    out = 64'(in);
-    out[57] = ^(out & 64'h0103FFF800007FFF);
-    out[58] = ^(out & 64'h017C1FF801FF801F);
-    out[59] = ^(out & 64'h01BDE1F87E0781E1);
-    out[60] = ^(out & 64'h01DEEE3B8E388E22);
-    out[61] = ^(out & 64'h01EF76CDB2C93244);
-    out[62] = ^(out & 64'h01F7BB56D5525488);
-    out[63] = ^(out & 64'h01FBDDA769A46910);
+    out[56:0] = in;
+    out[57] = ^(in & 57'h103FFF800007FFF);
+    out[58] = ^(in & 57'h17C1FF801FF801F);
+    out[59] = ^(in & 57'h1BDE1F87E0781E1);
+    out[60] = ^(in & 57'h1DEEE3B8E388E22);
+    out[61] = ^(in & 57'h1EF76CDB2C93244);
+    out[62] = ^(in & 57'h1F7BB56D5525488);
+    out[63] = ^(in & 57'h1FBDDA769A46910);
   end
 
 endmodule : prim_secded_64_57_enc
