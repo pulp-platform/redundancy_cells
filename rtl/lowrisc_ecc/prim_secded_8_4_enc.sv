@@ -11,11 +11,11 @@ module prim_secded_8_4_enc (
 );
 
   always_comb begin : p_encode
-    out = 8'(in);
-    out[4] = ^(out & 8'h07);
-    out[5] = ^(out & 8'h0B);
-    out[6] = ^(out & 8'h0D);
-    out[7] = ^(out & 8'h0E);
+    out[3:0] = in;
+    out[4] = ^(in & 4'h7);
+    out[5] = ^(in & 4'hB);
+    out[6] = ^(in & 4'hD);
+    out[7] = ^(in & 4'hE);
   end
 
 endmodule : prim_secded_8_4_enc

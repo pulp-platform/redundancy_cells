@@ -11,10 +11,10 @@ module prim_secded_4_1_enc (
 );
 
   always_comb begin : p_encode
-    out = 4'(in);
-    out[1] = ^(out & 4'h1);
-    out[2] = ^(out & 4'h1);
-    out[3] = ^(out & 4'h1);
+    out[0:0] = in;
+    out[1] = ^(in & 1'h1);
+    out[2] = ^(in & 1'h1);
+    out[3] = ^(in & 1'h1);
   end
 
 endmodule : prim_secded_4_1_enc
