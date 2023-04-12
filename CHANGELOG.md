@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.5.1 - 2023-04-12
+### Added
+- Add CI flow for linting
+
+### Fixed
+- Fix ECC SRAM wrap
+
 ## 0.5.0 - 2022-12-21
 
 ### Added

@@ -9,17 +9,17 @@ The `ODRG_unit` is designed as a configurable bridge between three ibex cores, a
 ODRG is integrated in the [PULP cluster](https://github.com/pulp-platform/pulp_cluster/tree/space_pulp) and the [PULP](https://github.com/pulp-platform/pulp/tree/space_pulp) system. To test, please use the `space_pulp` branch.
 
 ### Citing
-If you are using ODRG in yout academic work you can cite us:
+If you are using ODRG in your academic work you can cite us:
 ```BibTeX
-@misc{https://doi.org/10.48550/arxiv.2205.12580,
-  doi = {10.48550/ARXIV.2205.12580},
-  url = {https://arxiv.org/abs/2205.12580},
-  author = {Rogenmoser, Michael and Wistoff, Nils and Vogel, Pirmin and Gürkaynak, Frank and Benini, Luca},
-  keywords = {Distributed, Parallel, and Cluster Computing (cs.DC), Signal Processing (eess.SP), FOS: Computer and information sciences, FOS: Computer and information sciences, FOS: Electrical engineering, electronic engineering, information engineering, FOS: Electrical engineering, electronic engineering, information engineering},
-  title = {On-Demand Redundancy Grouping: Selectable Soft-Error Tolerance for a Multicore Cluster},
-  publisher = {arXiv},
-  year = {2022},
-  copyright = {Creative Commons Attribution Share Alike 4.0 International}
+@INPROCEEDINGS{9912026,
+  author={Rogenmoser, Michael and Wistoff, Nils and Vogel, Pirmin and Gürkaynak, Frank and Benini, Luca},
+  booktitle={2022 IEEE Computer Society Annual Symposium on VLSI (ISVLSI)}, 
+  title={On-Demand Redundancy Grouping: Selectable Soft-Error Tolerance for a Multicore Cluster}, 
+  year={2022},
+  volume={},
+  number={},
+  pages={398-401},
+  doi={10.1109/ISVLSI54635.2022.00089}
 }
 ```
 
