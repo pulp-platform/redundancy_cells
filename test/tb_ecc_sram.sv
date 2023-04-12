@@ -12,7 +12,8 @@
 // based on tb_tc_sram.sv in tech_cells_generic
 
 module tb_ecc_sram #(
-  parameter int unsigned InputECC = 0
+  parameter int unsigned InputECC = 0,
+  parameter int unsigned EnableTestMask = 0
 );
 
   localparam BankSize       = 256;
@@ -148,18 +149,30 @@ module tb_ecc_sram #(
   ecc_sram_wrap #(
     .BankSize         ( BankSize       ),
     .InputECC         ( 0              ),
+    .EnableTestMask   ( EnableTestMask ),
     .UnprotectedWidth ( DataWidth      ),
     .ProtectedWidth   ( ProtectedWidth )
   ) i_dut (
     .clk_i        ( clk ),
     .rst_ni       ( rst_n ),
+    .test_enable_i        ('0),
+
+    .scrub_trigger_i      ('0),
+    .scrubber_fix_o       (),
+    .scrub_uncorrectable_o(),
+
     .tcdm_wdata_i ( wdata ),
     .tcdm_add_i   ( addr  ),
     .tcdm_req_i   ( req   ),
     .tcdm_wen_i   ( wen   ),
     .tcdm_be_i    ( be    ),
     .tcdm_rdata_o ( rdata ),
-    .tcdm_gnt_o   ( gnt   )
+    .tcdm_gnt_o   ( gnt   ),
+
+    .single_error_o       (),
+    .multi_error_o        (),
+
+    .test_write_mask_ni ('0)
   );
 
   /***********************

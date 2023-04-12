@@ -282,6 +282,13 @@ module ecc_sram_wrap #(
     end
   end
 
+  logic [(EnableTestMask ? ProtectedWidth : 1)-1:0] sram_be;
+  if (EnableTestMask) begin : gen_be
+    assign sram_be = ~test_write_mask_ni;
+  end else begin : gen_be_const
+    assign sram_be = 1'b1;
+  end
+
   tc_sram #(
     .NumWords  ( BankSize                            ), // Number of Words in data array
     .DataWidth ( ProtectedWidth                      ), // Data signal width
@@ -295,17 +302,16 @@ module ecc_sram_wrap #(
     .clk_i,                                                   // Clock
     .rst_ni,                                                  // Asynchronous reset active low
 
-    .req_i   ( bank_final_req                              ), // request
-    .we_i    ( bank_final_we                               ), // write enable
-    .addr_i  ( bank_final_add                              ), // request address
-    .wdata_i ( bank_scrub_wdata                            ), // write data
-    .be_i    ( EnableTestMask ? ~test_write_mask_ni : 1'b1 ), // write byte enable
+    .req_i   ( bank_final_req    ), // request
+    .we_i    ( bank_final_we     ), // write enable
+    .addr_i  ( bank_final_add    ), // request address
+    .wdata_i ( bank_scrub_wdata  ), // write data
+    .be_i    ( sram_be           ), // write byte enable
 
-    .rdata_o (  bank_scrub_rdata                            )  // read data
+    .rdata_o (  bank_scrub_rdata )  // read data
   );
 
-  // These registers are to avoid writes during scan testing.
-  // Please ensure these registers are not scanned
+  // These registers are to avoid writes during scan testing. Please ensure these registers are not scanned
   always_ff @(posedge clk_i) begin : proc_test_req_ff
     test_req_q <= test_req_d;
     test_add_q <= test_add_d;
