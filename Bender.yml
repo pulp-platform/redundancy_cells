@@ -31,7 +31,6 @@ sources:
   - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
-  - rtl/DMR_checker.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
@@ -85,6 +84,12 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
 
   - files:
+      - rtl/HMR/recovery_pkg.sv
+      - rtl/HMR/recovery_rf.sv
+      - rtl/HMR/recovery_pc.sv
+      - rtl/HMR/DMR_checker.sv
+      - rtl/HMR/DMR_address_generator.sv
+      - rtl/HMR/DMR_controller.sv
       - rtl/HMR/hmr_registers_reg_pkg.sv
       - rtl/HMR/hmr_core_regs_reg_pkg.sv
       - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
