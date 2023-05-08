@@ -105,9 +105,11 @@ sources:
 
   - files:
       - rtl/HMR/recovery_pkg.sv
-      - rtl/HMR/recovery_rf.sv
+      - rtl/HMR/recovery_csr.sv
       - rtl/HMR/recovery_pc.sv
+      - rtl/HMR/recovery_rf.sv
       - rtl/HMR/DMR_checker.sv
+      - rtl/HMR/DMR_CSR_checker.sv
       - rtl/HMR/DMR_address_generator.sv
       # - rtl/HMR/DMR_controller.sv
       - rtl/HMR/hmr_rapid_recovery_ctrl.sv
