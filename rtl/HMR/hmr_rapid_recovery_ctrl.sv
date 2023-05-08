@@ -29,7 +29,9 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
   output regfile_write_t recovery_regfile_waddr_o,
 
   // Signals to backup state
+  output logic backup_csr_enable_o,
   output logic backup_pc_enable_o,
+  output logic recover_csr_enable_o,
   output logic recover_pc_enable_o,
   output logic recover_rf_enable_o
 );
@@ -38,6 +40,7 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
   recovery_mode_e rec_mode_d, rec_mode_q;
 
   logic instr_lock_d, instr_lock_q;
+  logic backup_csr_enable_d, backup_csr_enable_q;
   logic backup_pc_enable_d, backup_pc_enable_q;
   logic setback_d, setback_q;
   logic addr_gen_done;
@@ -64,15 +67,18 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
 
 
   assign instr_lock_o = instr_lock_q;
+  assign backup_csr_enable_o = backup_csr_enable_q;
   assign backup_pc_enable_o = backup_pc_enable_q;
   assign setback_o = setback_q;
 
   always_comb begin
     rec_mode_d = rec_mode_q;
     instr_lock_d = instr_lock_q;
+    backup_csr_enable_d = backup_csr_enable_q;
     backup_pc_enable_d = backup_pc_enable_q;
     setback_d = 1'b0;
     debug_req_o = 1'b0;
+    recover_csr_enable_o = 1'b0;
     recover_pc_enable_o = 1'b0;
     recover_rf_enable_o = 1'b0;
     debug_resume_o = 1'b0;
@@ -82,6 +88,8 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
       IDLE: begin
         // If requested start the routine in the reset state
         if (start_recovery_i) begin
+          // Disable reading for the backup CSR
+          backup_csr_enable_d = 1'b0;
           // Disable reading for the backup PC
           backup_pc_enable_d = 1'b0;
           rec_mode_d = RESET;
@@ -107,6 +115,8 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
       end
 
       RESTORE: begin
+        // Enable CSR recovery routine
+        recover_csr_enable_o = 1'b1;
         // Enable the PC recovery routine
         recover_pc_enable_o = 1'b1;
         // Enable the RF recovery routine
@@ -114,6 +124,7 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
         // If recovery routine complete, continue
         if (addr_gen_done) begin
           instr_lock_d = 1'b0;
+          backup_csr_enable_d = 1'b1;
           backup_pc_enable_d = 1'b1;
           rec_mode_d = IDLE;
           debug_resume_o = 1'b1;
@@ -127,11 +138,13 @@ module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
     if (!rst_ni) begin
       instr_lock_q <= 1'b0;
       rec_mode_q <= IDLE;
+      backup_csr_enable_q <= 1'b1;
       backup_pc_enable_q <= 1'b1;
       setback_q <= 1'b0;
     end else begin
       instr_lock_q <= instr_lock_d;
       rec_mode_q <= rec_mode_d;
+      backup_csr_enable_q <= backup_csr_enable_d;
       backup_pc_enable_q <= backup_pc_enable_d;
       setback_q <= setback_d;
     end
