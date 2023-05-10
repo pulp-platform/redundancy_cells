@@ -114,6 +114,7 @@ sources:
       - rtl/HMR/hmr_tmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_ctrl.sv
       - rtl/HMR/HMR_wrap.sv
+      - rtl/HMR/hmr_unit.sv
 
 vendor_package:
   - name: lowrisc_opentitan
