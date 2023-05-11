@@ -1,4 +1,4 @@
-// Copyright 2022 ETH Zurich and University of Bologna.
+// Copyright 2023 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -292,9 +292,6 @@ module hmr_unit #(
     assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe && core_register_reqs[i].wdata == '0;
   end
 
-
-
-
   /**********************************************************
    ******************** TMR Voters & Regs *******************
    **********************************************************/
@@ -571,6 +568,7 @@ module hmr_unit #(
     assign top_register_resps[2].error = 1'b1;
     assign top_register_resps[2].ready = 1'b1;
     assign dmr_sw_synch_req_o = '0;
+    assign dmr_grp_in_independent = '1;
   end
 
 
