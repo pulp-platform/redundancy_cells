@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update `ecc_manager` for configurability
 - Update secded testbench to use correctors and fix error injection
 
+### Changed
+- Replace vendor.py script with bender vendor for ECC modules
+- Update `ecc_manager` for configurability
+
 ## 0.5.1 - 2023-04-12
 ### Added
 - Add CI flow for linting
