@@ -32,7 +32,7 @@ make gen_ODRG
 This will generate the register file SV-code, its corresponding C-code and documentation using lowrisc's reggen tool via the pulp register-interface repository.
 
 ## ECC encoders and decoders
-ECC encoders and decoders are imported using lowRISC's `vendor.py` script. To re-import and re-generate the `prim_secded_` modules run
+ECC encoders and decoders are imported using [`bender`'s `vendor` command](https://github.com/pulp-platform/bender#vendor-----copy-files-from-dependencies-that-do-not-support-bender). To re-import and re-generate the `prim_secded_` modules run
 ```bash
 make gen_ECC
 ```
@@ -57,4 +57,4 @@ To run tests, execute the following command:
 ./run_tests.sh
 ```
 
-A bender installation >=v0.22 is required.
+A bender installation >=v0.27 is required.
