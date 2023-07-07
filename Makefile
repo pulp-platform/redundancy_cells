@@ -48,13 +48,13 @@ gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) --doc > $(TARGET_DIR_ECC)/doc.md
 
 gen_ECC:
-	./util/vendor.py util/lowrisc_opentitan.vendor.hjson
+	$(BENDER) vendor init
 	cd util/lowrisc_opentitan && ./util/design/secded_gen.py --no_fpv --outdir ../../rtl/lowrisc_ecc
 
 bender:
 ifeq (,$(wildcard ./bender))
 	curl --proto '=https' --tlsv1.2 -sSf https://pulp-platform.github.io/bender/init \
-		| bash -s -- 0.26.1
+		| bash -s -- 0.27.1
 	touch bender
 endif
 

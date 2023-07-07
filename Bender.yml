@@ -83,3 +83,11 @@ sources:
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
 
+vendor_package:
+  - name: lowrisc_opentitan
+    target_dir: "util/lowrisc_opentitan"
+    upstream: { git: "https://github.com/lowRISC/opentitan.git", rev: "cfcfbce85e182c127b8c4be5cd8bf531e0a4d927" }
+    patch_dir: "util/patches"
+    mapping:
+      - {from: 'util/design/secded_gen.py', to: 'util/design/secded_gen.py', patch_dir: 'lowrisc_secded_gen'}
+      - {from: 'util/design/data/', to: 'util/design/data/', patch_dir: 'lowrisc_data_dir'}
