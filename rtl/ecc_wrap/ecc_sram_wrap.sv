@@ -16,6 +16,7 @@ module ecc_sram_wrap #(
                                                 // 1: SECDED on input
   parameter  bit          EnableTestMask   = 1, // Enables test_write_mask in HW
                                                 // Requries bitwise byte enable in SRAM
+  parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
   // Set params
   parameter  int unsigned UnprotectedWidth = 32, // This currently only works for 32bit
   parameter  int unsigned ProtectedWidth   = 39, // This currently only works for 39bit
@@ -88,8 +89,32 @@ module ecc_sram_wrap #(
   logic                      bank_final_we;
   logic [  BankAddWidth-1:0] bank_final_add;
 
+  typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
+  store_state_e store_state_d, store_state_q;
+  logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0] rmw_count_d, rmw_count_q;
 
-  if ( InputECC == 0 ) begin : gen_ECC_0_ASSIGN
+  logic [ DataInWidth-1:0] input_buffer_d, input_buffer_q;
+  logic [BankAddWidth-1:0] add_buffer_d, add_buffer_q;
+  logic [   BEInWidth-1:0] be_buffer_d, be_buffer_q;
+
+  logic [UnprotectedWidth-1:0] be_selector;
+  assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
+                           {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+
+  logic [ProtectedWidth-1:0] rmw_buffer_end;
+  logic [ProtectedWidth-1:0] rmw_buffer_0;
+  assign rmw_buffer_0 = bank_rdata;
+  shift_reg #(
+    .dtype(logic[ProtectedWidth-1:0]),
+    .Depth(NumRMWCuts)
+  ) i_rmw_buffer (
+    .clk_i,
+    .rst_ni,
+    .d_i   (rmw_buffer_0),
+    .d_o   (rmw_buffer_end)
+  );
+
+  if ( InputECC == 0 ) begin : gen_no_ecc_input
     // Loads  -> loads full data
     // Stores ->
     //   If BE_in == 1111: adds ECC and stores directly
@@ -97,18 +122,14 @@ module ecc_sram_wrap #(
     //                     re-calculates ECC and stores correctly
 
     logic [DataInWidth-1:0] to_store;
-    logic [DataInWidth-1:0] loaded;
-    logic [DataInWidth-1:0] be_selector;
+    logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0][DataInWidth-1:0] loaded;
 
-    typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
-    store_state_e store_state_d, store_state_q;
+    logic [ProtectedWidth-1:0] decoder_in;
 
-    logic [ DataInWidth-1:0] input_buffer_d, input_buffer_q;
-    logic [BankAddWidth-1:0] add_buffer_d, add_buffer_q;
-    logic [   BEInWidth-1:0] be_buffer_d, be_buffer_q;
+    assign decoder_in = store_state_q == NORMAL ? bank_rdata : rmw_buffer_end;
 
     prim_secded_39_32_dec ecc_decode (
-      .in         ( bank_rdata ),
+      .in         ( decoder_in ),
       .d_o        ( loaded ),
       .syndrome_o (),
       .err_o      (ecc_error)
@@ -120,71 +141,19 @@ module ecc_sram_wrap #(
     );
 
     assign tcdm_rdata_o   = loaded;
-    // Address input differentiates by byte, memory by word, ensure correct access
-    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
-    assign input_buffer_d = tcdm_wdata_i;
-    assign be_buffer_d    = tcdm_be_i;
-    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
-                             {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
-    always_comb begin : proc_load_and_store_comb
-      store_state_d =  NORMAL;
-      tcdm_gnt_o    =  1'b1;
-      to_store      =  tcdm_wdata_i;
-      bank_we       = ~tcdm_wen_i;
-      bank_req      =  tcdm_req_i;
-      bank_add      =  tcdm_add_i[BankAddWidth+2-1:2];
-      if (store_state_q == NORMAL) begin
-        if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
-          store_state_d = LOAD_AND_STORE;
-          bank_we       = 1'b0;
-        end
-      end else begin
-        tcdm_gnt_o = 1'b0;
-        to_store   = (be_selector & input_buffer_q) | (~be_selector & loaded);
-        bank_we    = 1'b1;
-        bank_req   = 1'b1;
-        bank_add   = add_buffer_q;
-      end
-    end
+    assign to_store = store_state_q == NORMAL ? tcdm_wdata_i : (be_selector & input_buffer_q) | (~be_selector & loaded);
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_load_and_store_ff
-      if(!rst_ni) begin
-        store_state_q  <= NORMAL;
-        add_buffer_q   <= '0;
-        input_buffer_q <= '0;
-        be_buffer_q    <= '0;
-      end else begin
-        add_buffer_q   <= add_buffer_d;
-        store_state_q  <= store_state_d;
-        input_buffer_q <= input_buffer_d;
-        be_buffer_q    <= be_buffer_d;
-      end
-    end
-  end // ECC_0_ASSIGN
-  else if (InputECC == 1 ) begin : gen_ECC_1_ASSIGN
-
-    typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
-    store_state_e store_state_d, store_state_q;
-
-    logic [ DataInWidth-1:0] input_buffer_d, input_buffer_q;
-    logic [BankAddWidth-1:0] add_buffer_d, add_buffer_q;
-    logic [   BEInWidth-1:0] be_buffer_d, be_buffer_q;
+  end else begin : gen_ecc_input
 
     logic [  ProtectedWidth-1:0] lns_wdata;
     logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
 
-    logic [UnprotectedWidth-1:0] be_selector;
-
+    assign bank_wdata = store_state_q == NORMAL ? tcdm_wdata_i : lns_wdata;
     assign tcdm_rdata_o   = bank_rdata;
-    assign add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
-    assign input_buffer_d = tcdm_wdata_i;
-    assign be_buffer_d    = tcdm_be_i;
-    assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
-                             {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
 
     prim_secded_39_32_dec ld_decode (
-      .in        (bank_rdata),
+      .in        (rmw_buffer_end),
       .d_o       (intermediate_data_ld),
       .syndrome_o(),
       .err_o     ()
@@ -201,42 +170,56 @@ module ecc_sram_wrap #(
       .in ( (be_selector & intermediate_data_st) | (~be_selector & intermediate_data_ld) ),
       .out(lns_wdata)
     );
+  end
 
-    always_comb begin
-      store_state_d =  NORMAL;
-      tcdm_gnt_o    =  1'b1;
-      bank_wdata    =  tcdm_wdata_i;
-      bank_we       = ~tcdm_wen_i;
-      bank_req      =  tcdm_req_i;
-      bank_add      =  tcdm_add_i[BankAddWidth+2-1:2];
-      if (store_state_q == NORMAL) begin
-        if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
-          store_state_d = LOAD_AND_STORE;
-          bank_we       = 1'b0;
-        end
-      end else begin // store_state_q == LOAD_AND_STORE
-        tcdm_gnt_o  = 1'b0;
-        bank_req    = 1'b1;
-        bank_we     = 1'b1;
-        bank_add    = add_buffer_q;
-        bank_wdata  = lns_wdata;
+  always_comb begin
+    store_state_d  = NORMAL;
+    tcdm_gnt_o     =  1'b1;
+    bank_add       =  tcdm_add_i[BankAddWidth+2-1:2];
+    bank_we        = ~tcdm_wen_i;
+    input_buffer_d = tcdm_wdata_i;
+    add_buffer_d   = tcdm_add_i[BankAddWidth+2-1:2];
+    be_buffer_d    = tcdm_be_i;
+    bank_req       =  tcdm_req_i;
+    rmw_count_d    = rmw_count_q;
+    if (store_state_q == NORMAL) begin
+      if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
+        store_state_d = LOAD_AND_STORE;
+        bank_we       = 1'b0;
+        rmw_count_d   = NumRMWCuts;
       end
-    end
-
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_load_and_store_ff
-      if(!rst_ni) begin
-        store_state_q  <= NORMAL;
-        add_buffer_q   <= '0;
-        input_buffer_q <= '0;
-        be_buffer_q    <= '0;
+    end else begin
+      tcdm_gnt_o  = 1'b0;
+      bank_add        = add_buffer_q;
+      bank_we         = 1'b1;
+      input_buffer_d  = input_buffer_q;
+      add_buffer_d    = add_buffer_q;
+      be_buffer_d     = be_buffer_q;
+      if (rmw_count_q == '0) begin
+        bank_req      = 1'b1;
       end else begin
-        add_buffer_q   <= add_buffer_d;
-        store_state_q  <= store_state_d;
-        input_buffer_q <= input_buffer_d;
-        be_buffer_q    <= be_buffer_d;
+        bank_req      = 1'b0;
+        rmw_count_d   = rmw_count_q - 1;
+        store_state_d = LOAD_AND_STORE;
       end
     end
-  end // ECC_1_ASSIGN
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_load_and_store_ff
+    if(!rst_ni) begin
+      store_state_q  <= NORMAL;
+      add_buffer_q   <= '0;
+      input_buffer_q <= '0;
+      be_buffer_q    <= '0;
+      rmw_count_q    <= '0;
+    end else begin
+      add_buffer_q   <= add_buffer_d;
+      store_state_q  <= store_state_d;
+      input_buffer_q <= input_buffer_d;
+      be_buffer_q    <= be_buffer_d;
+      rmw_count_q    <= rmw_count_d;
+    end
+  end
 
   ecc_scrubber #(
     .BankSize       ( BankSize       ),
