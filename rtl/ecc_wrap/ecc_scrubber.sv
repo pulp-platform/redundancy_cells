@@ -45,7 +45,6 @@ module ecc_scrubber #(
 );
 
   logic [                 1:0] ecc_err;
-  logic [                31:0] data_tmp;
 
   logic                        scrub_req;
   logic                        scrub_we;
@@ -84,15 +83,11 @@ module ecc_scrubber #(
     assign scrub_wdata = ecc_in_i;
   end else begin : gen_internal_ecc
     assign ecc_out_o = '0;
-    prim_secded_39_32_dec ecc_decode (
-      .in        (scrub_rdata),
-      .d_o       (data_tmp),
-      .syndrome_o(),
-      .err_o     (ecc_err)
-    );
-    prim_secded_39_32_enc ecc_encode (
-      .in (data_tmp),
-      .out(scrub_wdata)
+    prim_secded_39_32_cor ecc_corrector (
+      .d_i        ( scrub_rdata ),
+      .d_o        ( scrub_wdata ),
+      .syndrome_o (),
+      .err_o      ( ecc_err     )
     );
   end
 
