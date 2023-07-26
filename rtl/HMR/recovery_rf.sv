@@ -11,42 +11,45 @@
 // Register File for RR with ECC
 
 module recovery_rf #(
-    parameter  ECCEnabled        = 0,
-    parameter  ADDR_WIDTH        = 5,
-    parameter  NonProtectedWidth = 32,
-    parameter  ProtectedWidth    = 39,
-    parameter  FPU               = 0,
-    parameter  PULP_ZFINX        = 0,
-    localparam DataWidth         = ( ECCEnabled ) ? ProtectedWidth
-                                                  :  NonProtectedWidth
+  parameter  int unsigned ECCEnabled        = 0,
+  parameter  int unsigned ADDR_WIDTH        = 5,
+  parameter  int unsigned NonProtectedWidth = 32,
+  parameter  int unsigned ProtectedWidth    = 39,
+  parameter  int unsigned FPU               = 0,
+  parameter  int unsigned PULP_ZFINX        = 0,
+  parameter  type         regfile_write_t   = logic,
+  parameter  type         regfile_raddr_t   = logic,
+  parameter  type         regfile_rdata_t   = logic,
+  localparam int unsigned DataWidth         = ( ECCEnabled ) ? ProtectedWidth
+                                                             : NonProtectedWidth
 ) (
-    // Clock and Reset
-    input logic clk_i,
-    input logic rst_ni,
+  // Clock and Reset
+  input logic clk_i,
+  input logic rst_ni,
 
-    input logic test_en_i,
+  input logic test_en_i,
 
-    //Read port R1
-    input  logic [ADDR_WIDTH-1:0]        raddr_a_i,
-    output logic [NonProtectedWidth-1:0] rdata_a_o,
+  //Read port R1
+  input  logic [ADDR_WIDTH-1:0]        raddr_a_i,
+  output logic [NonProtectedWidth-1:0] rdata_a_o,
 
-    //Read port R2
-    input  logic [ADDR_WIDTH-1:0]        raddr_b_i,
-    output logic [NonProtectedWidth-1:0] rdata_b_o,
+  //Read port R2
+  input  logic [ADDR_WIDTH-1:0]        raddr_b_i,
+  output logic [NonProtectedWidth-1:0] rdata_b_o,
 
-    //Read port R3
-    input  logic [ADDR_WIDTH-1:0]        raddr_c_i,
-    output logic [NonProtectedWidth-1:0] rdata_c_o,
+  //Read port R3
+  input  logic [ADDR_WIDTH-1:0]        raddr_c_i,
+  output logic [NonProtectedWidth-1:0] rdata_c_o,
 
-    // Write port W1
-    input logic [ADDR_WIDTH-1:0]        waddr_a_i,
-    input logic [NonProtectedWidth-1:0] wdata_a_i,
-    input logic                         we_a_i,
+  // Write port W1
+  input logic [ADDR_WIDTH-1:0]        waddr_a_i,
+  input logic [NonProtectedWidth-1:0] wdata_a_i,
+  input logic                         we_a_i,
 
-    // Write port W2
-    input logic [ADDR_WIDTH-1:0]        waddr_b_i,
-    input logic [NonProtectedWidth-1:0] wdata_b_i,
-    input logic                         we_b_i
+  // Write port W2
+  input logic [ADDR_WIDTH-1:0]        waddr_b_i,
+  input logic [NonProtectedWidth-1:0] wdata_b_i,
+  input logic                         we_b_i
 );
 
   // number of integer registers

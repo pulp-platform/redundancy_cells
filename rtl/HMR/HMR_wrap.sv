@@ -10,7 +10,9 @@
 //
 // Hybrid modular redundancy wrapping unit
 
-module HMR_wrap import recovery_pkg::*; #(
+module HMR_wrap
+  import rapid_recovery_pkg::*;
+#(
   // Wrapper parameters
   /// Number of physical cores
   parameter  int unsigned NumCores       = 0,

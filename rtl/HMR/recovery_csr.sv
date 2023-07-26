@@ -11,21 +11,22 @@
 // Recovery Control Status Registers
 // ECC-protected register that stores the CSRs values from the cores
 
-import recovery_pkg::*;
-
-module recovery_csr #(
-  parameter  ECCEnabled        = 0,
-  parameter  NonProtectedWidth = 32,
-  parameter  ProtectedWidth    = 39,
-  localparam DataWidth  = ( ECCEnabled ) ? ProtectedWidth 
-                                         :  NonProtectedWidth
+module recovery_csr
+  import rapid_recovery_pkg::*;
+#(
+  parameter  int unsigned ECCEnabled        = 0,
+  parameter  int unsigned NonProtectedWidth = 32,
+  parameter  int unsigned ProtectedWidth    = 39,
+  parameter      type     csr_intf_t        = logic,
+  localparam int unsigned DataWidth  = ( ECCEnabled ) ? ProtectedWidth
+                                                      : NonProtectedWidth
 ) (
-input  logic clk_i ,
-input  logic rst_ni,
-input  logic read_enable_i,
-input  logic write_enable_i,
-input  csrs_intf_t backup_csr_i,
-output csrs_intf_t recovery_csr_o
+  input  logic clk_i ,
+  input  logic rst_ni,
+  input  logic read_enable_i,
+  input  logic write_enable_i,
+  input  csrs_intf_t backup_csr_i,
+  output csrs_intf_t recovery_csr_o
 );
 
 csrs_intf_t csr_inp,

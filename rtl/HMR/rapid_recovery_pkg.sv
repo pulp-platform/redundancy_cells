@@ -10,7 +10,7 @@
 //
 // Recovery Region Package
 
-package recovery_pkg;
+package rapid_recovery_pkg;
 
 localparam int unsigned DataWidth = 32;
 localparam int unsigned ProtectedWidth = 39;
@@ -61,5 +61,23 @@ typedef struct packed {
   logic [ProtectedWidth-1:0] csr_mepc;
   logic [ProtectedWidth-1:0] csr_mcause;
 } ecc_csrs_intf_t;
+
+typedef struct packed {
+  logic [DataWidth-1:0] program_counter;
+  logic                 is_branch;
+  logic [DataWidth-1:0] branch_addr;
+} pc_intf_t;
+
+typedef struct packed {
+  logic        instr_lock;
+  logic        pc_recovery_en;
+  logic        rf_recovery_en;
+  logic        debug_req;
+  logic        debug_resume;
+  rapid_recovery_pkg::regfile_write_t rf_recovery_wdata;
+  rapid_recovery_pkg::regfile_rdata_t rf_recovery_rdata;
+  rapid_recovery_pkg::csrs_intf_t     csr_recovery;
+  rapid_recovery_pkg::pc_intf_t       pc_recovery;
+} rapid_recovery_t;
 
 endpackage

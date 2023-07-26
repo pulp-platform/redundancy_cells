@@ -94,10 +94,11 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
 
   - files:
-      - rtl/HMR/recovery_pkg.sv
+      - rtl/HMR/rapid_recovery_pkg.sv
       - rtl/HMR/recovery_csr.sv
       - rtl/HMR/recovery_pc.sv
       - rtl/HMR/recovery_rf.sv
+      - rtl/HMR/rapid_recovery_unit.sv
       - rtl/HMR/DMR_checker.sv
       - rtl/HMR/DMR_CSR_checker.sv
       - rtl/HMR/DMR_address_generator.sv

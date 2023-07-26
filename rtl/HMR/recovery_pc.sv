@@ -12,11 +12,12 @@
 // ECC-protected register that stores the Program Counter value from the cores
 
 module recovery_pc #(
-  parameter  ECCEnabled        = 0,
-  parameter  NonProtectedWidth = 32,
-  parameter  ProtectedWidth    = 39,
-  localparam DataWidth  = ( ECCEnabled ) ? ProtectedWidth 
-                                         :  NonProtectedWidth
+  parameter  int unsigned ECCEnabled        = 0,
+  parameter  int unsigned NonProtectedWidth = 32,
+  parameter  int unsigned ProtectedWidth    = 39,
+  parameter  type         pc_intf_t         = logic,
+  localparam int unsigned DataWidth  = ( ECCEnabled ) ? ProtectedWidth
+                                                      : NonProtectedWidth
 ) (
   // Control Ports
   input  logic clk_i,
