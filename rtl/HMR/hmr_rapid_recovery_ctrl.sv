@@ -10,8 +10,11 @@
 //
 // Hybrid modular redundancy Rapid Recovery control unit
 
-module hmr_rapid_recovery_ctrl import recovery_pkg::*; #(
-  parameter int unsigned RFAddrWidth = 6
+module hmr_rapid_recovery_ctrl
+  import rapid_recovery_pkg::*;
+#(
+  parameter int unsigned RFAddrWidth = 6,
+  parameter     type     regfile_write_t = logic
 ) (
   input  logic clk_i,
   input  logic rst_ni,

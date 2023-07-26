@@ -10,9 +10,9 @@
 //
 // CS Registers Checker
 
-import recovery_pkg::*;
-
-module DMR_CSR_checker (
+module DMR_CSR_checker
+  import rapid_recovery_pkg::*;
+(
   input  csrs_intf_t csr_a_i,
   input  csrs_intf_t csr_b_i,
   output csrs_intf_t check_o,
