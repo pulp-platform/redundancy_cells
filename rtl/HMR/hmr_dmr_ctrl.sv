@@ -10,7 +10,9 @@
 //
 // Hybrid modular redundancy DMR control unit
 
-module hmr_dmr_ctrl import recovery_pkg::*; #(
+module hmr_dmr_ctrl
+  import rapid_recovery_pkg::*;
+#(
   parameter bit  InterleaveGrps = 1'b0,
   parameter bit  DMRFixed       = 1'b0,
   parameter bit  DefaultInDMR   = DMRFixed ? 1'b1 : 1'b0,
