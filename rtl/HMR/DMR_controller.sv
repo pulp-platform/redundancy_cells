@@ -13,7 +13,9 @@
  * 
  */
 
-module DMR_controller import recovery_pkg::*; #(
+module DMR_controller
+  import rapid_recovery_pkg::*;
+#(
   parameter  int unsigned NumCores       = 0,
   parameter  bit          DMRFixed       = 1'b0,
   parameter  bit          RapidRecovery  = 1'b0,
