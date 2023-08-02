@@ -39,6 +39,8 @@ module hmr_tmr_ctrl #(
   input  logic       rapid_recovery_qe_i,
   input  logic       force_resynch_q_i,
   input  logic       force_resynch_qe_i,
+  input  logic       synch_req_q_i,
+  input  logic       synch_req_qe_i,
   
   // TMR control signals
   output logic [2:0] setback_o,
@@ -55,7 +57,9 @@ module hmr_tmr_ctrl #(
   input  logic       fetch_en_i,
   input  logic       cores_synch_i,
   output logic       recovery_request_o,
-  input  logic       recovery_finished_i
+  input  logic       recovery_finished_i,
+  input  logic       bus_resp_ok_i,
+  output logic       bus_hold_o
 );
 
   logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
@@ -103,6 +107,8 @@ module hmr_tmr_ctrl #(
   assign tmr_hw2reg.tmr_config.reload_setback.d  = reload_setback_q_i;
   assign tmr_hw2reg.tmr_config.rapid_recovery.de = rapid_recovery_qe_i;
   assign tmr_hw2reg.tmr_config.rapid_recovery.d  = rapid_recovery_q_i;
+  assign tmr_hw2reg.tmr_config.synch_req.d       = synch_req_q_i;
+  assign tmr_hw2reg.tmr_config.synch_req.de      = synch_req_qe_i;
   assign tmr_hw2reg.tmr_config.force_resynch.d   = force_resynch_qe_i ? force_resynch_q_i : 1'b0;
 
   /**************************
@@ -115,6 +121,7 @@ module hmr_tmr_ctrl #(
     recovery_request_o = 1'b0;
     resynch_req = 1'b0;
     synch_req = 1'b0;
+    bus_hold_o = 1'b0;
 
     tmr_hw2reg.tmr_config.force_resynch.de = force_resynch_qe_i;
 
@@ -188,7 +195,7 @@ module hmr_tmr_ctrl #(
     if (!TMRFixed) begin
       // Set TMR mode on external signal that cores are synchronized
       if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
-        synch_req = 1'b1;
+        synch_req = tmr_reg2hw.tmr_config.synch_req;
         if (cores_synch_q == 1'b1) begin
           if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
             tmr_red_mode_d = TMR_RAPID;
@@ -212,10 +219,13 @@ module hmr_tmr_ctrl #(
       // split tolerant mode to performance mode anytime (but require correct core state)
       if (tmr_red_mode_q == TMR_RUN) begin
         if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
-          if (tmr_reg2hw.tmr_config.setback.q) begin
-            setback_o = 3'b110;
+          bus_hold_o = 1'b1;
+          if (bus_resp_ok_i) begin
+            if (tmr_reg2hw.tmr_config.setback.q) begin
+              setback_o = 3'b110;
+            end
+            tmr_red_mode_d = NON_TMR;
           end
-          tmr_red_mode_d = NON_TMR;
         end
       end
     end

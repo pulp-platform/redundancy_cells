@@ -377,7 +377,9 @@ module hmr_unit #(
         .cores_synch_i        ( tmr_cores_synch_i[i] ),
 
         .recovery_request_o   ( ),//tmr_start_recovery [i] ),
-        .recovery_finished_i  ( '0)//tmr_recovery_finished [i] )
+        .recovery_finished_i  ( '0),//tmr_recovery_finished [i] )
+        .bus_resp_ok_i        ('0),
+        .bus_hold_o           ()
       );
 
       assign tmr_sw_synch_req_o[tmr_core_id(i, 0)] = tmr_sw_synch_req[i];
@@ -514,7 +516,9 @@ module hmr_unit #(
         .cores_synch_i         ( dmr_cores_synch_i[i] ),
 
         .recovery_request_o    ( ),//dmr_start_recovery   [i] ),
-        .recovery_finished_i   ( '0)//dmr_recovery_finished[i] )
+        .recovery_finished_i   ( '0),//dmr_recovery_finished[i] )
+        .bus_resp_ok_i        ('0),
+        .bus_hold_o           ()
       );
 
       assign dmr_sw_synch_req_o[dmr_core_id(i, 0)] = dmr_sw_synch_req[i];

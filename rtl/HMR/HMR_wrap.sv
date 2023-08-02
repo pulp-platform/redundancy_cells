@@ -258,6 +258,8 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumTMRGroups-1:0][ DataWidth-1:0] tmr_data_wdata_out;
   logic [NumTMRGroups-1:0][ UserWidth-1:0] tmr_data_user_out;
   logic [NumTMRGroups-1:0][   BeWidth-1:0] tmr_data_be_out;
+  logic [NumTMRGroups-1:0]                 tmr_bus_hold;
+  logic [NumTMRGroups-1:0]                 tmr_resp_ok;
 
   logic [NumDMRGroups-1:0]                 dmr_core_busy_out;
   logic [NumDMRGroups-1:0]                 dmr_irq_ack_out;
@@ -270,6 +272,8 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumDMRGroups-1:0][ DataWidth-1:0] dmr_data_wdata_out;
   logic [NumDMRGroups-1:0][ UserWidth-1:0] dmr_data_user_out;
   logic [NumDMRGroups-1:0][   BeWidth-1:0] dmr_data_be_out;
+  logic [NumDMRGroups-1:0]                 dmr_bus_hold;
+  logic [NumDMRGroups-1:0]                 dmr_resp_ok;
 
 
   logic [     NumDMRGroups-1:0][RFAddrWidth-1:0] dmr_backup_regfile_waddr_a,
@@ -380,6 +384,9 @@ module HMR_wrap import recovery_pkg::*; #(
   logic [NumSysCores-1:0][DataWidth-1:0] filt_data_data;
   logic [NumSysCores-1:0][BeWidth-1:0] filt_data_be;
 
+  logic [NumSysCores-1:0]      filt_bus_hold;
+  logic [NumSysCores-1:0][1:0] filt_resp_ok;
+
   for (genvar i = 0; i < NumSysCores; i++) begin
     resp_suppress #(
       .AW (32),
@@ -389,6 +396,8 @@ module HMR_wrap import recovery_pkg::*; #(
       .rst_ni,
 
       .ctrl_setback_i (core_setback_o[i]),
+      .bus_hold_i     (filt_bus_hold[i]),
+      .resp_ok_o      (filt_resp_ok[i][0]),
 
       .req_i     (filt_instr_req    [i]),
       .gnt_o     (filt_instr_gnt    [i]),
@@ -414,6 +423,8 @@ module HMR_wrap import recovery_pkg::*; #(
       .rst_ni,
 
       .ctrl_setback_i (core_setback_o[i]),
+      .resp_ok_o      (filt_resp_ok[i][1]),
+      .bus_hold_i     (filt_bus_hold[i]),
 
       .req_i     (filt_data_req    [i]),
       .gnt_o     (filt_data_gnt    [i]),
@@ -643,6 +654,8 @@ module HMR_wrap import recovery_pkg::*; #(
         .rapid_recovery_qe_i  ( hmr_reg2hw.tmr_config.rapid_recovery.qe ),
         .force_resynch_q_i    ( hmr_reg2hw.tmr_config.force_resynch.q ),
         .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
+        .synch_req_q_i        ( hmr_reg2hw.tmr_config.synch_req.q ),
+        .synch_req_qe_i       ( hmr_reg2hw.tmr_config.synch_req.qe ),
 
         .setback_o            ( tmr_setback_q[i] ),
         .sw_resynch_req_o     ( tmr_resynch_req_o[i] ),
@@ -660,8 +673,12 @@ module HMR_wrap import recovery_pkg::*; #(
         .cores_synch_i        ( tmr_cores_synch_i[i] ),
 
         .recovery_request_o   ( tmr_start_recovery [i] ),
-        .recovery_finished_i  ( tmr_recovery_finished [i] )
+        .recovery_finished_i  ( tmr_recovery_finished [i] ),
+        .bus_resp_ok_i        ( tmr_resp_ok[i] ),
+        .bus_hold_o           ( tmr_bus_hold[i] )
       );
+
+      assign tmr_resp_ok[i] = &filt_resp_ok[tmr_core_id(i, 0)] & &filt_resp_ok[tmr_core_id(i, 1)] & &filt_resp_ok[tmr_core_id(i, 2)];
 
       assign tmr_sw_synch_req_o[tmr_core_id(i, 0)] = tmr_sw_synch_req[i];
       assign tmr_sw_synch_req_o[tmr_core_id(i, 1)] = tmr_sw_synch_req[i];
@@ -871,8 +888,12 @@ module HMR_wrap import recovery_pkg::*; #(
         .cores_synch_i         ( dmr_cores_synch_i[i] ),
 
         .recovery_request_o    ( dmr_start_recovery   [i] ),
-        .recovery_finished_i   ( dmr_recovery_finished[i] )
+        .recovery_finished_i   ( dmr_recovery_finished[i] ),
+        .bus_hold_o           ( dmr_bus_hold[i] ),
+        .bus_resp_ok_i        ( dmr_resp_ok[i] )
       );
+
+      assign dmr_resp_ok[i] = &filt_resp_ok[dmr_core_id(i, 0)] & &filt_resp_ok[dmr_core_id(i, 1)];
 
       assign dmr_sw_synch_req_o[dmr_core_id(i, 0)] = dmr_sw_synch_req[i];
       assign dmr_sw_synch_req_o[dmr_core_id(i, 1)] = dmr_sw_synch_req[i];
@@ -1283,14 +1304,18 @@ module HMR_wrap import recovery_pkg::*; #(
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
                                 | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)];
         end
+        filt_bus_hold       [i] = tmr_bus_hold[tmr_group_id(i)] | dmr_bus_hold[dmr_group_id(i)];
         if (i >= NumTMRCores && i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
+          filt_bus_hold     [i] = '0;
         end else if (i < NumTMRCores && i >= NumDMRCores) begin
           core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)]
                                 | (RapidRecovery ? (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
+          filt_bus_hold     [i] = tmr_bus_hold  [tmr_group_id(i)];
         end else if (i >= NumTMRCores && i < NumDMRCores) begin
           core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)]
                                 | (RapidRecovery ? (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
+          filt_bus_hold     [i] = dmr_bus_hold  [dmr_group_id(i)];
         end
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           // CTRL
@@ -1515,8 +1540,10 @@ module HMR_wrap import recovery_pkg::*; #(
         end else begin
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
         end
+        filt_bus_hold[i] = tmr_bus_hold[tmr_group_id(i)];
         if (i >= NumTMRCores) begin
           core_setback_o [i] = '0;
+          tmr_bus_hold[i] = '0;
         end
         if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
           // CTRL
@@ -1713,8 +1740,10 @@ module HMR_wrap import recovery_pkg::*; #(
         end else begin
           core_setback_o    [i] = '0;
         end
+        filt_bus_hold[i] = dmr_bus_hold[dmr_group_id(i)];
         if (i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
+          filt_bus_hold[i] = '0;
         end
         if (i < NumDMRCores && (DMRFixed || core_in_dmr[i])) begin : dmr_mode
           // CTRL
@@ -1897,6 +1926,7 @@ module HMR_wrap import recovery_pkg::*; #(
      *****************/
     // Direct assignment, disable all
     assign core_setback_o       = '0;
+    assign filt_bus_hold        = '0;
 
     // CTRL
     assign core_core_id_o       = sys_core_id_i;
