@@ -33,7 +33,7 @@ module hmr_dmr_regs_reg_top #(
   // register signals
   logic           reg_we;
   logic           reg_re;
-  logic [AW-1:0]  reg_addr;
+  logic [BlockAw-1:0]  reg_addr;
   logic [DW-1:0]  reg_wdata;
   logic [DBW-1:0] reg_be;
   logic [DW-1:0]  reg_rdata;
@@ -54,7 +54,7 @@ module hmr_dmr_regs_reg_top #(
 
   assign reg_we = reg_intf_req.valid & reg_intf_req.write;
   assign reg_re = reg_intf_req.valid & ~reg_intf_req.write;
-  assign reg_addr = reg_intf_req.addr;
+  assign reg_addr = reg_intf_req.addr[BlockAw-1:0];
   assign reg_wdata = reg_intf_req.wdata;
   assign reg_be = reg_intf_req.wstrb;
   assign reg_intf_rsp.rdata = reg_rdata;
@@ -77,6 +77,9 @@ module hmr_dmr_regs_reg_top #(
   logic dmr_config_force_recovery_qs;
   logic dmr_config_force_recovery_wd;
   logic dmr_config_force_recovery_we;
+  logic dmr_config_setback_qs;
+  logic dmr_config_setback_wd;
+  logic dmr_config_setback_we;
   logic [31:0] checkpoint_addr_qs;
   logic [31:0] checkpoint_addr_wd;
   logic checkpoint_addr_we;
@@ -163,6 +166,32 @@ module hmr_dmr_regs_reg_top #(
   );
 
 
+  //   F[setback]: 1:1
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h1)
+  ) u_dmr_config_setback (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (dmr_config_setback_we),
+    .wd     (dmr_config_setback_wd),
+
+    // from internal hardware
+    .de     (hw2reg.dmr_config.setback.de),
+    .d      (hw2reg.dmr_config.setback.d ),
+
+    // to internal hardware
+    .qe     (reg2hw.dmr_config.setback.qe),
+    .q      (reg2hw.dmr_config.setback.q ),
+
+    // to register interface (read)
+    .qs     (dmr_config_setback_qs)
+  );
+
+
   // R[checkpoint_addr]: V(False)
 
   prim_subreg #(
@@ -219,6 +248,9 @@ module hmr_dmr_regs_reg_top #(
   assign dmr_config_force_recovery_we = addr_hit[1] & reg_we & !reg_error;
   assign dmr_config_force_recovery_wd = reg_wdata[1];
 
+  assign dmr_config_setback_we = addr_hit[1] & reg_we & !reg_error;
+  assign dmr_config_setback_wd = reg_wdata[1];
+
   assign checkpoint_addr_we = addr_hit[2] & reg_we & !reg_error;
   assign checkpoint_addr_wd = reg_wdata[31:0];
 
@@ -233,6 +265,7 @@ module hmr_dmr_regs_reg_top #(
       addr_hit[1]: begin
         reg_rdata_next[0] = dmr_config_rapid_recovery_qs;
         reg_rdata_next[1] = dmr_config_force_recovery_qs;
+        reg_rdata_next[1] = dmr_config_setback_qs;
       end
 
       addr_hit[2]: begin

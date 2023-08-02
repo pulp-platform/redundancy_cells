@@ -19,6 +19,8 @@ module resp_suppress #(
   input  logic rst_ni,
   
   input  logic            ctrl_setback_i,
+  input  logic            bus_hold_i,
+  output logic            resp_ok_o,
 
   input  logic            req_i,
   output logic            gnt_o,
@@ -40,38 +42,56 @@ module resp_suppress #(
   logic [$clog2(NumOutstanding)-1:0] outstanding_d, outstanding_q;
   logic block_d, block_q;
   logic latent_req_d, latent_req_q;
+  logic latent_req_enforced_d, latent_req_enforced_q;
   logic we_d, we_q;
   logic [AW  -1:0] addr_d, addr_q;
   logic [DW  -1:0] data_d, data_q;
   logic [DW/8-1:0] be_d, be_q;
 
+  // Number of outstanding is current  + additional accepted     - completed
   assign outstanding_d = outstanding_q + (req_o & gnt_i ? 1 : 0) - (r_valid_i ? 1 : 0);
 
-  assign r_valid_o = block_q || latent_req_q ? 1'b0 : r_valid_i;
-  assign gnt_o = latent_req_q ? 1'b0 : gnt_i;
+  // The responses are in OK state if there is no outstanding transmission
+  assign resp_ok_o = outstanding_q == '0 & ~latent_req_q;
 
-  assign req_o = req_i | latent_req_q;
-  assign we_o = latent_req_q ? we_q : we_i;
-  assign addr_o = latent_req_q ? addr_q : addr_i;
-  assign data_o = latent_req_q ? data_q : data_i;
-  assign be_o = latent_req_q ? be_q : be_i;
+  // Suppress r_valid if there is a latent request signal or we are in block state
+  assign r_valid_o = block_q || latent_req_enforced_q ? 1'b0 : r_valid_i;
+
+  // Suppress gnt if there is a latent request signal or we are holding the bus
+  assign gnt_o = latent_req_enforced_q || (bus_hold_i & ~latent_req_q) ? 1'b0 : gnt_i;
+
+  // Request is req_i or latent request (protocol compliance), unless bus is being held
+  assign req_o = (req_i & ~bus_hold_i) | latent_req_q;
+  assign we_o = latent_req_enforced_q ? we_q : we_i;
+  assign addr_o = latent_req_enforced_q ? addr_q : addr_i;
+  assign data_o = latent_req_enforced_q ? data_q : data_i;
+  assign be_o = latent_req_enforced_q ? be_q : be_i;
+
+  assign latent_req_d = req_o & ~gnt_i; // clear latent request if we got the grant
 
   always_comb begin
     block_d = block_q;
-    latent_req_d = latent_req_q & ~gnt_i;
-    we_d = we_q;
-    addr_d = addr_q;
-    data_d = data_q;
-    be_d = be_q;
+    latent_req_enforced_d = latent_req_enforced_q & ~gnt_i;
+    if (latent_req_q && !req_i) begin
+      we_d = we_q;
+      addr_d = addr_q;
+      data_d = data_q;
+      be_d = be_q;
+    end else begin
+      we_d = we_i;
+      addr_d = addr_i;
+      data_d = data_i;
+      be_d = be_i;
+    end
     if (ctrl_setback_i) begin
-      block_d = 1'b1;
-      latent_req_d = req_i & ~gnt_i;
+      block_d = 1'b1;                // block if we got a setback
+      latent_req_enforced_d = (req_i & ~bus_hold_i) & ~gnt_i; // create latent request if requesting on setback call (protocol compliance)
       we_d = we_i;
       addr_d = addr_i;
       data_d = data_i;
       be_d = be_i;
     end else if (outstanding_q == 0 && !latent_req_q) begin
-      block_d = 1'b0;
+      block_d = 1'b0;                // Clear block if there are no more outstanding requests
     end
   end
 
@@ -80,6 +100,7 @@ module resp_suppress #(
       outstanding_q <= '0;
       block_q <= '0;
       latent_req_q <= '0;
+      latent_req_enforced_q <= '0;
       we_q <= '0;
       addr_q <= '0;
       data_q <= '0;
@@ -88,6 +109,7 @@ module resp_suppress #(
       outstanding_q <= outstanding_d;
       block_q <= block_d;
       latent_req_q <= latent_req_d;
+      latent_req_enforced_q <= latent_req_enforced_d;
       we_q <= we_d;
       addr_q <= addr_d;
       data_q <= data_d;
