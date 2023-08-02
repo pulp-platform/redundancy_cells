@@ -53,6 +53,11 @@
           name: "force_resynch",
           resval: "0",
           desc: "Forces a resynchronization routine"
+        },
+        { bits: "5",
+          name: "synch_req",
+          resval: "1",
+          desc: "Sends synchronization IRQ if core is requesting synch"
         }
       ]
     }

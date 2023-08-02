@@ -46,7 +46,9 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   input  logic       recovery_finished_i,
 
   input  logic       fetch_en_i,
-  input  logic       cores_synch_i
+  input  logic       cores_synch_i,
+  input  logic       bus_resp_ok_i,
+  output logic       bus_hold_o
 );
 
   logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
@@ -100,6 +102,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     recovery_request_o = 1'b0;
     resynch_req = 1'b0;
     synch_req = 1'b0;
+    bus_hold_o = 1'b0;
 
     dmr_hw2reg.dmr_config.force_recovery.de = force_recovery_qe_i;
 
@@ -160,8 +163,13 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
       // split tolerant mode to performance mode anytime (but require correct core state)
       if (dmr_red_mode_q == DMR_RUN) begin
         if (dmr_reg2hw.dmr_enable.q == 1'b0) begin
-          dmr_red_mode_d = NON_DMR;
-          setback_o = 2'b10;
+          bus_hold_o = 1'b1;
+          if (bus_resp_ok_i) begin
+            if (dmr_reg2hw.dmr_config.setback.q) begin
+              setback_o = 2'b10;
+            end
+            dmr_red_mode_d = NON_DMR;
+          end
         end
       end
     end

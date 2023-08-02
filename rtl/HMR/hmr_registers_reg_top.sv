@@ -33,7 +33,7 @@ module hmr_registers_reg_top #(
   // register signals
   logic           reg_we;
   logic           reg_re;
-  logic [AW-1:0]  reg_addr;
+  logic [BlockAw-1:0]  reg_addr;
   logic [DW-1:0]  reg_wdata;
   logic [DBW-1:0] reg_be;
   logic [DW-1:0]  reg_rdata;
@@ -54,7 +54,7 @@ module hmr_registers_reg_top #(
 
   assign reg_we = reg_intf_req.valid & reg_intf_req.write;
   assign reg_re = reg_intf_req.valid & ~reg_intf_req.write;
-  assign reg_addr = reg_intf_req.addr;
+  assign reg_addr = reg_intf_req.addr[BlockAw-1:0];
   assign reg_wdata = reg_intf_req.wdata;
   assign reg_be = reg_intf_req.wstrb;
   assign reg_intf_rsp.rdata = reg_rdata;
@@ -114,6 +114,10 @@ module hmr_registers_reg_top #(
   logic tmr_config_force_resynch_wd;
   logic tmr_config_force_resynch_we;
   logic tmr_config_force_resynch_re;
+  logic tmr_config_synch_req_qs;
+  logic tmr_config_synch_req_wd;
+  logic tmr_config_synch_req_we;
+  logic tmr_config_synch_req_re;
 
   // Register instances
   // R[avail_config]: V(True)
@@ -335,6 +339,21 @@ module hmr_registers_reg_top #(
   );
 
 
+  //   F[synch_req]: 5:5
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_tmr_config_synch_req (
+    .re     (tmr_config_synch_req_re),
+    .we     (tmr_config_synch_req_we),
+    .wd     (tmr_config_synch_req_wd),
+    .d      (hw2reg.tmr_config.synch_req.d),
+    .qre    (),
+    .qe     (reg2hw.tmr_config.synch_req.qe),
+    .q      (reg2hw.tmr_config.synch_req.q ),
+    .qs     (tmr_config_synch_req_qs)
+  );
+
+
 
 
   logic [5:0] addr_hit;
@@ -407,6 +426,10 @@ module hmr_registers_reg_top #(
   assign tmr_config_force_resynch_wd = reg_wdata[4];
   assign tmr_config_force_resynch_re = addr_hit[5] & reg_re & !reg_error;
 
+  assign tmr_config_synch_req_we = addr_hit[5] & reg_we & !reg_error;
+  assign tmr_config_synch_req_wd = reg_wdata[5];
+  assign tmr_config_synch_req_re = addr_hit[5] & reg_re & !reg_error;
+
   // Read data return
   always_comb begin
     reg_rdata_next = '0;
@@ -441,6 +464,7 @@ module hmr_registers_reg_top #(
         reg_rdata_next[2] = tmr_config_reload_setback_qs;
         reg_rdata_next[3] = tmr_config_rapid_recovery_qs;
         reg_rdata_next[4] = tmr_config_force_resynch_qs;
+        reg_rdata_next[5] = tmr_config_synch_req_qs;
       end
 
       default: begin

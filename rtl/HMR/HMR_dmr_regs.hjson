@@ -34,9 +34,14 @@
           name: "rapid_recovery",
           desc: "Enable rapid recovery using an additional register file."
         },
-        { bits: "1"
+        { bits: "1",
           name: "force_recovery",
           desc: "Forces recovery routine (if rapid_recovery is available)."
+        },
+        { bits: "1",
+          name: "setback",
+          desc: "Enable setback (synchronous reset) during re-synch. REQUIRED 1!",
+          resval: "1"
         }
       ]
     },
