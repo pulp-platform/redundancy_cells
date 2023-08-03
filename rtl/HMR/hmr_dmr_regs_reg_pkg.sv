@@ -31,6 +31,10 @@ package hmr_dmr_regs_reg_pkg;
       logic        q;
       logic        qe;
     } setback;
+    struct packed {
+      logic        q;
+      logic        qe;
+    } synch_req;
   } hmr_dmr_regs_reg2hw_dmr_config_reg_t;
 
   typedef struct packed {
@@ -56,6 +60,10 @@ package hmr_dmr_regs_reg_pkg;
       logic        d;
       logic        de;
     } setback;
+    struct packed {
+      logic        d;
+      logic        de;
+    } synch_req;
   } hmr_dmr_regs_hw2reg_dmr_config_reg_t;
 
   typedef struct packed {
@@ -65,15 +73,15 @@ package hmr_dmr_regs_reg_pkg;
 
   // Register -> HW type
   typedef struct packed {
-    hmr_dmr_regs_reg2hw_dmr_enable_reg_t dmr_enable; // [40:39]
-    hmr_dmr_regs_reg2hw_dmr_config_reg_t dmr_config; // [38:33]
+    hmr_dmr_regs_reg2hw_dmr_enable_reg_t dmr_enable; // [42:41]
+    hmr_dmr_regs_reg2hw_dmr_config_reg_t dmr_config; // [40:33]
     hmr_dmr_regs_reg2hw_checkpoint_addr_reg_t checkpoint_addr; // [32:0]
   } hmr_dmr_regs_reg2hw_t;
 
   // HW -> register type
   typedef struct packed {
-    hmr_dmr_regs_hw2reg_dmr_enable_reg_t dmr_enable; // [40:39]
-    hmr_dmr_regs_hw2reg_dmr_config_reg_t dmr_config; // [38:33]
+    hmr_dmr_regs_hw2reg_dmr_enable_reg_t dmr_enable; // [42:41]
+    hmr_dmr_regs_hw2reg_dmr_config_reg_t dmr_config; // [40:33]
     hmr_dmr_regs_hw2reg_checkpoint_addr_reg_t checkpoint_addr; // [32:0]
   } hmr_dmr_regs_hw2reg_t;
 

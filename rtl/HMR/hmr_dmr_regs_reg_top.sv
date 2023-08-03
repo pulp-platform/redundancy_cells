@@ -80,6 +80,9 @@ module hmr_dmr_regs_reg_top #(
   logic dmr_config_setback_qs;
   logic dmr_config_setback_wd;
   logic dmr_config_setback_we;
+  logic dmr_config_synch_req_qs;
+  logic dmr_config_synch_req_wd;
+  logic dmr_config_synch_req_we;
   logic [31:0] checkpoint_addr_qs;
   logic [31:0] checkpoint_addr_wd;
   logic checkpoint_addr_we;
@@ -166,7 +169,7 @@ module hmr_dmr_regs_reg_top #(
   );
 
 
-  //   F[setback]: 1:1
+  //   F[setback]: 2:2
   prim_subreg #(
     .DW      (1),
     .SWACCESS("RW"),
@@ -189,6 +192,32 @@ module hmr_dmr_regs_reg_top #(
 
     // to register interface (read)
     .qs     (dmr_config_setback_qs)
+  );
+
+
+  //   F[synch_req]: 3:3
+  prim_subreg #(
+    .DW      (1),
+    .SWACCESS("RW"),
+    .RESVAL  (1'h1)
+  ) u_dmr_config_synch_req (
+    .clk_i   (clk_i    ),
+    .rst_ni  (rst_ni  ),
+
+    // from register interface
+    .we     (dmr_config_synch_req_we),
+    .wd     (dmr_config_synch_req_wd),
+
+    // from internal hardware
+    .de     (hw2reg.dmr_config.synch_req.de),
+    .d      (hw2reg.dmr_config.synch_req.d ),
+
+    // to internal hardware
+    .qe     (reg2hw.dmr_config.synch_req.qe),
+    .q      (reg2hw.dmr_config.synch_req.q ),
+
+    // to register interface (read)
+    .qs     (dmr_config_synch_req_qs)
   );
 
 
@@ -249,7 +278,10 @@ module hmr_dmr_regs_reg_top #(
   assign dmr_config_force_recovery_wd = reg_wdata[1];
 
   assign dmr_config_setback_we = addr_hit[1] & reg_we & !reg_error;
-  assign dmr_config_setback_wd = reg_wdata[1];
+  assign dmr_config_setback_wd = reg_wdata[2];
+
+  assign dmr_config_synch_req_we = addr_hit[1] & reg_we & !reg_error;
+  assign dmr_config_synch_req_wd = reg_wdata[3];
 
   assign checkpoint_addr_we = addr_hit[2] & reg_we & !reg_error;
   assign checkpoint_addr_wd = reg_wdata[31:0];
@@ -265,7 +297,8 @@ module hmr_dmr_regs_reg_top #(
       addr_hit[1]: begin
         reg_rdata_next[0] = dmr_config_rapid_recovery_qs;
         reg_rdata_next[1] = dmr_config_force_recovery_qs;
-        reg_rdata_next[1] = dmr_config_setback_qs;
+        reg_rdata_next[2] = dmr_config_setback_qs;
+        reg_rdata_next[3] = dmr_config_synch_req_qs;
       end
 
       addr_hit[2]: begin

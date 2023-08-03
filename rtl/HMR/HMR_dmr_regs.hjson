@@ -38,10 +38,15 @@
           name: "force_recovery",
           desc: "Forces recovery routine (if rapid_recovery is available)."
         },
-        { bits: "1",
+        { bits: "2",
           name: "setback",
           desc: "Enable setback (synchronous reset) during re-synch. REQUIRED 1!",
           resval: "1"
+        },
+        { bits: "3",
+          name: "synch_req",
+          resval: "1",
+          desc: "Sends synchronization IRQ if core is requesting synch"
         }
       ]
     },
