@@ -33,6 +33,10 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   input  logic       rapid_recovery_qe_i,
   input  logic       force_recovery_q_i,
   input  logic       force_recovery_qe_i,
+  input  logic       setback_q_i,
+  input  logic       setback_qe_i,
+  input  logic       synch_req_q_i,
+  input  logic       synch_req_qe_i,
 
   // DMR control signals
   output logic [1:0] setback_o,
@@ -89,6 +93,10 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
   assign dmr_hw2reg.dmr_enable.d  = dmr_enable_q_i;
   assign dmr_hw2reg.dmr_config.rapid_recovery.de = rapid_recovery_qe_i || ~RapidRecovery;
   assign dmr_hw2reg.dmr_config.rapid_recovery.d  = rapid_recovery_q_i && RapidRecovery;
+  assign dmr_hw2reg.dmr_config.setback.de        = setback_qe_i;
+  assign dmr_hw2reg.dmr_config.setback.d         = setback_q_i;
+  assign dmr_hw2reg.dmr_config.synch_req.de      = synch_req_qe_i;
+  assign dmr_hw2reg.dmr_config.synch_req.d       = synch_req_q_i;
   assign dmr_hw2reg.dmr_config.force_recovery.d  = force_recovery_qe_i ? force_recovery_q_i : 1'b0;
 
   /**************************
@@ -141,7 +149,7 @@ module hmr_dmr_ctrl import recovery_pkg::*; #(
     if (!DMRFixed) begin
       // Set DMR mode on external signal that cores are synchronized
       if (dmr_red_mode_q == NON_DMR && dmr_reg2hw.dmr_enable.q == 1'b1) begin
-        synch_req = 1'b1;
+        synch_req = dmr_reg2hw.dmr_config.synch_req.q;
         if (cores_synch_q == 1'b1) begin
           if (dmr_reg2hw.dmr_config.rapid_recovery.q == 1'b1) begin
             dmr_red_mode_d = DMR_RESTORE;

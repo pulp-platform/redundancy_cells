@@ -94,6 +94,14 @@ module hmr_registers_reg_top #(
   logic dmr_config_force_recovery_wd;
   logic dmr_config_force_recovery_we;
   logic dmr_config_force_recovery_re;
+  logic dmr_config_setback_qs;
+  logic dmr_config_setback_wd;
+  logic dmr_config_setback_we;
+  logic dmr_config_setback_re;
+  logic dmr_config_synch_req_qs;
+  logic dmr_config_synch_req_wd;
+  logic dmr_config_synch_req_we;
+  logic dmr_config_synch_req_re;
   logic tmr_config_delay_resynch_qs;
   logic tmr_config_delay_resynch_wd;
   logic tmr_config_delay_resynch_we;
@@ -262,6 +270,36 @@ module hmr_registers_reg_top #(
   );
 
 
+  //   F[setback]: 2:2
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_dmr_config_setback (
+    .re     (dmr_config_setback_re),
+    .we     (dmr_config_setback_we),
+    .wd     (dmr_config_setback_wd),
+    .d      (hw2reg.dmr_config.setback.d),
+    .qre    (),
+    .qe     (reg2hw.dmr_config.setback.qe),
+    .q      (reg2hw.dmr_config.setback.q ),
+    .qs     (dmr_config_setback_qs)
+  );
+
+
+  //   F[synch_req]: 3:3
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_dmr_config_synch_req (
+    .re     (dmr_config_synch_req_re),
+    .we     (dmr_config_synch_req_we),
+    .wd     (dmr_config_synch_req_wd),
+    .d      (hw2reg.dmr_config.synch_req.d),
+    .qre    (),
+    .qe     (reg2hw.dmr_config.synch_req.qe),
+    .q      (reg2hw.dmr_config.synch_req.q ),
+    .qs     (dmr_config_synch_req_qs)
+  );
+
+
   // R[tmr_config]: V(True)
 
   //   F[delay_resynch]: 0:0
@@ -406,6 +444,14 @@ module hmr_registers_reg_top #(
   assign dmr_config_force_recovery_wd = reg_wdata[1];
   assign dmr_config_force_recovery_re = addr_hit[4] & reg_re & !reg_error;
 
+  assign dmr_config_setback_we = addr_hit[4] & reg_we & !reg_error;
+  assign dmr_config_setback_wd = reg_wdata[2];
+  assign dmr_config_setback_re = addr_hit[4] & reg_re & !reg_error;
+
+  assign dmr_config_synch_req_we = addr_hit[4] & reg_we & !reg_error;
+  assign dmr_config_synch_req_wd = reg_wdata[3];
+  assign dmr_config_synch_req_re = addr_hit[4] & reg_re & !reg_error;
+
   assign tmr_config_delay_resynch_we = addr_hit[5] & reg_we & !reg_error;
   assign tmr_config_delay_resynch_wd = reg_wdata[0];
   assign tmr_config_delay_resynch_re = addr_hit[5] & reg_re & !reg_error;
@@ -456,6 +502,8 @@ module hmr_registers_reg_top #(
       addr_hit[4]: begin
         reg_rdata_next[0] = dmr_config_rapid_recovery_qs;
         reg_rdata_next[1] = dmr_config_force_recovery_qs;
+        reg_rdata_next[2] = dmr_config_setback_qs;
+        reg_rdata_next[3] = dmr_config_synch_req_qs;
       end
 
       addr_hit[5]: begin

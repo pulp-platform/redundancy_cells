@@ -875,6 +875,10 @@ module HMR_wrap import recovery_pkg::*; #(
         .rapid_recovery_qe_i   ( hmr_reg2hw.dmr_config.rapid_recovery.qe ),
         .force_recovery_q_i    ( hmr_reg2hw.dmr_config.force_recovery.q ),
         .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.force_recovery.qe ),
+        .setback_q_i           ( hmr_reg2hw.dmr_config.setback.q ),
+        .setback_qe_i          ( hmr_reg2hw.dmr_config.setback.qe ),
+        .synch_req_q_i         ( hmr_reg2hw.dmr_config.synch_req.q ),
+        .synch_req_qe_i        ( hmr_reg2hw.dmr_config.synch_req.qe ),
 
         .setback_o             ( dmr_setback_q         [i] ),
         .sw_resynch_req_o      ( dmr_resynch_req_o     [i] ),
