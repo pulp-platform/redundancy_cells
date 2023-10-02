@@ -653,6 +653,11 @@ module hmr_unit #(
         end
       end
     end
+  end else begin
+    assign rapid_recovery_nominal  = '0;
+    assign rapid_recovery_start    = '0;
+    assign tmr_recovery_finished   = '1;
+    assign dmr_recovery_finished   = '1;
   end
 
   // Assign output signals

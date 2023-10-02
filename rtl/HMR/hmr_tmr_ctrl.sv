@@ -123,7 +123,7 @@ module hmr_tmr_ctrl #(
         // If forced execute resynchronization
         if (tmr_reg2hw.tmr_config.force_resynch.q) begin
           tmr_hw2reg.tmr_config.force_resynch.de = 1'b1;
-          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1 && RapidRecovery) begin
             tmr_red_mode_d = TMR_RAPID;
           end else if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
@@ -138,7 +138,7 @@ module hmr_tmr_ctrl #(
           if (tmr_error_i[1]) tmr_incr_mismatches_o[1] = 1'b1;
           if (tmr_error_i[2]) tmr_incr_mismatches_o[2] = 1'b1;
 
-          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1 && RapidRecovery) begin
             tmr_red_mode_d = TMR_RAPID;
           end else if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
@@ -190,7 +190,7 @@ module hmr_tmr_ctrl #(
       if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
         synch_req = 1'b1;
         if (cores_synch_q == 1'b1) begin
-          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1 && RapidRecovery) begin
             tmr_red_mode_d = TMR_RAPID;
           end else begin
             tmr_red_mode_d = TMR_RELOAD;
