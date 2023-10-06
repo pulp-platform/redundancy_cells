@@ -633,7 +633,7 @@ module hmr_unit #(
       tmr_recovery_finished  = '0;
       if (InterleaveGrps) begin
         for (int i = 0; i < NumBackupRegs; i++) begin
-          rapid_recovery_nominal[i] = dmr_nominal_outputs[i];
+          rapid_recovery_nominal[i] = core_nominal_outputs_i[i];
           rapid_recovery_start[i]   = dmr_recovery_start[i];
           dmr_recovery_finished[i]  = rapid_recovery_finished[i];
         end
