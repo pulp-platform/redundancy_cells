@@ -15,8 +15,11 @@
  */
 
 module DMR_checker #(
-  parameter int unsigned DataWidth = 41
+  parameter int unsigned DataWidth = 41,
+  parameter int unsigned Pipeline  = 0
 )(
+  input  logic                 clk_i,
+  input  logic                 rst_ni,
   input  logic [DataWidth-1:0] inp_a_i,
   input  logic [DataWidth-1:0] inp_b_i,
   output logic [DataWidth-1:0] check_o,
@@ -25,10 +28,24 @@ module DMR_checker #(
 
 logic error;
 logic [DataWidth-1:0] compare;
+logic [DataWidth-1:0] inp_q;
 
-assign compare = inp_a_i ^ inp_b_i;
+if (Pipeline) begin
+  always_ff @(posedge clk_i, negedge rst_ni) begin
+    if (~rst_ni) begin
+      compare <= '0;
+      inp_q   <= '0;
+    end else begin
+      compare <= inp_a_i ^ inp_b_i;
+      inp_q   <= inp_a_i;
+    end
+  end
+end else begin
+  assign compare = inp_a_i ^ inp_b_i;
+  assign inp_q = inp_a_i;
+end
 assign error = |compare;
-assign check_o = (!error) ? inp_a_i : '0;
+assign check_o = (error) ? '0 : inp_q;
 assign error_o = error;
 
 endmodule : DMR_checker
