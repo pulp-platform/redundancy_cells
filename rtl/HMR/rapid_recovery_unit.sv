@@ -24,6 +24,8 @@ module rapid_recovery_unit
 )(
   input  logic           clk_i,
   input  logic           rst_ni,
+  /* Signals that cores are not grouped */
+  input  logic           core_in_independent_i,
   /* Recovery Register File interface */
   input  regfile_write_t regfile_write_i,
   /* Recovery Control and Status Registers interface */
@@ -105,6 +107,13 @@ recovery_csr #(
   .recovery_csr_o ( recovery_csr_o  )
 );
 
+/* When cores are not grouped, we store as a recovery program counter the instruction
+   that just eneterd the fetch stage. The reason is that if we switch from independent
+   to redundant, we do it after a barrier, and if we restart from a barrier instruction
+   without setting it up properly first, we never continue the execution. */
+logic [DataWidth-1:0] backup_program_counter;
+assign backup_program_counter = core_in_independent_i ? backup_pc_i.program_counter_if
+                                                      : backup_pc_i.program_counter;
 recovery_pc #(
   .ECCEnabled   ( EccEnabled ),
   .pc_intf_t    ( pc_intf_t  )
@@ -116,9 +125,9 @@ recovery_pc #(
   .read_enable_i              ( enable_pc_recovery_o ),
   .write_enable_i             ( backup_enable_i      ),
   // Backup Ports
-  .backup_program_counter_i   ( backup_pc_i.program_counter ),
-  .backup_branch_i            ( backup_pc_i.is_branch       ),
-  .backup_branch_addr_i       ( backup_pc_i.branch_addr     ),
+  .backup_program_counter_i   ( backup_program_counter  ),
+  .backup_branch_i            ( backup_pc_i.is_branch   ),
+  .backup_branch_addr_i       ( backup_pc_i.branch_addr ),
   // Recovery Pors
   .recovery_program_counter_o ( recovery_pc_o.program_counter ),
   .recovery_branch_o          ( recovery_pc_o.is_branch       ),
