@@ -63,6 +63,7 @@ typedef struct packed {
 } ecc_csrs_intf_t;
 
 typedef struct packed {
+  logic [DataWidth-1:0] program_counter_if;
   logic [DataWidth-1:0] program_counter;
   logic                 is_branch;
   logic [DataWidth-1:0] branch_addr;

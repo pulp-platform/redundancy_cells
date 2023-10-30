@@ -606,6 +606,7 @@ module hmr_unit #(
         ) i_rapid_recovery_unit (
           .clk_i                    ( clk_i                                       ),
           .rst_ni                   ( rst_ni                                      ),
+          .core_in_independent_i    ( core_in_independent[i]                      ),
           .regfile_write_i          ( rapid_recovery_backup_bus[i].regfile_backup ),
           .backup_csr_i             ( rapid_recovery_backup_bus[i].csr_backup     ),
           .recovery_csr_o           ( rapid_recovery_bus[i].csr_recovery          ),
