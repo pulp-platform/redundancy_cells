@@ -392,7 +392,7 @@ module hmr_unit #(
         .sw_synch_req_o       ( tmr_sw_synch_req[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
         .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
-        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,2)]} ),
+        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,2)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,0)]} ),
         .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
         .tmr_error_i          ( tmr_error[i] ),
         .tmr_failure_i        ( tmr_failure[i] ),
@@ -533,7 +533,7 @@ module hmr_unit #(
         .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
         .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
-        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 0)], dmr_incr_mismatches[dmr_core_id(i, 1)]} ),
+        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 1)], dmr_incr_mismatches[dmr_core_id(i, 0)]} ),
         .dmr_error_i           ( dmr_failure           [i] ),
 
         .fetch_en_i            ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
