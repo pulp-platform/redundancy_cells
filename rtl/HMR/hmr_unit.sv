@@ -47,13 +47,13 @@ module hmr_unit #(
   parameter  type         rapid_recovery_t = logic,
   // Local parameters depending on the above ones
   /// Number of TMR groups (virtual TMR cores)
-  localparam int unsigned NumTMRGroups   = NumCores/3,
+  localparam int unsigned NumTMRGroups   = (TMRFixed || TMRSupported) ? NumCores/3 : 1,
   /// Number of physical cores used for TMR
   localparam int unsigned NumTMRCores    = NumTMRGroups * 3,
   /// Number of physical cores NOT used for TMR
   localparam int unsigned NumTMRLeftover = NumCores - NumTMRCores,
   /// Number of DMR groups (virtual DMR cores)
-  localparam int unsigned NumDMRGroups   = NumCores/2,
+  localparam int unsigned NumDMRGroups   = (DMRFixed || DMRSupported) ? NumCores/2 : 1,
   /// Nubmer of physical cores used for DMR
   localparam int unsigned NumDMRCores    = NumDMRGroups * 2,
   /// Number of physical cores NOT used for DMR
