@@ -488,19 +488,24 @@ module hmr_unit #(
     /***************
      *  Registers  *
      ***************/
-    reg_demux #(
-      .NoPorts    ( NumDMRGroups ),
-      .req_t      ( reg_req_t    ),
-      .rsp_t      ( reg_rsp_t   )
-    ) i_reg_demux (
-      .clk_i,
-      .rst_ni,
-      .in_select_i( top_register_reqs[2].addr[4+$clog2(NumDMRGroups)-1:4] ),
-      .in_req_i   ( top_register_reqs[2]           ),
-      .in_rsp_o   ( top_register_resps[2]          ),
-      .out_req_o  ( dmr_register_reqs              ),
-      .out_rsp_i  ( dmr_register_resps             )
-    );
+    if (NumDMRGroups == 1) begin
+      assign dmr_register_reqs[0] = top_register_reqs[2];
+      assign top_register_resps[2] = dmr_register_resps[0];
+    end else begin
+      reg_demux #(
+        .NoPorts    ( NumDMRGroups ),
+        .req_t      ( reg_req_t    ),
+        .rsp_t      ( reg_rsp_t   )
+      ) i_reg_demux (
+        .clk_i,
+        .rst_ni,
+        .in_select_i( top_register_reqs[2].addr[4+$clog2(NumDMRGroups)-1:4] ),
+        .in_req_i   ( top_register_reqs[2]           ),
+        .in_rsp_o   ( top_register_resps[2]          ),
+        .out_req_o  ( dmr_register_reqs              ),
+        .out_rsp_i  ( dmr_register_resps             )
+      );
+    end
 
     for (genvar i = NumDMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign dmr_incr_mismatches[i] = '0;
