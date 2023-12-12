@@ -77,7 +77,7 @@ module hmr_dmr_ctrl
   hmr_dmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
     .reg_rsp_t(reg_resp_t)
-  ) i_tmr_regs (
+  ) i_dmr_regs (
     .clk_i,
     .rst_ni,
     .reg_req_i(reg_req_i),
