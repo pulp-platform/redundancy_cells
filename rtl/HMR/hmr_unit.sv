@@ -86,12 +86,16 @@ module hmr_unit #(
   output rapid_recovery_t [NumSysCores-1:0] rapid_recovery_o,
   input  core_backup_t    [NumCores-1:0]    core_backup_i,
 
+  // Boot address is handled apart from other signals
+  input  logic                              [SysDataWidth-1:0] sys_bootaddress_i,
   input  all_inputs_t      [NumSysCores-1:0]                   sys_inputs_i,
   output nominal_outputs_t [NumSysCores-1:0]                   sys_nominal_outputs_o,
   output bus_outputs_t     [NumSysCores-1:0][NumBusVoters-1:0] sys_bus_outputs_o,
   input  logic             [NumSysCores-1:0]                   sys_fetch_en_i,
   input  logic             [NumSysCores-1:0][NumBusVoters-1:0] enable_bus_vote_i,
 
+  // Boot address is handled apart from other signals
+  output logic             [NumCores-1:0][SysDataWidth-1:0] core_bootaddress_o,
   output logic             [NumCores-1:0]                   core_setback_o,
   output all_inputs_t      [NumCores-1:0]                   core_inputs_o,
   input  nominal_outputs_t [NumCores-1:0]                   core_nominal_outputs_i,
@@ -159,6 +163,7 @@ module hmr_unit #(
 
   logic [NumDMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_backup;
   logic [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_failure_data;
+  logic [NumDMRGroups-1:0][SysDataWidth-1:0] checkpoint_reg_q;
 
   /**************************
    * Rapid Recovery Signals *
@@ -515,6 +520,7 @@ module hmr_unit #(
       hmr_dmr_ctrl #(
         .reg_req_t     ( reg_req_t ),
         .reg_resp_t    ( reg_rsp_t ),
+        .DataWidth     ( SysDataWidth ),
         .InterleaveGrps( InterleaveGrps ),
         .DMRFixed      ( DMRFixed ),
         .RapidRecovery ( RapidRecovery ),
@@ -536,6 +542,7 @@ module hmr_unit #(
         .setback_o             ( dmr_setback_q         [i] ),
         .sw_resynch_req_o      ( dmr_resynch_req_o     [i] ),
         .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
+        .checkpoint_o          ( checkpoint_reg_q      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
         .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
         .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 1)], dmr_incr_mismatches[dmr_core_id(i, 0)]} ),
@@ -712,6 +719,8 @@ module hmr_unit #(
 
       always_comb begin
         // Special signals
+        core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
+                                checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
           rapid_recovery_o  [i] = (core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : 
@@ -781,6 +790,8 @@ module hmr_unit #(
       localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
         // Special signals
+        core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
+                                checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
         // Setback
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
@@ -843,6 +854,8 @@ module hmr_unit #(
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       always_comb begin
+        core_bootaddress_o[i] = (checkpoint_reg_q[SysCoreIndex] != '0) ?
+                                checkpoint_reg_q[SysCoreIndex] : sys_bootaddress_i;
         // Setback
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
@@ -851,7 +864,7 @@ module hmr_unit #(
           core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)]
                                 | rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))];
         end else begin
-          core_setback_o    [i] = '0;
+          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)];
         end
         if (i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
@@ -898,6 +911,7 @@ module hmr_unit #(
      *****************/
     // Direct assignment, disable all
     assign core_setback_o       = '0;
+    assign core_bootaddress_o   = sys_bootaddress_i;
     assign core_inputs_o        = sys_inputs_i;
     assign sys_nominal_outputs_o = core_nominal_outputs_i;
     assign sys_bus_outputs_o     = core_bus_outputs_i;
