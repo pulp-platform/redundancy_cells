@@ -10,27 +10,18 @@
 
   regwidth: "32",
 
-  param_list: [ 
-  { name:   "NumBanks",
-      default: "6"
-  }
-  ],
   registers: [
-    { multireg: 
-      { count: "NumBanks",
-        cname: "mismatch_count",
-        name: "mismatch_count",
-        desc: "Correctable mismatches caught by ecc on access",
-        swaccess: "rw0c",
-        hwaccess: "hrw",
-        resval: "0",
-        fields: [
-          { bits: "31:0",
-            name: "correctable_mismatches",
-            desc: "Correctable mismatches caught by ecc on access"
-          }
-        ]
-      }
+    { name: "mismatch_count",
+      desc: "Correctable mismatches caught by ecc on access",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      resval: "0",
+      fields: [
+        { bits: "31:0",
+          name: "correctable_mismatches",
+          desc: "Correctable mismatches caught by ecc on access"
+        }
+      ]
     },
     { name: "scrub_interval",
       desc: "Interval between scrubs",
@@ -43,69 +34,53 @@
         }
       ]
     },
-    { multireg: 
-      { count: "NumBanks",
-        cname: "scrub_fix_count",
-        name: "scrub_fix_count",
-        desc: "Correctable mismatches caught by ecc on scrub",
-        swaccess: "rw0c",
-        hwaccess: "hrw",
-        resval: "0",
-        fields: [
-          { bits: "31:0",
-            name: "correctable_mismatches",
-            desc: "Correctable mismatches caught by ecc on scrub"
-          }
-        ]
-      }
+    { name: "scrub_fix_count",
+      desc: "Correctable mismatches caught by ecc on scrub",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      resval: "0",
+      fields: [
+        { bits: "31:0",
+          name: "correctable_mismatches",
+          desc: "Correctable mismatches caught by ecc on scrub"
+        }
+      ]
     },
-    { multireg: 
-      { count: "NumBanks",
-        cname: "scrub_uncorrectable_count",
-        name: "scrub_uncorrectable_count",
-        desc: "Uncorrectable mismatches caught by ecc on scrub",
-        swaccess: "rw0c",
-        hwaccess: "hrw",
-        resval: "0",
-        fields: [
-          { bits: "31:0",
-            name: "uncorrectable_mismatches",
-            desc: "Uncorrectable mismatches caught by ecc on scrub"
-          }
-        ]
-      }
+    { name: "scrub_uncorrectable_count",
+      desc: "Uncorrectable mismatches caught by ecc on scrub",
+      swaccess: "rw0c",
+      hwaccess: "hrw",
+      resval: "0",
+      fields: [
+        { bits: "31:0",
+          name: "uncorrectable_mismatches",
+          desc: "Uncorrectable mismatches caught by ecc on scrub"
+        }
+      ]
     },
-    { multireg:
-      { count: "NumBanks",
-        cname: "write_mask_data_n",
-        name: "write_mask_data_n",
-        desc: "Testing: Inverted write mask for data bits",
-        swaccess: "rw",
-        hwaccess: "hro",
-        resval: "0",
-        fields: [
-          { bits: "31:0",
-            name: "write_mask_data_n",
-            desc: "Testing: Inverted write mask for data bits"
-          }
-        ]
-      }
+    { name: "write_mask_data_n",
+      desc: "Testing: Inverted write mask for data bits",
+      swaccess: "rw",
+      hwaccess: "hro",
+      resval: "0",
+      fields: [
+        { bits: "31:0",
+          name: "write_mask_data_n",
+          desc: "Testing: Inverted write mask for data bits"
+        }
+      ]
     },
-    { multireg:
-      { count: "NumBanks",
-        cname: "write_mask_ecc_n",
-        name: "write_mask_ecc_n",
-        desc: "Testing: Inverted write mask for ECC bits",
-        swaccess: "rw",
-        hwaccess: "hro",
-        resval: "0",
-        fields: [
-          { bits: "6:0",
-            name: "write_mask_ecc_n",
-            desc: "Testing: Inverted write mask for ECC bits"
-          }
-        ]
-      }
+    { name: "write_mask_ecc_n",
+      desc: "Testing: Inverted write mask for ECC bits",
+      swaccess: "rw",
+      hwaccess: "hro",
+      resval: "0",
+      fields: [
+        { bits: "6:0",
+          name: "write_mask_ecc_n",
+          desc: "Testing: Inverted write mask for ECC bits"
+        }
+      ]
     }
   ],
 }

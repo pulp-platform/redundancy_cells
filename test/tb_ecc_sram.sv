@@ -150,6 +150,7 @@ module tb_ecc_sram #(
     .BankSize         ( BankSize       ),
     .InputECC         ( 0              ),
     .EnableTestMask   ( EnableTestMask ),
+    .NumRMWCuts       ( 1              ),
     .UnprotectedWidth ( DataWidth      ),
     .ProtectedWidth   ( ProtectedWidth )
   ) i_dut (
