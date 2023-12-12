@@ -14,6 +14,7 @@ module hmr_dmr_ctrl
   import rapid_recovery_pkg::*;
 #(
   parameter bit  InterleaveGrps = 1'b0,
+  parameter int  unsigned DataWidth = 32,
   parameter bit  DMRFixed       = 1'b0,
   parameter bit  DefaultInDMR   = DMRFixed ? 1'b1 : 1'b0,
   parameter bit  RapidRecovery  = 1'b0,
@@ -44,6 +45,7 @@ module hmr_dmr_ctrl
   output logic [1:0] setback_o,
   output logic       sw_resynch_req_o,
   output logic       sw_synch_req_o,
+  output logic [DataWidth-1:0] checkpoint_o,
   output logic       grp_in_independent_o,
   output logic       rapid_recovery_en_o,
   output logic [1:0] dmr_incr_mismatches_o,
@@ -76,6 +78,7 @@ module hmr_dmr_ctrl
   assign synch_req_sent_d = synch_req;
   assign sw_resynch_req_o = resynch_req & ~resynch_req_sent_q;
   assign resynch_req_sent_d = resynch_req;
+  assign checkpoint_o = dmr_reg2hw.checkpoint_addr.q;
 
   hmr_dmr_regs_reg_top #(
     .reg_req_t(reg_req_t),
