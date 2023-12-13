@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Remove legacy `ODRG`, superceeded by HMR
+- Remove legacy `pulpissimo_tcls`, superceeded by HMR
 
 ## 0.5.1 - 2023-04-12
 ### Added
