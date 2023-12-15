@@ -70,25 +70,25 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
 
   - files:
-      - rtl/HMR/rapid_recovery_pkg.sv
-      - rtl/HMR/recovery_csr.sv
-      - rtl/HMR/recovery_pc.sv
-      - rtl/HMR/recovery_rf.sv
-      - rtl/HMR/rapid_recovery_unit.sv
+      - rtl/HMR/rapid_recovery/rapid_recovery_pkg.sv
+      - rtl/HMR/rapid_recovery/recovery_csr.sv
+      - rtl/HMR/rapid_recovery/recovery_pc.sv
+      - rtl/HMR/rapid_recovery/recovery_rf.sv
+      - rtl/HMR/rapid_recovery/rapid_recovery_unit.sv
       - rtl/HMR/DMR_checker.sv
       - rtl/HMR/DMR_CSR_checker.sv
       - rtl/HMR/DMR_address_generator.sv
       # - rtl/HMR/DMR_controller.sv
-      - rtl/HMR/hmr_rapid_recovery_ctrl.sv
-      - rtl/HMR/hmr_registers_reg_pkg.sv
-      - rtl/HMR/hmr_core_regs_reg_pkg.sv
-      - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
-      - rtl/HMR/hmr_tmr_regs_reg_pkg.sv
-      - rtl/HMR/hmr_registers_reg_top.sv
-      - rtl/HMR/hmr_core_regs_reg_top.sv
-      - rtl/HMR/hmr_dmr_regs_reg_top.sv
+      - rtl/HMR/rapid_recovery/hmr_rapid_recovery_ctrl.sv
+      - rtl/HMR/regs/hmr_registers_reg_pkg.sv
+      - rtl/HMR/regs/hmr_core_regs_reg_pkg.sv
+      - rtl/HMR/regs/hmr_dmr_regs_reg_pkg.sv
+      - rtl/HMR/regs/hmr_tmr_regs_reg_pkg.sv
+      - rtl/HMR/regs/hmr_registers_reg_top.sv
+      - rtl/HMR/regs/hmr_core_regs_reg_top.sv
+      - rtl/HMR/regs/hmr_dmr_regs_reg_top.sv
       - rtl/HMR/hmr_dmr_ctrl.sv
-      - rtl/HMR/hmr_tmr_regs_reg_top.sv
+      - rtl/HMR/regs/hmr_tmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_ctrl.sv
       - rtl/HMR/HMR_wrap.sv
       - rtl/HMR/hmr_unit.sv
