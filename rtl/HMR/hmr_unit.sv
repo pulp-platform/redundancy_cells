@@ -61,23 +61,22 @@ module hmr_unit #(
   /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
   localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRGroups : NumCores
 ) (
-  input  logic      clk_i ,
+  input  logic      clk_i,
   input  logic      rst_ni,
 
   // Port to configuration unit
-  input  reg_req_t  reg_request_i ,
+  input  reg_req_t  reg_request_i,
   output reg_rsp_t  reg_response_o,
 
   // TMR signals
-  output logic [NumTMRGroups-1:0] tmr_failure_o    ,
-  output logic [ NumSysCores-1:0] tmr_error_o      , // Should this not be NumTMRCores? or NumCores?
+  output logic [NumTMRGroups-1:0] tmr_failure_o,
+  output logic [    NumCores-1:0] tmr_error_o,
   output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
   output logic [    NumCores-1:0] tmr_sw_synch_req_o,
   input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
 
   // DMR signals
-  output logic [NumDMRGroups-1:0] dmr_failure_o    ,
-  output logic [ NumSysCores-1:0] dmr_error_o      , // Should this not be NumDMRCores? or NumCores?
+  output logic [NumDMRGroups-1:0] dmr_failure_o,
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
   output logic [    NumCores-1:0] dmr_sw_synch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
@@ -710,6 +709,19 @@ module hmr_unit #(
     assign dmr_recovery_finished   = '1;
   end
 
+  for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_error_o
+    assign dmr_failure_o[i] = core_in_dmr[dmr_core_id(i, 0)] ? dmr_failure[i] : '0;
+  end
+  for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_error_o
+    assign tmr_failure_o[i]   = core_in_tmr[tmr_core_id(i, 0)] ? tmr_failure[i]    : '0;
+    assign tmr_error_o[3*i  ] = core_in_tmr[tmr_core_id(i, 0)] ? tmr_error  [i][0] : '0;
+    assign tmr_error_o[3*i+1] = core_in_tmr[tmr_core_id(i, 1)] ? tmr_error  [i][1] : '0;
+    assign tmr_error_o[3*i+2] = core_in_tmr[tmr_core_id(i, 2)] ? tmr_error  [i][2] : '0;
+  end
+  if (NumCores > NumTMRCores) begin : gen_extra_error_o
+    assign tmr_error_o[NumCores-1:NumTMRCores] = '0;
+  end
+
   // Assign output signals
   if (DMRSupported && TMRSupported) begin : gen_full_HMR
     /*****************
@@ -849,10 +861,8 @@ module hmr_unit #(
     /*****************
      *** DMR only ***
      *****************/
-    if (DMRFixed && NumCores % 2 != 0) $warning("Extra cores added not properly handled! :)");
+    if (DMRFixed && NumCores % 2 != 0) $warning("Extra core added not properly handled! :)");
     // Binding DMR outputs to zero for now
-    assign dmr_failure_o     = '0;
-    assign dmr_error_o       = '0;
     // assign dmr_resynch_req_o = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
