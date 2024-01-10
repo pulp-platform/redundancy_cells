@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - Add ECC correctors
+- Add `HMR` unit
 
 ### Changed
 - Replace vendor.py script with bender vendor for ECC modules
