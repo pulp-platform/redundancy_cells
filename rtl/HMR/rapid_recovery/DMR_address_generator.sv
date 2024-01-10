@@ -12,7 +12,7 @@
 // Generates addresses for RF refill
 
 module DMR_address_generator #(
-  parameter  AddrWidth = 5
+  parameter int unsigned AddrWidth = 5
 )(
   input  logic                 clk_i    ,
   input  logic                 rst_ni   ,
@@ -32,23 +32,21 @@ logic addr_count_err;
 logic [NumVotingSignals-1:0] addr_count_rst;
 logic [ArrayWidth-1:0][AddrWidth-1:0] addr_count;
 
-generate
-  for (genvar i = 0; i < NumVotingSignals; i++) begin
-    always_ff @(posedge clk_i, negedge  rst_ni) begin : address_generator_counter
-      if (~rst_ni)
+for (genvar i = 0; i < NumVotingSignals; i++) begin : gen_addr_counters
+  always_ff @(posedge clk_i, negedge  rst_ni) begin : address_generator_counter
+    if (~rst_ni)
+      addr_count [i] <= '1;
+    else begin
+      if (clear_i || addr_count_rst [i])
         addr_count [i] <= '1;
-      else begin
-        if (clear_i || addr_count_rst [i])
-          addr_count [i] <= '1;
-        else if (enable_i)
-          addr_count [i] <= addr_count [i] + 1;
-        else
-          addr_count [i] <= addr_count [i];
-      end
+      else if (enable_i)
+        addr_count [i] <= addr_count [i] + 1;
+      else
+        addr_count [i] <= addr_count [i];
     end
-  assign addr_count_rst [i] = ( addr_count [i] == NumAddr/2 - 1) ? 1'b1 : 1'b0;
   end
-endgenerate
+  assign addr_count_rst [i] = ( addr_count [i] == NumAddr/2 - 1) ? 1'b1 : 1'b0;
+end
 
 bitwise_TMR_voter #(
   .DataWidth ( AddrWidth ),

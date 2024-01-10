@@ -64,9 +64,11 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
   /// Number of physical cores NOT used for DMR
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
   /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
-  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRGroups : NumCores,
-  /// 
-  localparam int unsigned NumRRUnits = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0)
+  localparam int unsigned NumSysCores    =
+    DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRGroups : NumCores,
+  /// Number of RapidRecover Units
+  localparam int unsigned NumRRUnits =
+    max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0)
 ) (
   input  logic      clk_i ,
   input  logic      rst_ni,
@@ -110,45 +112,45 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
   input  bus_outputs_t     [NumCores-1:0][NumBusVoters-1:0] core_bus_outputs_i
 );
 
-  function int tmr_group_id (int core_id);
+  function automatic int tmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumTMRGroups;
     else                return (core_id/3);
   endfunction
 
-  function int tmr_core_id (int group_id, int core_offset);
+  function automatic int tmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumTMRGroups;
     else                return (group_id * 3) + core_offset;
   endfunction
 
-  function int tmr_shared_id (int group_id);
+  function automatic int tmr_shared_id (int group_id);
     if (InterleaveGrps || !(DMRSupported || DMRFixed)) return group_id;
     else                return group_id + group_id/2;
   endfunction
 
-  if (DMRSupported && TMRSupported && RapidRecovery && !InterleaveGrps) begin
-    $warning("TMR and DMR with RR without interleaving groups may lead to malfunctioning RR synchronization.");
-  end
+  if (DMRSupported && TMRSupported && RapidRecovery && !InterleaveGrps)
+    $warning("TMR and DMR with RR without interleaving groups may lead to malfunctioning RR ",
+              "synchronization.");
 
-  function int tmr_offset_id (int core_id);
+  function automatic int tmr_offset_id (int core_id);
     if (InterleaveGrps) return core_id / NumTMRGroups;
     else                return core_id % 3;
   endfunction
 
-  function int dmr_group_id (int core_id);
+  function automatic int dmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumDMRGroups;
     else                return (core_id/2);
   endfunction
 
-  function int dmr_core_id (int group_id, int core_offset);
+  function automatic int dmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumDMRGroups;
     else                return (group_id * 2) + core_offset;
   endfunction
 
-  function int dmr_shared_id (int group_id);
+  function automatic int dmr_shared_id (int group_id);
     return group_id;
   endfunction
 
-  function int dmr_offset_id (int core_id);
+  function automatic int dmr_offset_id (int core_id);
     if (InterleaveGrps) return core_id / NumDMRGroups;
     else                return core_id % 2;
   endfunction
@@ -179,7 +181,7 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
   ) i_hmr (
     .clk_i,
     .rst_ni,
-    
+
     .reg_request_i          (),
     .reg_response_o         (),
 
@@ -239,7 +241,10 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
           .check_o( dmr_backup_outputs [       i    ] ),
           .error_o( dmr_failure_rr     [       i    ] )
         );
-        assign dmr_failure_o[i] = dmr_core_en_o[dmr_core_id(i, 0)] && rr_ctrl[dmr_shared_id(i)].rr_enable ? dmr_failure_hmr[i] | dmr_failure_rr[i] : dmr_failure_hmr[i];
+        assign dmr_failure_o[i] = (dmr_core_en_o[dmr_core_id(i, 0)] &&
+                                   rr_ctrl[dmr_shared_id(i)].rr_enable) ?
+                                  dmr_failure_hmr[i] | dmr_failure_rr[i] :
+                                  dmr_failure_hmr[i];
       end
     end else begin : gen_no_dmr_rr
       assign dmr_backup_outputs = '0;
@@ -258,15 +263,21 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
           .error_o    ( tmr_failure_rr     [       i    ] ),
           .error_cba_o( tmr_error_rr       [       i    ] )
         );
-        assign tmr_failure_o[i] = tmr_core_en_o[tmr_core_id(i, 0)] && rr_ctrl[tmr_shared_id(i)].rr_enable ? tmr_failure_hmr[i] | tmr_failure_rr[i] : tmr_failure_hmr[i];
-        for (genvar j = 0; j < 3; j++) begin
-          assign tmr_error_o[tmr_core_id(i,j)]   = tmr_core_en_o[tmr_core_id(i, j)] && rr_ctrl[tmr_shared_id(i)].rr_enable ? tmr_error_hmr[tmr_core_id(i,j)] | tmr_error_rr[i][j] : tmr_error_hmr[tmr_core_id(i,j)];
+        assign tmr_failure_o[i] = (tmr_core_en_o[tmr_core_id(i, 0)] &&
+                                   rr_ctrl[tmr_shared_id(i)].rr_enable) ?
+                                  tmr_failure_hmr[i] | tmr_failure_rr[i] :
+                                  tmr_failure_hmr[i];
+        for (genvar j = 0; j < 3; j++) begin : gen_tmr_error
+          assign tmr_error_o[tmr_core_id(i,j)] = (tmr_core_en_o[tmr_core_id(i, j)] &&
+                                                  rr_ctrl[tmr_shared_id(i)].rr_enable) ?
+                                            tmr_error_hmr[tmr_core_id(i,j)] | tmr_error_rr[i][j] :
+                                            tmr_error_hmr[tmr_core_id(i,j)];
         end
       end
       for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_remaining_core_err
         assign tmr_error_o[i] = '0;
       end
-    end else begin
+    end else begin : gen_no_tmr_rr
       assign tmr_backup_outputs = '0;
       assign tmr_failure_rr = '0;
       assign tmr_error_rr = '0;
@@ -274,9 +285,11 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
       assign tmr_error_o = tmr_error_hmr;
     end
     for (genvar i = 0; i < NumRRUnits; i++) begin : gen_rapid_recovery
-      assign rapid_recovery_backup_en_inp[i] = tmr_core_en_o[tmr_core_id(i, 0)] ? (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0) // TMR mode
-                                             : dmr_core_en_o[dmr_core_id(i, 0)] ? (rapid_recovery_backup_en_oup[i] & ~dmr_failure_o[i] )        // DMR mode
-                                             : 1'b1;
+      assign rapid_recovery_backup_en_inp[i] = tmr_core_en_o[tmr_core_id(i, 0)] ?
+                        (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0) : // TMR mode
+                        dmr_core_en_o[dmr_core_id(i, 0)] ?
+                          (rapid_recovery_backup_en_oup[i] & ~dmr_failure_o[i] )    : // DMR mode
+                          1'b1;                                                       // Disabled
 
       assign rr_status[i].rr_error = tmr_core_en_o[tmr_core_id(i, 0)] ? |tmr_error_rr[i] :
                                      dmr_core_en_o[dmr_core_id(i, 0)] ? dmr_failure_rr[i] :
@@ -295,7 +308,8 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
         .clk_i,
         .rst_ni,
 
-        .core_in_independent_i   ( ~dmr_core_en_o[dmr_core_id(i, 0)] & ~tmr_core_en_o[tmr_core_id(i, 0)]             ),
+        .core_in_independent_i   ( ~dmr_core_en_o[dmr_core_id(i, 0)] &
+                                   ~tmr_core_en_o[tmr_core_id(i, 0)]           ),
         .regfile_write_i         ( rapid_recovery_backup_bus[i].regfile_backup ),
         .backup_csr_i            ( rapid_recovery_backup_bus[i].csr_backup     ),
         .recovery_csr_o          ( rapid_recovery_bus[i].csr_recovery          ),
@@ -321,13 +335,15 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
       rapid_recovery_nominal    = '0;
       rapid_recovery_backup_bus = '0;
       for (int i = 0; i < NumDMRGroups; i++) begin
-        if ((DMRFixed || (DMRSupported && dmr_core_en_o[dmr_core_id(i, 0)])) && rr_ctrl[dmr_shared_id(i)].rr_enable) begin
+        if ((DMRFixed || (DMRSupported && dmr_core_en_o[dmr_core_id(i, 0)])) &&
+            rr_ctrl[dmr_shared_id(i)].rr_enable) begin
           rapid_recovery_nominal   [dmr_shared_id(i)] = sys_nominal_outputs_o[dmr_core_id(i,0)];
           rapid_recovery_backup_bus[dmr_shared_id(i)] = dmr_backup_outputs   [            i   ];
         end
       end
       for (int i = 0; i < NumTMRGroups; i++) begin
-        if ((TMRFixed || (TMRSupported && tmr_core_id[tmr_core_id(i, 0)])) && rr_ctrl[tmr_shared_id(i)].rr_enable) begin
+        if ((TMRFixed || (TMRSupported && tmr_core_id[tmr_core_id(i, 0)])) &&
+            rr_ctrl[tmr_shared_id(i)].rr_enable) begin
           rapid_recovery_nominal   [tmr_shared_id(i)] = sys_nominal_outputs_o[tmr_core_id(i,0)];
           rapid_recovery_backup_bus[tmr_shared_id(i)] = tmr_backup_outputs   [            i   ];
         end
@@ -340,11 +356,12 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
        *****************/
       for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
         always_comb begin
-          rapid_recovery_o[i] = dmr_core_en_o [i] ? rapid_recovery_bus[dmr_shared_id(dmr_group_id(i))] :
-                                (tmr_core_en_o[i] ? rapid_recovery_bus[tmr_shared_id(tmr_group_id(i))] : '0);
-          core_setback_o  [i] = hmr_setback   [i] | 
-                                (dmr_core_en_o[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : 
-                                (tmr_core_en_o[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0));
+          rapid_recovery_o[i] =
+                dmr_core_en_o [i] ? rapid_recovery_bus[dmr_shared_id(dmr_group_id(i))] :
+                (tmr_core_en_o[i] ? rapid_recovery_bus[tmr_shared_id(tmr_group_id(i))] : '0);
+          core_setback_o  [i] = hmr_setback   [i] |
+                (dmr_core_en_o[i] ? rapid_recovery_setback[dmr_shared_id(dmr_group_id(i))] :
+                (tmr_core_en_o[i] ? rapid_recovery_setback[tmr_shared_id(tmr_group_id(i))] : '0));
         end
       end
     end else if (TMRSupported || TMRFixed) begin : gen_TMR_only
@@ -353,9 +370,11 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
        ***********/
       for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
         always_comb begin
-          rapid_recovery_o[i] = tmr_core_en_o [i] ? rapid_recovery_bus[tmr_shared_id(tmr_group_id(i))] : '0;
-          core_setback_o  [i] = hmr_setback   [i] | 
-                                (tmr_core_en_o[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0);
+          rapid_recovery_o[i] = tmr_core_en_o [i] ?
+                                rapid_recovery_bus[tmr_shared_id(tmr_group_id(i))] : '0;
+          core_setback_o  [i] = hmr_setback   [i] |
+                                (tmr_core_en_o[i] ?
+                                 rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0);
         end
       end
 
@@ -365,16 +384,18 @@ module hmr_rr_wrapper import hmr_pkg::*; #(
        *****************/
       for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
         always_comb begin
-          rapid_recovery_o[i] = dmr_core_en_o [i] ? rapid_recovery_bus[dmr_shared_id(dmr_group_id(i))] : '0;
-          core_setback_o  [i] = hmr_setback   [i] | 
-                                (dmr_core_en_o[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0);
+          rapid_recovery_o[i] = dmr_core_en_o [i] ?
+                                rapid_recovery_bus[dmr_shared_id(dmr_group_id(i))] : '0;
+          core_setback_o  [i] = hmr_setback   [i] |
+                                (dmr_core_en_o[i] ?
+                                 rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0);
         end
       end
     end else begin : gen_no_redundancy
       assign rapid_recovery_o = '0;
       assign core_setback_o = hmr_setback;
     end
-  end else begin
+  end else begin : gen_no_rr
     assign dmr_failure_o  = dmr_failure_hmr;
     assign tmr_failure_o  = tmr_failure_hmr;
     assign tmr_error_o    = tmr_error_hmr;

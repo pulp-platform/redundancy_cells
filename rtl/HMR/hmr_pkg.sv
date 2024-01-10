@@ -11,7 +11,7 @@
 // Hybrid modular redundancy support package
 
 package hmr_pkg;
-  function int max(int a, int b);
+  function automatic int max(int a, int b);
     return (a > b) ? a : b;
   endfunction
 

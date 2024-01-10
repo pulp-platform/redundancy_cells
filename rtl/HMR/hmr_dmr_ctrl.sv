@@ -122,7 +122,9 @@ module hmr_dmr_ctrl
     case (dmr_red_mode_q)
       DMR_RUN: begin
         // If forced execute recovery
-        if (dmr_reg2hw.dmr_config.force_recovery.q && RapidRecovery && dmr_reg2hw.dmr_config.rapid_recovery.q) begin
+        if (dmr_reg2hw.dmr_config.force_recovery.q &&
+            RapidRecovery &&
+            dmr_reg2hw.dmr_config.rapid_recovery.q) begin
           dmr_hw2reg.dmr_config.force_recovery.de = 1'b1;
           dmr_red_mode_d = DMR_RESTORE;
         end
@@ -146,8 +148,7 @@ module hmr_dmr_ctrl
           dmr_red_mode_d = DMR_RUN;
         end
       end
-
-      // Default: do nothing
+      default: begin end // Nothing
     endcase
 
     // Logic to switch in and out of DMR

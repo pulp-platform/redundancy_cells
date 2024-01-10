@@ -51,17 +51,19 @@ module recovery_rf #(
 );
 
   // number of integer registers
-  localparam NUM_WORDS = 2 ** (ADDR_WIDTH - 1);
+  localparam int unsigned NumWords = 2 ** (ADDR_WIDTH - 1);
   // number of floating point registers
-  localparam NUM_FP_WORDS = 2 ** (ADDR_WIDTH - 1);
-  localparam NUM_TOT_WORDS = FPU ? (PULP_ZFINX ? NUM_WORDS : NUM_WORDS + NUM_FP_WORDS) : NUM_WORDS;
+  localparam int unsigned NumFPWords = 2 ** (ADDR_WIDTH - 1);
+  localparam int unsigned NumTotWords = FPU ?
+                  (PULP_ZFINX ? NumWords : NumWords + NumFPWords) :
+                  NumWords;
 
   // integer register file
-  logic [NUM_WORDS-1:0][NonProtectedWidth-1:0] mem;
-  logic [NUM_WORDS-1:0][        DataWidth-1:0] ecc_mem;
+  logic [NumWords-1:0][NonProtectedWidth-1:0] mem;
+  logic [NumWords-1:0][        DataWidth-1:0] ecc_mem;
   // fp register file
-  logic [NUM_FP_WORDS-1:0][NonProtectedWidth-1:0] mem_fp;
-  logic [NUM_FP_WORDS-1:0][        DataWidth-1:0] ecc_mem_fp;
+  logic [NumFPWords-1:0][NonProtectedWidth-1:0] mem_fp;
+  logic [NumFPWords-1:0][        DataWidth-1:0] ecc_mem_fp;
 
   logic [DataWidth-1:0] wdata_a,
                         wdata_b;
@@ -71,23 +73,23 @@ module recovery_rf #(
   logic [ADDR_WIDTH-1:0] waddr_b;
 
   // write enable signals for all registers
-  logic [NUM_TOT_WORDS-1:0] we_a_dec;
-  logic [NUM_TOT_WORDS-1:0] we_b_dec;
+  logic [NumTotWords-1:0] we_a_dec;
+  logic [NumTotWords-1:0] we_b_dec;
 
   generate
     if (ECCEnabled) begin : gen_ecc_region
-    
+
       prim_secded_39_32_enc a_port_ecc_encoder (
         .in  ( wdata_a_i ),
         .out ( wdata_a   )
       );
-    
+
       prim_secded_39_32_enc b_port_ecc_encoder (
         .in  ( wdata_b_i ),
         .out ( wdata_b   )
       );
-    
-      for (genvar index = 0; index < NUM_WORDS; index++) begin
+
+      for (genvar index = 0; index < NumWords; index++) begin : gen_secded
         prim_secded_39_32_dec internal_memory_decoder (
           .in         ( ecc_mem [index] ),
           .d_o        ( mem [index]     ),
@@ -95,9 +97,9 @@ module recovery_rf #(
           .err_o      (                 )
         );
       end
-      
-      if (FPU == 1 && PULP_ZFINX == 0) begin
-        for (genvar index = 0; index < NUM_FP_WORDS; index++) begin
+
+      if (FPU == 1 && PULP_ZFINX == 0) begin : gen_fp
+        for (genvar index = 0; index < NumFPWords; index++) begin : gen_fp_secded
           prim_secded_39_32_dec internal_fp_memory_decoder (
             .in         ( ecc_mem_fp [index]  ),
             .d_o        ( mem_fp [index]      ),
@@ -106,14 +108,14 @@ module recovery_rf #(
           );
         end
       end
-    end else begin : no_ecc_region
+    end else begin : gen_no_ecc_region
       assign wdata_a     = wdata_a_i;
       assign wdata_b     = wdata_b_i;
 
-      for (genvar index = 0; index < NUM_WORDS; index++)
+      for (genvar index = 0; index < NumWords; index++)
         assign mem [index] = ecc_mem [index];
-    
-      for (genvar index = 0; index < NUM_FP_WORDS; index++)
+
+      for (genvar index = 0; index < NumFPWords; index++)
         assign mem_fp [index] = ecc_mem_fp [index];
     end
   endgenerate
@@ -143,7 +145,7 @@ module recovery_rf #(
 
   genvar gidx;
   generate
-    for (gidx = 0; gidx < NUM_TOT_WORDS; gidx++) begin : gen_we_decoder
+    for (gidx = 0; gidx < NumTotWords; gidx++) begin : gen_we_decoder
       assign we_a_dec[gidx] = (waddr_a == gidx) ? we_a_i : 1'b0;
       assign we_b_dec[gidx] = (waddr_b == gidx) ? we_b_i : 1'b0;
     end
@@ -166,8 +168,8 @@ module recovery_rf #(
       end
     end
 
-    // loop from 1 to NUM_WORDS-1 as R0 is nil
-    for (i = 1; i < NUM_WORDS; i++) begin : gen_rf
+    // loop from 1 to NumWords-1 as R0 is nil
+    for (i = 1; i < NumWords; i++) begin : gen_rf
       always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral
         if (rst_ni == 1'b0) begin
           ecc_mem[i] <= 32'b0;
@@ -180,13 +182,13 @@ module recovery_rf #(
 
     if (FPU == 1 && PULP_ZFINX == 0) begin : gen_mem_fp_write
       // Floating point registers
-      for (l = 0; l < NUM_FP_WORDS; l++) begin
+      for (l = 0; l < NumFPWords; l++) begin : gen_fp_rf
         always_ff @(posedge clk_i, negedge rst_ni) begin : fp_regs
           if (rst_ni == 1'b0) begin
             ecc_mem_fp[l] <= '0;
           end else begin
-            if (we_b_dec[l+NUM_WORDS] == 1'b1) ecc_mem_fp[l] <= wdata_b;
-            else if (we_a_dec[l+NUM_WORDS] == 1'b1) ecc_mem_fp[l] <= wdata_a;
+            if (we_b_dec[l+NumWords] == 1'b1) ecc_mem_fp[l] <= wdata_b;
+            else if (we_a_dec[l+NumWords] == 1'b1) ecc_mem_fp[l] <= wdata_a;
           end
         end
       end

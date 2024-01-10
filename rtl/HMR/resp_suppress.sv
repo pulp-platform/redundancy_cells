@@ -17,7 +17,7 @@ module resp_suppress #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  
+
   input  logic            ctrl_setback_i,
   input  logic            bus_hold_i,
   output logic            resp_ok_o,
@@ -84,8 +84,10 @@ module resp_suppress #(
       be_d = be_i;
     end
     if (ctrl_setback_i) begin
-      block_d = 1'b1;                // block if we got a setback
-      latent_req_enforced_d = (req_i & ~bus_hold_i) & ~gnt_i; // create latent request if requesting on setback call (protocol compliance)
+      // block if we got a setback
+      block_d = 1'b1;
+      // create latent request if requesting on setback call (protocol compliance)
+      latent_req_enforced_d = (req_i & ~bus_hold_i) & ~gnt_i;
       we_d = we_i;
       addr_d = addr_i;
       data_d = data_i;
@@ -116,5 +118,5 @@ module resp_suppress #(
       be_q <= be_d;
     end
   end
-  
+
 endmodule
