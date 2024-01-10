@@ -13,8 +13,13 @@
 package recovery_pkg;
 
 localparam int unsigned DataWidth = 32;
+localparam int unsigned ProtectedWidth = 39;
 localparam int unsigned RegfileAddr = 6;
 localparam int unsigned RecoveryStateBits = 3;
+/* CSRs */
+localparam int unsigned MstatusWidth = 7;
+localparam int unsigned MtvecWidth  = 24;
+localparam int unsigned McauseWidth = 6;
 
 typedef struct packed {
   // Write Port A
@@ -37,15 +42,24 @@ typedef struct packed {
   logic [DataWidth-1:0] rdata_b;
 } regfile_rdata_t;
 
-typedef enum logic [RecoveryStateBits-1:0]{
-  IDLE       ,
-  RESET      ,
-  HALT_REQ   ,
-  HALT_WAIT  ,
-  RESTORE_PC ,
-  RESTORE_RF ,
-  RESTORE_CSR,
-  EXIT
-} recovery_routine_state_e;
+typedef struct packed {
+  logic [MstatusWidth-1:0] csr_mstatus;
+  logic [   DataWidth-1:0] csr_mie;
+  logic [  MtvecWidth-1:0] csr_mtvec;
+  logic [   DataWidth-1:0] csr_mscratch;
+  logic [   DataWidth-1:0] csr_mip;
+  logic [   DataWidth-1:0] csr_mepc;
+  logic [ McauseWidth-1:0] csr_mcause;
+} csrs_intf_t;
+
+typedef struct packed {
+  logic [ProtectedWidth-1:0] csr_mstatus;
+  logic [ProtectedWidth-1:0] csr_mie;
+  logic [ProtectedWidth-1:0] csr_mtvec;
+  logic [ProtectedWidth-1:0] csr_mscratch;
+  logic [ProtectedWidth-1:0] csr_mip;
+  logic [ProtectedWidth-1:0] csr_mepc;
+  logic [ProtectedWidth-1:0] csr_mcause;
+} ecc_csrs_intf_t;
 
 endpackage
