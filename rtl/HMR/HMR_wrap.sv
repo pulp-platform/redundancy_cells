@@ -72,6 +72,10 @@ module HMR_wrap import recovery_pkg::*; #(
   output logic [    NumCores-1:0] dmr_sw_synch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
+  // Backup Port from Cores' CSRs
+  input  csrs_intf_t [NumCores-1:0] backup_csr_i,
+  // Recovery Port to Cores' CSRs
+  output csrs_intf_t [NumCores-1:0] recovery_csr_o,
   // Backup Port from Cores'Program Counter
   input  logic [   NumCores-1:0][DataWidth-1:0] backup_program_counter_i,
   output logic [   NumCores-1:0]                pc_recover_o,
@@ -261,7 +265,8 @@ module HMR_wrap import recovery_pkg::*; #(
                                                 dmr_backup_regfile_wdata_a,
                                                 dmr_backup_regfile_wdata_b,
                                                 dmr_backup_branch_addr_int;
-  logic [     NumDMRGroups-1:0]                 dmr_backup_program_counter_error,
+  logic [     NumDMRGroups-1:0]                 dmr_backup_csr_error,
+                                                dmr_backup_program_counter_error,
                                                 dmr_backup_branch_error,
                                                 dmr_backup_branch_addr_error,
                                                 dmr_backup_regfile_error_a,
@@ -287,7 +292,9 @@ module HMR_wrap import recovery_pkg::*; #(
                                                 backup_regfile_we_b,
                                                 backup_program_counter_error,
                                                 recovery_branch_out,
+                                                backup_csr_enable_out,
                                                 backup_pc_enable_out,
+                                                recovery_csr_enable_out,
                                                 recovery_pc_enable_out,
                                                 recovery_debug_req_out,
                                                 recovery_debug_halted_in,
@@ -301,6 +308,7 @@ module HMR_wrap import recovery_pkg::*; #(
   regfile_raddr_t [NumBackupRegfiles-1:0] core_regfile_raddr_out;
   regfile_rdata_t [NumBackupRegfiles-1:0] core_recovery_regfile_rdata_out;
   regfile_write_t [NumBackupRegfiles-1:0] core_recovery_regfile_wport_out;
+  csrs_intf_t     [NumBackupRegfiles-1:0] dmr_backup_csr, recovery_csr_out;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
     if (SeparateData) begin : gen_separate_data
@@ -731,6 +739,7 @@ module HMR_wrap import recovery_pkg::*; #(
 
         assign dmr_failure [i] = (dmr_data_req_out [i] ? (dmr_failure_main[i] | dmr_failure_data[i])
                                                        : dmr_failure_main[i]) |
+                                 dmr_backup_csr_error            [i] |
                                  dmr_backup_program_counter_error[i] |
                                  dmr_backup_branch_error         [i] |
                                  dmr_backup_branch_addr_error    [i] |
@@ -738,6 +747,16 @@ module HMR_wrap import recovery_pkg::*; #(
                                  dmr_backup_regfile_error_b      [i] |
                                  dmr_backup_regfile_addr_error_a [i] |
                                  dmr_backup_regfile_addr_error_b [i];
+
+        /********************
+         * DMR CSRs Checker *
+         ********************/
+        DMR_CSR_checker dmr_csr_checker (
+          .csr_a_i ( backup_csr_i[dmr_core_id(i, 0)] ),
+          .csr_b_i ( backup_csr_i[dmr_core_id(i, 1)] ),
+          .check_o ( dmr_backup_csr [i]              ),
+          .error_o ( dmr_backup_csr_error [i]        )
+        );
 
         /******************
          * DMR PC Checker *
@@ -863,9 +882,26 @@ module HMR_wrap import recovery_pkg::*; #(
         .debug_halt_i             ( recovery_debug_halted_in       [i] ),
         .debug_resume_o           ( recovery_debug_resume_out      [i] ),
         .recovery_regfile_waddr_o ( core_recovery_regfile_wport_out[i] ),
+        .backup_csr_enable_o      ( backup_csr_enable_out          [i] ),
         .backup_pc_enable_o       ( backup_pc_enable_out           [i] ),
+        .recover_csr_enable_o     ( recovery_csr_enable_out        [i] ),
         .recover_pc_enable_o      ( recovery_pc_enable_out         [i] ),
         .recover_rf_enable_o      ( recovery_trigger_out           [i] )
+      );
+
+      /*************************
+       * Recovery CS Registers *
+       *************************/
+      recovery_csr #(
+        .ECCEnabled ( 1 )
+      ) RCSR (
+        .clk_i          ( clk_i                       ),
+        .rst_ni         ( rst_ni                      ),
+        .read_enable_i  ( recovery_csr_enable_out [i] ),
+        .write_enable_i ( ~dmr_backup_csr_error [i]
+                          & backup_csr_enable_out [i] ),
+        .backup_csr_i   ( dmr_backup_csr [i]          ),
+        .recovery_csr_o ( recovery_csr_out [i]        )
       );
 
       /****************************
@@ -987,6 +1023,9 @@ module HMR_wrap import recovery_pkg::*; #(
           core_recover_o             [i] = recovery_trigger_out         [dmr_shared_id(dmr_group_id(i))];
           core_instr_lock_o          [i] = recovery_instr_lock_out      [dmr_shared_id(dmr_group_id(i))];
 
+          // CSRs
+          recovery_csr_o             [i] = recovery_csr_out             [dmr_shared_id(dmr_group_id(i))];
+
           // PC
           pc_recover_o               [i] = recovery_pc_enable_out       [dmr_shared_id(dmr_group_id(i))];
           recovery_program_counter_o [i] = recovery_program_counter_out [dmr_shared_id(dmr_group_id(i))];
@@ -1007,6 +1046,9 @@ module HMR_wrap import recovery_pkg::*; #(
           // Setback
           core_recover_o             [i] = recovery_trigger_out         [tmr_shared_id(tmr_group_id(i))];
           core_instr_lock_o          [i] = recovery_instr_lock_out      [tmr_shared_id(tmr_group_id(i))];
+
+          // CSRs
+          recovery_csr_o             [i] = recovery_csr_out             [tmr_shared_id(tmr_group_id(i))];
 
           // PC
           pc_recover_o               [i] = recovery_pc_enable_out       [tmr_shared_id(tmr_group_id(i))];
@@ -1030,6 +1072,9 @@ module HMR_wrap import recovery_pkg::*; #(
           // Setback
           core_recover_o             [i] = '0;
           core_instr_lock_o          [i] = '0;
+
+          // CSRs
+          recovery_csr_o             [i] = '0;
 
           // PC
           pc_recover_o               [i] = '0;
@@ -1056,6 +1101,9 @@ module HMR_wrap import recovery_pkg::*; #(
       // Setback
       assign core_recover_o             [i] = '0;
       assign core_instr_lock_o          [i] = '0;
+
+      // CSRs
+      assign recovery_csr_o             [i] = '0;
 
       // PC
       assign pc_recover_o               [i] = '0;
