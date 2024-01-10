@@ -22,10 +22,15 @@ REG_TOOL = $(REG_PATH)/vendor/lowrisc_opentitan/util/regtool.py
 
 HJSON_ODRG = rtl/ODRG_unit/ODRG_unit.hjson
 HJSON_TCLS = rtl/pulpissimo_tcls/TCLS_unit.hjson
+HJSON_HMR = rtl/HMR/HMR_regs.hjson
+HJSON_HMR_core = rtl/HMR/HMR_core_regs.hjson
+HJSON_HMR_dmr = rtl/HMR/HMR_dmr_regs.hjson
+HJSON_HMR_tmr = rtl/HMR/HMR_tmr_regs.hjson
 HJSON_ECC = rtl/ecc_wrap/ecc_sram_wrapper.hjson
 
 TARGET_DIR_ODRG = rtl/ODRG_unit
 TARGET_DIR_TCLS = rtl/pulpissimo_tcls
+TARGET_DIR_HMR = rtl/HMR
 TARGET_DIR_ECC = rtl/ecc_wrap
 
 .PHONY: gen_ODRG gen_TCLS gen_ecc_registers gen_ECC
@@ -38,6 +43,18 @@ gen_TCLS:
 	python $(REG_TOOL) $(HJSON_TCLS) -t $(TARGET_DIR_TCLS) -r
 	python $(REG_TOOL) $(HJSON_TCLS) -d > $(TARGET_DIR_TCLS)/doc.md
 	python $(REG_TOOL) $(HJSON_TCLS) -D > $(TARGET_DIR_TCLS)/TCLS.h
+
+gen_HMR:
+	python $(REG_TOOL) $(HJSON_HMR) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR) -d > $(TARGET_DIR_HMR)/doc.html
+	python $(REG_TOOL) $(HJSON_HMR) -D > $(TARGET_DIR_HMR)/hmr_global.h
+	python $(REG_TOOL) $(HJSON_HMR) --doc > $(TARGET_DIR_HMR)/doc.md
+	python $(REG_TOOL) $(HJSON_HMR_core) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_core) -D > $(TARGET_DIR_HMR)/hmr_core.h
+	python $(REG_TOOL) $(HJSON_HMR_dmr) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_dmr) -D > $(TARGET_DIR_HMR)/hmr_dmr.h
+	python $(REG_TOOL) $(HJSON_HMR_tmr) -t $(TARGET_DIR_HMR) -r
+	python $(REG_TOOL) $(HJSON_HMR_tmr) -D > $(TARGET_DIR_HMR)/hmr_tmr.h
 
 gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) -t $(TARGET_DIR_ECC) -r
