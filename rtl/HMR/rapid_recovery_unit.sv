@@ -134,7 +134,6 @@ recovery_rf  #(
 ) i_recovery_rf    (
   .clk_i,
   .rst_ni,
-  .test_en_i    ( '0                               ),
   //Read port A
   .raddr_a_i    ( regfile_recovery_wdata_o.waddr_a ),
   .rdata_a_o    ( regfile_recovery_rdata_o.rdata_a ),
