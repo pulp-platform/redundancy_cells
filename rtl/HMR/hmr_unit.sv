@@ -10,7 +10,7 @@
 //
 // Hybrid modular redundancy wrapping unit
 
-module hmr_unit #(
+module hmr_unit import hmr_pkg::*; #(
   // Wrapper parameters
   /// Number of physical cores
   parameter  int unsigned NumCores       = 0,
@@ -24,27 +24,20 @@ module hmr_unit #(
   parameter  bit          TMRFixed       = 1'b0,
   /// Interleave DMR/TMR cores, alternatively with sequential grouping
   parameter  bit          InterleaveGrps = 1'b1,
-  /// rapid recovery - tbd
+  /// Rapid Recovery support - requires external RR wrapper
   parameter  bit          RapidRecovery  = 1'b0,
   /// Separates voters and checkers for data, which are then only checked if data request is valid
   parameter  bit          SeparateData   = 1'b1,
   /// Number of separate voters/checkers for individual buses
   parameter  int unsigned NumBusVoters   = 1,
-  /// Address width of the core register file (in RISC-V it should be always 6)
-  parameter  int unsigned RfAddrWidth    = 6,
-  parameter  int unsigned SysDataWidth   = 32,
   /// General core inputs wrapping struct
   parameter  type         all_inputs_t = logic,
   /// General core outputs wrapping struct
   parameter  type         nominal_outputs_t = logic,
-  /// Cores' backup output bus
-  parameter  type         core_backup_t  = logic,
   /// Bus outputs wrapping struct
   parameter  type         bus_outputs_t  = logic,
   parameter  type         reg_req_t      = logic,
   parameter  type         reg_rsp_t      = logic,
-  /// Rapid recovery structure
-  parameter  type         rapid_recovery_t = logic,
   // Local parameters depending on the above ones
   /// Number of TMR groups (virtual TMR cores)
   localparam int unsigned NumTMRGroups   = (TMRFixed || TMRSupported) ? NumCores/3 : 1,
@@ -59,7 +52,9 @@ module hmr_unit #(
   /// Number of physical cores NOT used for DMR
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
   /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
-  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRGroups : NumCores
+  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRGroups : NumCores,
+  /// 
+  localparam int unsigned NumRRUnits = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0)
 ) (
   input  logic      clk_i,
   input  logic      rst_ni,
@@ -69,6 +64,7 @@ module hmr_unit #(
   output reg_rsp_t  reg_response_o,
 
   // TMR signals
+  output logic [    NumCores-1:0] tmr_core_en_o,
   output logic [NumTMRGroups-1:0] tmr_failure_o,
   output logic [    NumCores-1:0] tmr_error_o,
   output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
@@ -76,17 +72,17 @@ module hmr_unit #(
   input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
 
   // DMR signals
+  output logic [    NumCores-1:0] dmr_core_en_o,
   output logic [NumDMRGroups-1:0] dmr_failure_o,
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
   output logic [    NumCores-1:0] dmr_sw_synch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
 
-  // Rapid recovery buses
-  output rapid_recovery_t [NumSysCores-1:0] rapid_recovery_o,
-  input  core_backup_t    [NumCores-1:0]    core_backup_i,
+  // RR connections - don't connect / tie '0 if not used
+  output rr_ctrl_t   [NumRRUnits-1:0] rr_ctrl_o,
+  input  rr_status_t [NumRRUnits-1:0] rr_status_i,
 
   // Boot address is handled apart from other signals
-  input  logic                              [SysDataWidth-1:0] sys_bootaddress_i,
   input  all_inputs_t      [NumSysCores-1:0]                   sys_inputs_i,
   output nominal_outputs_t [NumSysCores-1:0]                   sys_nominal_outputs_o,
   output bus_outputs_t     [NumSysCores-1:0][NumBusVoters-1:0] sys_bus_outputs_o,
@@ -94,17 +90,12 @@ module hmr_unit #(
   input  logic             [NumSysCores-1:0][NumBusVoters-1:0] enable_bus_vote_i,
 
   // Boot address is handled apart from other signals
-  output logic             [NumCores-1:0][SysDataWidth-1:0] core_bootaddress_o,
   output logic             [NumCores-1:0]                   core_setback_o,
   output all_inputs_t      [NumCores-1:0]                   core_inputs_o,
   input  nominal_outputs_t [NumCores-1:0]                   core_nominal_outputs_i,
   input  bus_outputs_t     [NumCores-1:0][NumBusVoters-1:0] core_bus_outputs_i
 );
-  function int max(int a, int b);
-    return (a > b) ? a : b;
-  endfunction
 
-  localparam int unsigned NumBackupRegs = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
 
   function int tmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumTMRGroups;
@@ -152,7 +143,6 @@ module hmr_unit #(
 
   nominal_outputs_t [NumDMRGroups-1:0] dmr_nominal_outputs;
   bus_outputs_t     [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_bus_outputs;
-  core_backup_t     [NumDMRGroups-1:0] dmr_backup_outputs;
 
   logic [NumTMRGroups-1:0] tmr_failure, tmr_failure_main;
   logic [NumTMRGroups-1:0][NumBusVoters-1:0] tmr_failure_data;
@@ -162,19 +152,6 @@ module hmr_unit #(
 
   logic [NumDMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_backup;
   logic [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_failure_data;
-  logic [NumDMRGroups-1:0][SysDataWidth-1:0] checkpoint_reg_q;
-
-  /**************************
-   * Rapid Recovery Signals *
-   **************************/
-  logic             [ NumDMRGroups-1:0] dmr_recovery_start, dmr_recovery_finished;
-  logic             [ NumTMRGroups-1:0] tmr_recovery_start, tmr_recovery_finished;
-  logic             [NumBackupRegs-1:0] rapid_recovery_start, rapid_recovery_finished;
-  logic             [NumBackupRegs-1:0] rapid_recovery_backup_en_inp, rapid_recovery_backup_en_oup;
-  logic             [NumBackupRegs-1:0] rapid_recovery_setback;
-  rapid_recovery_t  [NumBackupRegs-1:0] rapid_recovery_bus;
-  core_backup_t     [NumBackupRegs-1:0] rapid_recovery_backup_bus;
-  nominal_outputs_t [NumBackupRegs-1:0] rapid_recovery_nominal;
 
   /***************************
    *  HMR Control Registers  *
@@ -190,10 +167,14 @@ module hmr_unit #(
   logic [NumDMRGroups-1:0][1:0] dmr_setback_q;
   logic [NumDMRGroups-1:0] dmr_grp_in_independent;
   logic [NumDMRGroups-1:0] dmr_rapid_recovery_en;
+  logic [NumDMRGroups-1:0] dmr_recovery_start;
+  logic [NumDMRGroups-1:0] dmr_recovery_finished;
 
   logic [NumTMRGroups-1:0][2:0] tmr_setback_q;
   logic [NumTMRGroups-1:0] tmr_grp_in_independent;
   logic [NumTMRGroups-1:0] tmr_rapid_recovery_en;
+  logic [NumTMRGroups-1:0] tmr_recovery_start;
+  logic [NumTMRGroups-1:0] tmr_recovery_finished;
 
   logic [NumCores-1:0] sp_store_is_zero;
   logic [NumCores-1:0] sp_store_will_be_zero;
@@ -206,6 +187,35 @@ module hmr_unit #(
                                   ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
     assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) && i < NumDMRCores && RapidRecovery ? dmr_rapid_recovery_en[dmr_group_id(i)] : '0;
     assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) && i < NumTMRCores && RapidRecovery ? tmr_rapid_recovery_en[tmr_group_id(i)] : '0;
+
+    assign dmr_core_en_o[i] = core_in_dmr[i];
+    assign tmr_core_en_o[i] = core_in_tmr[i];
+  end
+
+  if (RapidRecovery) begin : gen_rr_connection
+    always_comb begin : proc_rr_connection
+      rr_ctrl_o = '0;
+      dmr_recovery_finished = '0;
+      tmr_recovery_finished = '0;
+      for (int i = 0; i < NumDMRGroups; i++) begin
+        if (DMRFixed || (DMRSupported && core_in_dmr[dmr_core_id(i, 0)])) begin
+          rr_ctrl_o[dmr_shared_id(i)].rr_enable = dmr_core_rapid_recovery_en[dmr_core_id(i, 0)];
+          if (dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
+            rr_ctrl_o[dmr_shared_id(i)].recovery_start = dmr_recovery_start[i];
+            dmr_recovery_finished[i] = rr_status_i[dmr_shared_id(i)].recovery_finished;
+          end
+        end
+      end
+      for (int i = 0; i < NumTMRGroups; i++) begin
+        if (TMRFixed || (TMRSupported && core_in_tmr[tmr_core_id(i, 0)])) begin
+          rr_ctrl_o[tmr_shared_id(i)].rr_enable = tmr_core_rapid_recovery_en[tmr_core_id(i, 0)];
+          if (tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
+            rr_ctrl_o[tmr_shared_id(i)].recovery_start = tmr_recovery_start[i];
+            tmr_recovery_finished[i] = rr_status_i[tmr_shared_id(i)].recovery_finished;
+          end
+        end
+      end
+    end
   end
 
   reg_req_t [3:0] top_register_reqs;
@@ -543,7 +553,7 @@ module hmr_unit #(
         .setback_o             ( dmr_setback_q         [i] ),
         .sw_resynch_req_o      ( dmr_resynch_req_o     [i] ),
         .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
-        .checkpoint_o          ( checkpoint_reg_q      [i] ),
+        .checkpoint_o          ( '0),//checkpoint_reg_q      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
         .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
         .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 1)], dmr_incr_mismatches[dmr_core_id(i, 0)]} ),
@@ -588,74 +598,6 @@ module hmr_unit #(
           );
         end
       end
-
-      if (RapidRecovery) begin : gen_rapid_recovery_unit
-
-        DMR_checker #(
-          .DataWidth ( $bits(core_backup_t) ),
-          .Pipeline  ( 1                       )
-        ) dmr_core_checker_backup (
-          .clk_i   ( clk_i                             ),
-          .rst_ni  ( rst_ni                            ),
-          .inp_a_i ( core_backup_i [dmr_core_id(i, 0)] ),
-          .inp_b_i ( core_backup_i [dmr_core_id(i, 1)] ),
-          .check_o ( dmr_backup_outputs [       i    ] ),
-          .error_o ( dmr_failure_backup [       i    ] )
-        );
-
-        assign rapid_recovery_backup_en_inp[i] = core_in_tmr[i] ? (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0) // TMR mode
-                                               : core_in_dmr[i] ? (rapid_recovery_backup_en_oup[i] & ~dmr_failure[i] )        // DMR mode
-                                               : 1'b1;                                                                        // Independent
-        rapid_recovery_unit    #(
-          .RfAddrWidth          ( RfAddrWidth                         ),
-          .DataWidth            ( SysDataWidth                        ),
-          .regfile_write_t      ( rapid_recovery_pkg::regfile_write_t ),
-          .regfile_raddr_t      ( rapid_recovery_pkg::regfile_raddr_t ),
-          .regfile_rdata_t      ( rapid_recovery_pkg::regfile_rdata_t ),
-          .csr_intf_t           ( rapid_recovery_pkg::csrs_intf_t     ),
-          .pc_intf_t            ( rapid_recovery_pkg::pc_intf_t       )
-        ) i_rapid_recovery_unit (
-          .clk_i                    ( clk_i                                       ),
-          .rst_ni                   ( rst_ni                                      ),
-          .core_in_independent_i    ( core_in_independent[i]                      ),
-          .regfile_write_i          ( rapid_recovery_backup_bus[i].regfile_backup ),
-          .backup_csr_i             ( rapid_recovery_backup_bus[i].csr_backup     ),
-          .recovery_csr_o           ( rapid_recovery_bus[i].csr_recovery          ),
-          .backup_pc_i              ( rapid_recovery_backup_bus[i].pc_backup      ),
-          .recovery_pc_o            ( rapid_recovery_bus[i].pc_recovery           ),
-          .backup_enable_i          ( rapid_recovery_backup_en_inp[i]             ),
-          .start_recovery_i         ( rapid_recovery_start[i]                     ),
-          .backup_enable_o          ( rapid_recovery_backup_en_oup[i]             ),
-          .recovery_finished_o      ( rapid_recovery_finished[i]                  ),
-          .setback_o                ( rapid_recovery_setback[i]                   ),
-          .instr_lock_o             ( rapid_recovery_bus[i].instr_lock            ),
-          .enable_pc_recovery_o     ( rapid_recovery_bus[i].pc_recovery_en        ),
-          .enable_rf_recovery_o     ( rapid_recovery_bus[i].rf_recovery_en        ),
-          .regfile_recovery_wdata_o ( rapid_recovery_bus[i].rf_recovery_wdata     ),
-          .regfile_recovery_rdata_o ( rapid_recovery_bus[i].rf_recovery_rdata     ),
-          .debug_halt_i             ( rapid_recovery_nominal[i].debug_halted      ),
-          .debug_req_o              ( rapid_recovery_bus[i].debug_req             ),
-          .debug_resume_o           ( rapid_recovery_bus[i].debug_resume          )
-        );
-
-      always_comb begin
-        dmr_failure[i] = dmr_failure_main[i] | dmr_failure_backup[i];
-        for (int j = 0; j < NumBusVoters; j++) begin
-          if (enable_bus_vote_i[dmr_core_id(i, 0)][j]) begin
-            dmr_failure[i] = dmr_failure[i] | dmr_failure_backup[i] | dmr_failure_data[i][j];
-          end
-        end
-      end
-      end else begin : gen_standard_failure
-        always_comb begin
-          dmr_failure[i] = dmr_failure_main[i];
-          for (int j = 0; j < NumBusVoters; j++) begin
-            if (enable_bus_vote_i[dmr_core_id(i, 0)][j]) begin
-              dmr_failure[i] = dmr_failure[i] | dmr_failure_data[i][j];
-            end
-          end
-        end
-      end
     end
   end else begin: no_dmr_checkers
     assign dmr_failure_main = '0;
@@ -669,44 +611,6 @@ module hmr_unit #(
     assign top_register_resps[2].ready = 1'b1;
     assign dmr_sw_synch_req_o = '0;
     assign dmr_grp_in_independent = '1;
-  end
-
-  if (RapidRecovery) begin: gen_rapid_recovery_connection
-    always_comb begin
-      rapid_recovery_nominal = '0;
-      rapid_recovery_backup_bus = '0;
-      rapid_recovery_start   = '0;
-      dmr_recovery_finished  = '0;
-      tmr_recovery_finished  = '0;
-      if (InterleaveGrps) begin
-        for (int i = 0; i < NumBackupRegs; i++) begin
-          rapid_recovery_nominal[i] = core_nominal_outputs_i[i];
-          rapid_recovery_backup_bus[i] = core_backup_i[i];
-          rapid_recovery_start[i]   = dmr_recovery_start[i];
-          dmr_recovery_finished[i]  = rapid_recovery_finished[i];
-        end
-      end
-      for (int i = 0; i < NumDMRGroups; i++) begin
-        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) && dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
-          rapid_recovery_nominal[dmr_shared_id(i)] = dmr_nominal_outputs[i];
-          rapid_recovery_backup_bus[dmr_shared_id(i)] = dmr_backup_outputs[i];
-          rapid_recovery_start[dmr_shared_id(i)]   = dmr_recovery_start[i];
-          dmr_recovery_finished[i]                 = rapid_recovery_finished[dmr_shared_id(i)];
-        end
-      end
-      for (int i = 0; i < NumTMRGroups; i++) begin
-        if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) && tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
-          rapid_recovery_nominal[tmr_shared_id(i)] = tmr_nominal_outputs[i];
-          rapid_recovery_start[tmr_shared_id(i)]   = tmr_recovery_start[i];
-          tmr_recovery_finished[i]                 = rapid_recovery_finished[tmr_shared_id(i)];
-        end
-      end
-    end
-  end else begin
-    assign rapid_recovery_nominal  = '0;
-    assign rapid_recovery_start    = '0;
-    assign tmr_recovery_finished   = '1;
-    assign dmr_recovery_finished   = '1;
   end
 
   for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_error_o
@@ -735,29 +639,17 @@ module hmr_unit #(
 
       always_comb begin
         // Special signals
-        core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
-                                checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
-        if (RapidRecovery) begin
-          // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = (core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : 
-                                  (core_in_tmr[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0));
-
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
-                                | (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : 
-                                  (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0));
-        end else begin
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)];
-        end
+        // core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
+        //                         checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
         if (i >= NumTMRCores && i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
         end else if (i < NumTMRCores && i >= NumDMRCores) begin
-          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)]
-                                | (RapidRecovery ? (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
+          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)];
         end else if (i >= NumTMRCores && i < NumDMRCores) begin
-          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)]
-                                | (RapidRecovery ? (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
+          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)];
+        end else begin
+          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)]
+                                | dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)];
         end
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           core_inputs_o[i] = sys_inputs_i[TMRCoreIndex];
@@ -806,20 +698,13 @@ module hmr_unit #(
       localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
         // Special signals
-        core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
-                                checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
+        // core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
+        //                         checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
         // Setback
-        if (RapidRecovery) begin
-          // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = core_in_tmr[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0;
-
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
-                                | rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))];
-        end else begin
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
-        end
         if (i >= NumTMRCores) begin
           core_setback_o [i] = '0;
+        end else begin
+          core_setback_o [i] = tmr_setback_q   [tmr_group_id(i)];
         end
         if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
           core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
@@ -868,20 +753,13 @@ module hmr_unit #(
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       always_comb begin
-        core_bootaddress_o[i] = (checkpoint_reg_q[SysCoreIndex] != '0) ?
-                                checkpoint_reg_q[SysCoreIndex] : sys_bootaddress_i;
+        // core_bootaddress_o[i] = (checkpoint_reg_q[SysCoreIndex] != '0) ?
+        //                         checkpoint_reg_q[SysCoreIndex] : sys_bootaddress_i;
         // Setback
-        if (RapidRecovery) begin
-          // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : '0;
-
-          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)]
-                                | rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))];
-        end else begin
-          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)];
-        end
         if (i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
+        end else begin
+          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)];
         end
         if (i < NumDMRCores && (DMRFixed || core_in_dmr[i])) begin : dmr_mode
           core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
@@ -925,7 +803,7 @@ module hmr_unit #(
      *****************/
     // Direct assignment, disable all
     assign core_setback_o       = '0;
-    assign core_bootaddress_o   = sys_bootaddress_i;
+    // assign core_bootaddress_o   = sys_bootaddress_i;
     assign core_inputs_o        = sys_inputs_i;
     assign sys_nominal_outputs_o = core_nominal_outputs_i;
     assign sys_bus_outputs_o     = core_bus_outputs_i;
