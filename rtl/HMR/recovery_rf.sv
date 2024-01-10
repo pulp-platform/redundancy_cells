@@ -22,12 +22,10 @@ module recovery_rf #(
   parameter  type         regfile_rdata_t   = logic,
   localparam int unsigned DataWidth         = ( ECCEnabled ) ? ProtectedWidth
                                                              : NonProtectedWidth
-) (
+)(
   // Clock and Reset
   input logic clk_i,
   input logic rst_ni,
-
-  input logic test_en_i,
 
   //Read port R1
   input  logic [ADDR_WIDTH-1:0]        raddr_a_i,
@@ -38,8 +36,8 @@ module recovery_rf #(
   output logic [NonProtectedWidth-1:0] rdata_b_o,
 
   //Read port R3
-  input  logic [ADDR_WIDTH-1:0]        raddr_c_i,
-  output logic [NonProtectedWidth-1:0] rdata_c_o,
+  input  logic [ADDR_WIDTH-1:0]      raddr_c_i,
+  output logic [NonProtectedWidth:0] rdata_c_o,
 
   // Write port W1
   input logic [ADDR_WIDTH-1:0]        waddr_a_i,
@@ -59,51 +57,35 @@ module recovery_rf #(
   localparam NUM_TOT_WORDS = FPU ? (PULP_ZFINX ? NUM_WORDS : NUM_WORDS + NUM_FP_WORDS) : NUM_WORDS;
 
   // integer register file
-  logic [NonProtectedWidth-1:0] mem     [NUM_WORDS];
-  logic [        DataWidth-1:0] ecc_mem [NUM_WORDS];
-  logic [NUM_TOT_WORDS-1:1] waddr_onehot_a;
-  logic [NUM_TOT_WORDS-1:1] waddr_onehot_b  , 
-                            waddr_onehot_b_q;
-  logic [NUM_TOT_WORDS-1:1] mem_clocks;
-  logic [DataWidth-1:0] wdata_a    ,
-                        wdata_a_q  ,
-                        wdata_a_ecc;
-  logic [DataWidth-1:0] wdata_b    ,
-                        wdata_b_q  ,
-                        wdata_b_ecc;
+  logic [NUM_WORDS-1:0][NonProtectedWidth-1:0] mem;
+  logic [NUM_WORDS-1:0][        DataWidth-1:0] ecc_mem;
+  // fp register file
+  logic [NUM_FP_WORDS-1:0][NonProtectedWidth-1:0] mem_fp;
+  logic [NUM_FP_WORDS-1:0][        DataWidth-1:0] ecc_mem_fp;
+
+  logic [DataWidth-1:0] wdata_a,
+                        wdata_b;
 
   // masked write addresses
   logic [ADDR_WIDTH-1:0] waddr_a;
   logic [ADDR_WIDTH-1:0] waddr_b;
 
-  logic clk_int;
-
-  // fp register file
-  logic [NonProtectedWidth-1:0] mem_fp     [NUM_FP_WORDS];
-  logic [        DataWidth-1:0] ecc_mem_fp [NUM_FP_WORDS];
-
-  int unsigned i;
-  int unsigned j;
-  int unsigned k;
-  int unsigned l;
-
-  genvar x;
-  genvar y;
+  // write enable signals for all registers
+  logic [NUM_TOT_WORDS-1:0] we_a_dec;
+  logic [NUM_TOT_WORDS-1:0] we_b_dec;
 
   generate
     if (ECCEnabled) begin : gen_ecc_region
     
       prim_secded_39_32_enc a_port_ecc_encoder (
-        .in  ( wdata_a_i  ),
-        .out ( wdata_a_ecc)
+        .in  ( wdata_a_i ),
+        .out ( wdata_a   )
       );
-      assign wdata_a = wdata_a_ecc;
     
       prim_secded_39_32_enc b_port_ecc_encoder (
-        .in  ( wdata_b_i  ),
-        .out ( wdata_b_ecc)
+        .in  ( wdata_b_i ),
+        .out ( wdata_b   )
       );
-      assign wdata_b = wdata_b_ecc;
     
       for (genvar index = 0; index < NUM_WORDS; index++) begin
         prim_secded_39_32_dec internal_memory_decoder (
@@ -126,9 +108,7 @@ module recovery_rf #(
       end
     end else begin : no_ecc_region
       assign wdata_a     = wdata_a_i;
-      assign wdata_a_ecc = '0;
       assign wdata_b     = wdata_b_i;
-      assign wdata_b_ecc = '0;
 
       for (genvar index = 0; index < NUM_WORDS; index++)
         assign mem [index] = ecc_mem [index];
@@ -141,101 +121,79 @@ module recovery_rf #(
   //-----------------------------------------------------------------------------
   //-- READ : Read address decoder RAD
   //-----------------------------------------------------------------------------
-  if (FPU == 1 && PULP_ZFINX == 0) begin
-    assign rdata_a_o = raddr_a_i[5] ? mem_fp[raddr_a_i[4:0]] : mem[raddr_a_i[4:0]];
-    assign rdata_b_o = raddr_b_i[5] ? mem_fp[raddr_b_i[4:0]] : mem[raddr_b_i[4:0]];
-    assign rdata_c_o = raddr_c_i[5] ? mem_fp[raddr_c_i[4:0]] : mem[raddr_c_i[4:0]];
-  end else begin
-    assign rdata_a_o = mem[raddr_a_i[4:0]];
-    assign rdata_b_o = mem[raddr_b_i[4:0]];
-    assign rdata_c_o = mem[raddr_c_i[4:0]];
-  end
-
-  //-----------------------------------------------------------------------------
-  // WRITE : SAMPLE INPUT DATA
-  //---------------------------------------------------------------------------
-
-  tc_clk_gating CG_WE_GLOBAL (
-      .clk_i     ( clk_i           ),
-      .en_i      ( we_a_i | we_b_i ),
-      .test_en_i ( test_en_i       ),
-      .clk_o     ( clk_int         )
-  );
-
-  // use clk_int here, since otherwise we don't want to write anything anyway
-  always_ff @(posedge clk_int, negedge rst_ni) begin : sample_waddr
-    if (~rst_ni) begin
-      wdata_a_q        <= '0;
-      wdata_b_q        <= '0;
-      waddr_onehot_b_q <= '0;
-    end else begin
-      if (we_a_i) wdata_a_q <= wdata_a;
-
-      if (we_b_i) wdata_b_q <= wdata_b;
-
-      waddr_onehot_b_q <= waddr_onehot_b;
+  generate
+    if (FPU == 1 && PULP_ZFINX == 0) begin : gen_mem_fp_read
+      assign rdata_a_o = raddr_a_i[5] ? mem_fp[raddr_a_i[4:0]] : mem[raddr_a_i[4:0]];
+      assign rdata_b_o = raddr_b_i[5] ? mem_fp[raddr_b_i[4:0]] : mem[raddr_b_i[4:0]];
+      assign rdata_c_o = raddr_c_i[5] ? mem_fp[raddr_c_i[4:0]] : mem[raddr_c_i[4:0]];
+    end else begin : gen_mem_read
+      assign rdata_a_o = mem[raddr_a_i[4:0]];
+      assign rdata_b_o = mem[raddr_b_i[4:0]];
+      assign rdata_c_o = mem[raddr_c_i[4:0]];
     end
-  end
+  endgenerate
 
   //-----------------------------------------------------------------------------
   //-- WRITE : Write Address Decoder (WAD), combinatorial process
   //-----------------------------------------------------------------------------
 
+  // Mask top bit of write address to disable fp regfile
   assign waddr_a = waddr_a_i;
   assign waddr_b = waddr_b_i;
 
   genvar gidx;
   generate
-    for (gidx = 1; gidx < NUM_TOT_WORDS; gidx++) begin : gen_we_decoder
-      assign waddr_onehot_a[gidx] = (we_a_i == 1'b1) && (waddr_a == gidx);
-      assign waddr_onehot_b[gidx] = (we_b_i == 1'b1) && (waddr_b == gidx);
+    for (gidx = 0; gidx < NUM_TOT_WORDS; gidx++) begin : gen_we_decoder
+      assign we_a_dec[gidx] = (waddr_a == gidx) ? we_a_i : 1'b0;
+      assign we_b_dec[gidx] = (waddr_b == gidx) ? we_b_i : 1'b0;
     end
   endgenerate
 
-  //-----------------------------------------------------------------------------
-  //-- WRITE : Clock gating (if integrated clock-gating cells are available)
-  //-----------------------------------------------------------------------------
+  genvar i, l;
   generate
-    for (x = 1; x < NUM_TOT_WORDS; x++) begin : gen_clock_gate
-      tc_clk_gating clock_gate_i (
-          .clk_i     ( clk_int                               ),
-          .en_i      ( waddr_onehot_a[x] | waddr_onehot_b[x] ),
-          .test_en_i ( test_en_i                             ),
-          .clk_o     ( mem_clocks[x]                         )
-      );
+
+    //-----------------------------------------------------------------------------
+    //-- WRITE : Write operation
+    //-----------------------------------------------------------------------------
+    // R0 is nil
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (~rst_ni) begin
+        // R0 is nil
+        ecc_mem[0] <= 32'b0;
+      end else begin
+        // R0 is nil
+        ecc_mem[0] <= 32'b0;
+      end
     end
-  endgenerate
 
-  //-----------------------------------------------------------------------------
-  //-- WRITE : Write operation
-  //-----------------------------------------------------------------------------
-  //-- Generate M = WORDS sequential processes, each of which describes one
-  //-- word of the memory. The processes are synchronized with the clocks
-  //-- ClocksxC(i), i = 0, 1, ..., M-1
-  //-- Use active low, i.e. transparent on low latches as storage elements
-  //-- Data is sampled on rising clock edge
-
-  // Integer registers
-  always_latch begin : latch_wdata
-    // Note: The assignment has to be done inside this process or Modelsim complains about it
-    ecc_mem[0] = '0;
-
-    for (k = 1; k < NUM_WORDS; k++) begin : w_WordIter
-      if (~rst_ni) ecc_mem[k] = '0;
-      else if (mem_clocks[k] == 1'b1) ecc_mem[k] = waddr_onehot_b_q[k] ? wdata_b_q : wdata_a_q;
-    end
-  end
-
-  if (FPU == 1 && PULP_ZFINX == 0) begin
-    // Floating point registers
-    always_latch begin : latch_wdata_fp
-      if (FPU == 1) begin
-        for (l = 0; l < NUM_FP_WORDS; l++) begin : w_WordIter
-          if (~rst_ni) ecc_mem_fp[l] = '0;
-          else if (mem_clocks[l+NUM_WORDS] == 1'b1)
-            ecc_mem_fp[l] = waddr_onehot_b_q[l+NUM_WORDS] ? wdata_b_q : wdata_a_q;
+    // loop from 1 to NUM_WORDS-1 as R0 is nil
+    for (i = 1; i < NUM_WORDS; i++) begin : gen_rf
+      always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral
+        if (rst_ni == 1'b0) begin
+          ecc_mem[i] <= 32'b0;
+        end else begin
+          if (we_b_dec[i] == 1'b1) ecc_mem[i] <= wdata_b;
+          else if (we_a_dec[i] == 1'b1) ecc_mem[i] <= wdata_a;
         end
       end
     end
-  end
+
+    if (FPU == 1 && PULP_ZFINX == 0) begin : gen_mem_fp_write
+      // Floating point registers
+      for (l = 0; l < NUM_FP_WORDS; l++) begin
+        always_ff @(posedge clk_i, negedge rst_ni) begin : fp_regs
+          if (rst_ni == 1'b0) begin
+            ecc_mem_fp[l] <= '0;
+          end else begin
+            if (we_b_dec[l+NUM_WORDS] == 1'b1) ecc_mem_fp[l] <= wdata_b;
+            else if (we_a_dec[l+NUM_WORDS] == 1'b1) ecc_mem_fp[l] <= wdata_a;
+          end
+        end
+      end
+    end else begin : gen_no_mem_fp_write
+      assign ecc_mem_fp = 'b0;
+    end
+
+  endgenerate
+
 endmodule
