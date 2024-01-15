@@ -17,28 +17,36 @@ sources:
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
-  - rtl/lowrisc_ecc/prim_secded_13_8_cor.sv
-  - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
-  - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
-  - rtl/lowrisc_ecc/prim_secded_22_16_cor.sv
-  - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
-  - rtl/lowrisc_ecc/prim_secded_22_16_enc.sv
-  - rtl/lowrisc_ecc/prim_secded_39_32_cor.sv
-  - rtl/lowrisc_ecc/prim_secded_39_32_dec.sv
-  - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
-  - rtl/lowrisc_ecc/prim_secded_72_64_cor.sv
-  - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
-  - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
-  - rtl/lowrisc_ecc/prim_secded_pkg.sv
   - rtl/ODRG_unit/triple_core_barrier.sv
+  - rtl/hsiao_ecc/hsiao_ecc_pkg.sv
+  - rtl/hsiao_ecc/hsiao_ecc_enc.sv
+  - rtl/hsiao_ecc/hsiao_ecc_dec.sv
+  - rtl/hsiao_ecc/hsiao_ecc_cor.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
-  - rtl/ecc_concat_32_64.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
+
+  - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc)
+    files:
+      - rtl/ecc_concat_32_64.sv
+      - rtl/lowrisc_ecc/prim_secded_pkg.sv
+      - rtl/lowrisc_ecc/prim_secded_13_8_cor.sv
+      - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
+      - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
+      - rtl/lowrisc_ecc/prim_secded_22_16_cor.sv
+      - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
+      - rtl/lowrisc_ecc/prim_secded_22_16_enc.sv
+      - rtl/lowrisc_ecc/prim_secded_39_32_cor.sv
+      - rtl/lowrisc_ecc/prim_secded_39_32_dec.sv
+      - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
+      - rtl/lowrisc_ecc/prim_secded_72_64_cor.sv
+      - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
+      - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
+
   - target: axi_ecc # custom ECC for PULP AXI IPs, make sure to include interface IPs when adding this target
     files:
       - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv

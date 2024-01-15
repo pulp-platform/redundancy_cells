@@ -128,14 +128,20 @@ module ecc_sram_wrap #(
 
     assign decoder_in = store_state_q == NORMAL ? bank_rdata : rmw_buffer_end;
 
-    prim_secded_39_32_dec ecc_decode (
-      .in         ( decoder_in ),
-      .d_o        ( loaded ),
-      .syndrome_o (),
-      .err_o      (ecc_error)
+    hsiao_ecc_dec #(
+      .DataWidth (UnprotectedWidth),
+      .ProtWidth (ProtectedWidth - UnprotectedWidth)
+    ) ecc_decode (
+      .in        ( decoder_in ),
+      .out       ( loaded ),
+      .syndrome_o(),
+      .err_o     ( ecc_error )
     );
 
-    prim_secded_39_32_enc ecc_encode (
+    hsiao_ecc_enc #(
+      .DataWidth (UnprotectedWidth),
+      .ProtWidth (ProtectedWidth - UnprotectedWidth)
+    ) ecc_encode (
       .in  ( to_store   ),
       .out ( bank_wdata )
     );
@@ -154,24 +160,34 @@ module ecc_sram_wrap #(
     assign bank_wdata = store_state_q == NORMAL ? tcdm_wdata_i : lns_wdata;
     assign tcdm_rdata_o   = bank_rdata;
 
-    prim_secded_39_32_dec ld_decode (
-      .in        (rmw_buffer_end),
-      .d_o       (intermediate_data_ld),
+    hsiao_ecc_dec #(
+      .DataWidth (UnprotectedWidth),
+      .ProtWidth (ProtectedWidth - UnprotectedWidth)
+    ) ld_decode (
+      .in        ( rmw_buffer_end ),
+      .out       ( intermediate_data_ld ),
       .syndrome_o(),
       .err_o     ()
     );
 
-    prim_secded_39_32_dec st_decode (
-      .in        (input_buffer_q),
-      .d_o       (intermediate_data_st),
+    hsiao_ecc_dec #(
+      .DataWidth (UnprotectedWidth),
+      .ProtWidth (ProtectedWidth - UnprotectedWidth)
+    ) st_decode (
+      .in        ( input_buffer_q ),
+      .out       ( intermediate_data_st ),
       .syndrome_o(),
       .err_o     ()
     );
 
-    prim_secded_39_32_enc lns_encode (
-      .in ( (be_selector & intermediate_data_st) | (~be_selector & intermediate_data_ld) ),
-      .out(lns_wdata)
+    hsiao_ecc_enc #(
+      .DataWidth (UnprotectedWidth),
+      .ProtWidth (ProtectedWidth - UnprotectedWidth)
+    ) lns_encode (
+      .in  ( (be_selector & intermediate_data_st) | (~be_selector & intermediate_data_ld)   ),
+      .out ( lns_wdata )
     );
+
   end
 
   always_comb begin
