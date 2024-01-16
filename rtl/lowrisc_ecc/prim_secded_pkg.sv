@@ -65,10 +65,10 @@ package prim_secded_pkg;
     logic [12:0] out;
     out[7:0] = in;
     out[8] = ^(in & 8'h6B);
-    out[9] = ^(in & 8'hF8);
+    out[9] = ^(in & 8'hAD);
     out[10] = ^(in & 8'hD5);
-    out[11] = ^(in & 8'hA7);
-    out[12] = ^(in & 8'h1E);
+    out[11] = ^(in & 8'h36);
+    out[12] = ^(in & 8'hDA);
     return out;
   endfunction
 
@@ -83,20 +83,20 @@ package prim_secded_pkg;
 
     // Syndrome calculation
     syndrome_o[0] = ^(in & 13'h016B);
-    syndrome_o[1] = ^(in & 13'h02F8);
+    syndrome_o[1] = ^(in & 13'h02AD);
     syndrome_o[2] = ^(in & 13'h04D5);
-    syndrome_o[3] = ^(in & 13'h08A7);
-    syndrome_o[4] = ^(in & 13'h101E);
+    syndrome_o[3] = ^(in & 13'h0836);
+    syndrome_o[4] = ^(in & 13'h10DA);
 
     // Corrected output calculation
-    d_o[0] = (syndrome_o == 5'hd) ^ in[0];
+    d_o[0] = (syndrome_o == 5'h7) ^ in[0];
     d_o[1] = (syndrome_o == 5'h19) ^ in[1];
-    d_o[2] = (syndrome_o == 5'h1c) ^ in[2];
+    d_o[2] = (syndrome_o == 5'he) ^ in[2];
     d_o[3] = (syndrome_o == 5'h13) ^ in[3];
-    d_o[4] = (syndrome_o == 5'h16) ^ in[4];
+    d_o[4] = (syndrome_o == 5'h1c) ^ in[4];
     d_o[5] = (syndrome_o == 5'hb) ^ in[5];
-    d_o[6] = (syndrome_o == 5'h7) ^ in[6];
-    d_o[7] = (syndrome_o == 5'he) ^ in[7];
+    d_o[6] = (syndrome_o == 5'h15) ^ in[6];
+    d_o[7] = (syndrome_o == 5'h16) ^ in[7];
 
     // err_o calc. bit0: single error, bit1: double error
     single_error = ^syndrome_o;
@@ -113,12 +113,12 @@ package prim_secded_pkg;
   function automatic logic [21:0] prim_secded_22_16_enc (logic [15:0] in);
     logic [21:0] out;
     out[15:0] = in;
-    out[16] = ^(in & 16'h7B48);
-    out[17] = ^(in & 16'h91AB);
-    out[18] = ^(in & 16'h0E3D);
-    out[19] = ^(in & 16'h7692);
-    out[20] = ^(in & 16'hA547);
-    out[21] = ^(in & 16'hC8F4);
+    out[16] = ^(in & 16'h5555);
+    out[17] = ^(in & 16'hAA55);
+    out[18] = ^(in & 16'h95A9);
+    out[19] = ^(in & 16'h69A6);
+    out[20] = ^(in & 16'h669A);
+    out[21] = ^(in & 16'h9A6A);
     return out;
   endfunction
 
@@ -132,30 +132,30 @@ package prim_secded_pkg;
     logic single_error;
 
     // Syndrome calculation
-    syndrome_o[0] = ^(in & 22'h017B48);
-    syndrome_o[1] = ^(in & 22'h0291AB);
-    syndrome_o[2] = ^(in & 22'h040E3D);
-    syndrome_o[3] = ^(in & 22'h087692);
-    syndrome_o[4] = ^(in & 22'h10A547);
-    syndrome_o[5] = ^(in & 22'h20C8F4);
+    syndrome_o[0] = ^(in & 22'h015555);
+    syndrome_o[1] = ^(in & 22'h02AA55);
+    syndrome_o[2] = ^(in & 22'h0495A9);
+    syndrome_o[3] = ^(in & 22'h0869A6);
+    syndrome_o[4] = ^(in & 22'h10669A);
+    syndrome_o[5] = ^(in & 22'h209A6A);
 
     // Corrected output calculation
-    d_o[0] = (syndrome_o == 6'h16) ^ in[0];
-    d_o[1] = (syndrome_o == 6'h1a) ^ in[1];
-    d_o[2] = (syndrome_o == 6'h34) ^ in[2];
-    d_o[3] = (syndrome_o == 6'h7) ^ in[3];
-    d_o[4] = (syndrome_o == 6'h2c) ^ in[4];
-    d_o[5] = (syndrome_o == 6'h26) ^ in[5];
-    d_o[6] = (syndrome_o == 6'h31) ^ in[6];
-    d_o[7] = (syndrome_o == 6'h2a) ^ in[7];
-    d_o[8] = (syndrome_o == 6'h13) ^ in[8];
-    d_o[9] = (syndrome_o == 6'hd) ^ in[9];
-    d_o[10] = (syndrome_o == 6'h1c) ^ in[10];
-    d_o[11] = (syndrome_o == 6'h25) ^ in[11];
-    d_o[12] = (syndrome_o == 6'hb) ^ in[12];
-    d_o[13] = (syndrome_o == 6'h19) ^ in[13];
-    d_o[14] = (syndrome_o == 6'h29) ^ in[14];
-    d_o[15] = (syndrome_o == 6'h32) ^ in[15];
+    d_o[0] = (syndrome_o == 6'h7) ^ in[0];
+    d_o[1] = (syndrome_o == 6'h38) ^ in[1];
+    d_o[2] = (syndrome_o == 6'hb) ^ in[2];
+    d_o[3] = (syndrome_o == 6'h34) ^ in[3];
+    d_o[4] = (syndrome_o == 6'h13) ^ in[4];
+    d_o[5] = (syndrome_o == 6'h2c) ^ in[5];
+    d_o[6] = (syndrome_o == 6'h23) ^ in[6];
+    d_o[7] = (syndrome_o == 6'h1c) ^ in[7];
+    d_o[8] = (syndrome_o == 6'hd) ^ in[8];
+    d_o[9] = (syndrome_o == 6'h32) ^ in[9];
+    d_o[10] = (syndrome_o == 6'h15) ^ in[10];
+    d_o[11] = (syndrome_o == 6'h2a) ^ in[11];
+    d_o[12] = (syndrome_o == 6'h25) ^ in[12];
+    d_o[13] = (syndrome_o == 6'h1a) ^ in[13];
+    d_o[14] = (syndrome_o == 6'h19) ^ in[14];
+    d_o[15] = (syndrome_o == 6'h26) ^ in[15];
 
     // err_o calc. bit0: single error, bit1: double error
     single_error = ^syndrome_o;
@@ -173,11 +173,11 @@ package prim_secded_pkg;
     logic [27:0] out;
     out[21:0] = in;
     out[22] = ^(in & 22'h3003FF);
-    out[23] = ^(in & 22'h20FC0F);
-    out[24] = ^(in & 22'h171C71);
+    out[23] = ^(in & 22'h30FC0F);
+    out[24] = ^(in & 22'h371C71);
     out[25] = ^(in & 22'h3B6592);
-    out[26] = ^(in & 22'h3DAAA4);
-    out[27] = ^(in & 22'h3ED348);
+    out[26] = ^(in & 22'h1DAAA4);
+    out[27] = ^(in & 22'h2ED348);
     return out;
   endfunction
 
@@ -192,11 +192,11 @@ package prim_secded_pkg;
 
     // Syndrome calculation
     syndrome_o[0] = ^(in & 28'h07003FF);
-    syndrome_o[1] = ^(in & 28'h0A0FC0F);
-    syndrome_o[2] = ^(in & 28'h1171C71);
+    syndrome_o[1] = ^(in & 28'h0B0FC0F);
+    syndrome_o[2] = ^(in & 28'h1371C71);
     syndrome_o[3] = ^(in & 28'h23B6592);
-    syndrome_o[4] = ^(in & 28'h43DAAA4);
-    syndrome_o[5] = ^(in & 28'h83ED348);
+    syndrome_o[4] = ^(in & 28'h41DAAA4);
+    syndrome_o[5] = ^(in & 28'h82ED348);
 
     // Corrected output calculation
     d_o[0] = (syndrome_o == 6'h7) ^ in[0];
@@ -219,8 +219,8 @@ package prim_secded_pkg;
     d_o[17] = (syndrome_o == 6'h2c) ^ in[17];
     d_o[18] = (syndrome_o == 6'h34) ^ in[18];
     d_o[19] = (syndrome_o == 6'h38) ^ in[19];
-    d_o[20] = (syndrome_o == 6'h3d) ^ in[20];
-    d_o[21] = (syndrome_o == 6'h3b) ^ in[21];
+    d_o[20] = (syndrome_o == 6'h1f) ^ in[20];
+    d_o[21] = (syndrome_o == 6'h2f) ^ in[21];
 
     // err_o calc. bit0: single error, bit1: double error
     single_error = ^syndrome_o;
@@ -237,13 +237,13 @@ package prim_secded_pkg;
   function automatic logic [38:0] prim_secded_39_32_enc (logic [31:0] in);
     logic [38:0] out;
     out[31:0] = in;
-    out[32] = ^(in & 32'h3800CDBC);
-    out[33] = ^(in & 32'hC439C325);
-    out[34] = ^(in & 32'h52D82C63);
-    out[35] = ^(in & 32'hA4363856);
-    out[36] = ^(in & 32'h9B833109);
-    out[37] = ^(in & 32'h2DCF42C0);
-    out[38] = ^(in & 32'h4364969A);
+    out[32] = ^(in & 32'h2CA53295);
+    out[33] = ^(in & 32'h93492CA5);
+    out[34] = ^(in & 32'h552A5329);
+    out[35] = ^(in & 32'hA8D294AA);
+    out[36] = ^(in & 32'h4A2CA54A);
+    out[37] = ^(in & 32'h25534952);
+    out[38] = ^(in & 32'hD294CA54);
     return out;
   endfunction
 
@@ -257,47 +257,47 @@ package prim_secded_pkg;
     logic single_error;
 
     // Syndrome calculation
-    syndrome_o[0] = ^(in & 39'h013800CDBC);
-    syndrome_o[1] = ^(in & 39'h02C439C325);
-    syndrome_o[2] = ^(in & 39'h0452D82C63);
-    syndrome_o[3] = ^(in & 39'h08A4363856);
-    syndrome_o[4] = ^(in & 39'h109B833109);
-    syndrome_o[5] = ^(in & 39'h202DCF42C0);
-    syndrome_o[6] = ^(in & 39'h404364969A);
+    syndrome_o[0] = ^(in & 39'h012CA53295);
+    syndrome_o[1] = ^(in & 39'h0293492CA5);
+    syndrome_o[2] = ^(in & 39'h04552A5329);
+    syndrome_o[3] = ^(in & 39'h08A8D294AA);
+    syndrome_o[4] = ^(in & 39'h104A2CA54A);
+    syndrome_o[5] = ^(in & 39'h2025534952);
+    syndrome_o[6] = ^(in & 39'h40D294CA54);
 
     // Corrected output calculation
-    d_o[0] = (syndrome_o == 7'h16) ^ in[0];
-    d_o[1] = (syndrome_o == 7'h4c) ^ in[1];
-    d_o[2] = (syndrome_o == 7'hb) ^ in[2];
-    d_o[3] = (syndrome_o == 7'h51) ^ in[3];
-    d_o[4] = (syndrome_o == 7'h49) ^ in[4];
-    d_o[5] = (syndrome_o == 7'h7) ^ in[5];
-    d_o[6] = (syndrome_o == 7'h2c) ^ in[6];
-    d_o[7] = (syndrome_o == 7'h61) ^ in[7];
-    d_o[8] = (syndrome_o == 7'h13) ^ in[8];
-    d_o[9] = (syndrome_o == 7'h62) ^ in[9];
-    d_o[10] = (syndrome_o == 7'h45) ^ in[10];
-    d_o[11] = (syndrome_o == 7'hd) ^ in[11];
-    d_o[12] = (syndrome_o == 7'h58) ^ in[12];
-    d_o[13] = (syndrome_o == 7'h1c) ^ in[13];
-    d_o[14] = (syndrome_o == 7'h23) ^ in[14];
-    d_o[15] = (syndrome_o == 7'h43) ^ in[15];
-    d_o[16] = (syndrome_o == 7'h32) ^ in[16];
-    d_o[17] = (syndrome_o == 7'h38) ^ in[17];
-    d_o[18] = (syndrome_o == 7'h68) ^ in[18];
-    d_o[19] = (syndrome_o == 7'h26) ^ in[19];
-    d_o[20] = (syndrome_o == 7'he) ^ in[20];
-    d_o[21] = (syndrome_o == 7'h4a) ^ in[21];
-    d_o[22] = (syndrome_o == 7'h64) ^ in[22];
-    d_o[23] = (syndrome_o == 7'h34) ^ in[23];
-    d_o[24] = (syndrome_o == 7'h70) ^ in[24];
-    d_o[25] = (syndrome_o == 7'h54) ^ in[25];
-    d_o[26] = (syndrome_o == 7'h2a) ^ in[26];
-    d_o[27] = (syndrome_o == 7'h31) ^ in[27];
-    d_o[28] = (syndrome_o == 7'h15) ^ in[28];
+    d_o[0] = (syndrome_o == 7'h7) ^ in[0];
+    d_o[1] = (syndrome_o == 7'h38) ^ in[1];
+    d_o[2] = (syndrome_o == 7'h43) ^ in[2];
+    d_o[3] = (syndrome_o == 7'h1c) ^ in[3];
+    d_o[4] = (syndrome_o == 7'h61) ^ in[4];
+    d_o[5] = (syndrome_o == 7'he) ^ in[5];
+    d_o[6] = (syndrome_o == 7'h70) ^ in[6];
+    d_o[7] = (syndrome_o == 7'hb) ^ in[7];
+    d_o[8] = (syndrome_o == 7'h34) ^ in[8];
+    d_o[9] = (syndrome_o == 7'h45) ^ in[9];
+    d_o[10] = (syndrome_o == 7'h1a) ^ in[10];
+    d_o[11] = (syndrome_o == 7'h62) ^ in[11];
+    d_o[12] = (syndrome_o == 7'hd) ^ in[12];
+    d_o[13] = (syndrome_o == 7'h13) ^ in[13];
+    d_o[14] = (syndrome_o == 7'h64) ^ in[14];
+    d_o[15] = (syndrome_o == 7'h58) ^ in[15];
+    d_o[16] = (syndrome_o == 7'h23) ^ in[16];
+    d_o[17] = (syndrome_o == 7'h2c) ^ in[17];
+    d_o[18] = (syndrome_o == 7'h51) ^ in[18];
+    d_o[19] = (syndrome_o == 7'h16) ^ in[19];
+    d_o[20] = (syndrome_o == 7'h68) ^ in[20];
+    d_o[21] = (syndrome_o == 7'h15) ^ in[21];
+    d_o[22] = (syndrome_o == 7'h2a) ^ in[22];
+    d_o[23] = (syndrome_o == 7'h49) ^ in[23];
+    d_o[24] = (syndrome_o == 7'h26) ^ in[24];
+    d_o[25] = (syndrome_o == 7'h52) ^ in[25];
+    d_o[26] = (syndrome_o == 7'h25) ^ in[26];
+    d_o[27] = (syndrome_o == 7'h19) ^ in[27];
+    d_o[28] = (syndrome_o == 7'h46) ^ in[28];
     d_o[29] = (syndrome_o == 7'h29) ^ in[29];
-    d_o[30] = (syndrome_o == 7'h46) ^ in[30];
-    d_o[31] = (syndrome_o == 7'h1a) ^ in[31];
+    d_o[30] = (syndrome_o == 7'h54) ^ in[30];
+    d_o[31] = (syndrome_o == 7'h4a) ^ in[31];
 
     // err_o calc. bit0: single error, bit1: double error
     single_error = ^syndrome_o;
@@ -416,14 +416,14 @@ package prim_secded_pkg;
   function automatic logic [71:0] prim_secded_72_64_enc (logic [63:0] in);
     logic [71:0] out;
     out[63:0] = in;
-    out[64] = ^(in & 64'hF8000000001FFFFF);
-    out[65] = ^(in & 64'h9D00000FFFE0003F);
-    out[66] = ^(in & 64'h8F003FF003E007C1);
-    out[67] = ^(in & 64'hF10FC0F03C207842);
-    out[68] = ^(in & 64'h6E71C711C4438884);
-    out[69] = ^(in & 64'h3EB65926488C9108);
-    out[70] = ^(in & 64'hD3DAAA4A91152210);
-    out[71] = ^(in & 64'h67ED348D221A4420);
+    out[64] = ^(in & 64'h5B000000001FFFFF);
+    out[65] = ^(in & 64'h6B00000FFFE0003F);
+    out[66] = ^(in & 64'h6D003FF003E007C1);
+    out[67] = ^(in & 64'hAD0FC0F03C207842);
+    out[68] = ^(in & 64'hB571C711C4438884);
+    out[69] = ^(in & 64'hB6B65926488C9108);
+    out[70] = ^(in & 64'hD6DAAA4A91152210);
+    out[71] = ^(in & 64'hDAED348D221A4420);
     return out;
   endfunction
 
@@ -437,14 +437,14 @@ package prim_secded_pkg;
     logic single_error;
 
     // Syndrome calculation
-    syndrome_o[0] = ^(in & 72'h01F8000000001FFFFF);
-    syndrome_o[1] = ^(in & 72'h029D00000FFFE0003F);
-    syndrome_o[2] = ^(in & 72'h048F003FF003E007C1);
-    syndrome_o[3] = ^(in & 72'h08F10FC0F03C207842);
-    syndrome_o[4] = ^(in & 72'h106E71C711C4438884);
-    syndrome_o[5] = ^(in & 72'h203EB65926488C9108);
-    syndrome_o[6] = ^(in & 72'h40D3DAAA4A91152210);
-    syndrome_o[7] = ^(in & 72'h8067ED348D221A4420);
+    syndrome_o[0] = ^(in & 72'h015B000000001FFFFF);
+    syndrome_o[1] = ^(in & 72'h026B00000FFFE0003F);
+    syndrome_o[2] = ^(in & 72'h046D003FF003E007C1);
+    syndrome_o[3] = ^(in & 72'h08AD0FC0F03C207842);
+    syndrome_o[4] = ^(in & 72'h10B571C711C4438884);
+    syndrome_o[5] = ^(in & 72'h20B6B65926488C9108);
+    syndrome_o[6] = ^(in & 72'h40D6DAAA4A91152210);
+    syndrome_o[7] = ^(in & 72'h80DAED348D221A4420);
 
     // Corrected output calculation
     d_o[0] = (syndrome_o == 8'h7) ^ in[0];
@@ -503,14 +503,14 @@ package prim_secded_pkg;
     d_o[53] = (syndrome_o == 8'hb0) ^ in[53];
     d_o[54] = (syndrome_o == 8'hd0) ^ in[54];
     d_o[55] = (syndrome_o == 8'he0) ^ in[55];
-    d_o[56] = (syndrome_o == 8'hce) ^ in[56];
-    d_o[57] = (syndrome_o == 8'hf4) ^ in[57];
-    d_o[58] = (syndrome_o == 8'hb6) ^ in[58];
-    d_o[59] = (syndrome_o == 8'h37) ^ in[59];
-    d_o[60] = (syndrome_o == 8'h6b) ^ in[60];
-    d_o[61] = (syndrome_o == 8'hb9) ^ in[61];
-    d_o[62] = (syndrome_o == 8'hd9) ^ in[62];
-    d_o[63] = (syndrome_o == 8'h4f) ^ in[63];
+    d_o[56] = (syndrome_o == 8'h1f) ^ in[56];
+    d_o[57] = (syndrome_o == 8'he3) ^ in[57];
+    d_o[58] = (syndrome_o == 8'h7c) ^ in[58];
+    d_o[59] = (syndrome_o == 8'h8f) ^ in[59];
+    d_o[60] = (syndrome_o == 8'hf1) ^ in[60];
+    d_o[61] = (syndrome_o == 8'h3e) ^ in[61];
+    d_o[62] = (syndrome_o == 8'hc7) ^ in[62];
+    d_o[63] = (syndrome_o == 8'hf8) ^ in[63];
 
     // err_o calc. bit0: single error, bit1: double error
     single_error = ^syndrome_o;

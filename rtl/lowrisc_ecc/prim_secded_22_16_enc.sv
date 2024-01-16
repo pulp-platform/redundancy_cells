@@ -12,12 +12,12 @@ module prim_secded_22_16_enc (
 
   always_comb begin : p_encode
     out[15:0] = in;
-    out[16] = ^(in & 16'h7B48);
-    out[17] = ^(in & 16'h91AB);
-    out[18] = ^(in & 16'h0E3D);
-    out[19] = ^(in & 16'h7692);
-    out[20] = ^(in & 16'hA547);
-    out[21] = ^(in & 16'hC8F4);
+    out[16] = ^(in & 16'h5555);
+    out[17] = ^(in & 16'hAA55);
+    out[18] = ^(in & 16'h95A9);
+    out[19] = ^(in & 16'h69A6);
+    out[20] = ^(in & 16'h669A);
+    out[21] = ^(in & 16'h9A6A);
   end
 
 endmodule : prim_secded_22_16_enc
