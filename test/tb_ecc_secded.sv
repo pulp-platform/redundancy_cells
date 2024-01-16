@@ -189,7 +189,8 @@ module tb_ecc_secded #(
 
   hsiao_ecc_enc #(
     .DataWidth(DataWidth),
-    .ProtWidth (ProtectBits)
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
   ) i_dut_encode (
     .in (in),
     .out(prot_out)
@@ -199,7 +200,8 @@ module tb_ecc_secded #(
 
   hsiao_ecc_dec #(
     .DataWidth(DataWidth),
-    .ProtWidth (ProtectBits)
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
   ) i_dut_decode (
     .in        (prot_in),
     .out       (out),
@@ -209,7 +211,8 @@ module tb_ecc_secded #(
 
   hsiao_ecc_cor #(
     .DataWidth(DataWidth),
-    .ProtWidth (ProtectBits)
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
   ) i_dut_correct (
     .in        (prot_in),
     .out       (prot_corrected),
@@ -219,7 +222,8 @@ module tb_ecc_secded #(
 
   hsiao_ecc_dec #(
     .DataWidth(DataWidth),
-    .ProtWidth (ProtectBits)
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
   ) i_dut_correct_decode (
     .in        (prot_corrected),
     .out       (out_corrected),

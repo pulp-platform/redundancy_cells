@@ -32,7 +32,9 @@ make gen_ODRG
 This will generate the register file SV-code, its corresponding C-code and documentation using lowrisc's reggen tool via the pulp register-interface repository.
 
 ## ECC encoders and decoders
-ECC encoders and decoders are imported using [`bender`'s `vendor` command](https://github.com/pulp-platform/bender#vendor-----copy-files-from-dependencies-that-do-not-support-bender). To re-import and re-generate the `prim_secded_` modules run
+The hsiao_ecc encoder, decoder, and corrector are based on lowRISC's Hsiao ECC implementation, with an adapted algorithm to deterministically find an appropriate Hsiao matrix. They are implemented in SystemVerilog for efficient parametrization, replacing the generated lowRISC modules.
+
+The lowRISC ECC encoders and decoders are imported using [`bender`'s `vendor` command](https://github.com/pulp-platform/bender#vendor-----copy-files-from-dependencies-that-do-not-support-bender). To re-import and re-generate the `prim_secded_` modules run
 ```bash
 make gen_ECC
 ```

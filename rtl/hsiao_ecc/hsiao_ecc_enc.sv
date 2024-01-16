@@ -13,8 +13,9 @@
 
 module hsiao_ecc_enc #(
   parameter int unsigned DataWidth = 32,
-  parameter int unsigned ProtWidth = 7,
-  parameter int unsigned TotalWidth = DataWidth + ProtWidth
+  parameter int unsigned ProtWidth = $clog2(DataWidth)+2,
+  parameter int unsigned TotalWidth = DataWidth + ProtWidth,
+  parameter bit          PrintHsiao = 1'b0
 ) (
   input  logic [ DataWidth-1:0] in,
   output logic [TotalWidth-1:0] out
@@ -33,5 +34,22 @@ module hsiao_ecc_enc #(
       out[DataWidth + i] = ^(in & HsiaoCodes[i][DataWidth-1:0]);
     end
   end
+
+`ifndef TARGET_SYNTHESIS
+  if (PrintHsiao) begin : gen_print_matrix
+    initial begin : p_hsiao_matrix
+      automatic string s = "##";
+      for (int i = 0; i < TotalWidth; i++) begin
+        s = {s, "#"};
+      end
+      $display("%s", s);
+      $display("hsiao_ecc_enc for %d_%d", TotalWidth, DataWidth);
+      for (int i = ProtWidth-1; i >= 0; i--) begin
+        $display("%b",HsiaoCodes[i]);
+      end
+      $display("%s", s);
+    end
+  end
+`endif
 
 endmodule

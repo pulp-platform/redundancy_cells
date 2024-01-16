@@ -94,6 +94,16 @@ package hsiao_ecc_pkg;
 
   typedef bit parity_vec_t[][];
 
+  /// Function to generate the Hsiao Code Matrix
+  /// k: data bits
+  /// m: code bits
+  ///
+  /// Goal is to find an optimal Hsiao Code Matrix:
+  ///   | 1 0 0 0 x x x x |
+  ///   | 0 1 0 0 x x x x |
+  ///   | 0 0 1 0 x x x x |
+  ///   | 0 0 0 1 x x x x |
+  /// Then message times matrix => original message with parity
   function automatic parity_vec_t hsiao_matrix(int unsigned k, int unsigned m);
     parity_vec_t existing = new[m];
     combinations_t combs;
