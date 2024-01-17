@@ -18,7 +18,7 @@ set -e
 
 VSIM_LOGFILE=vsim.log
 
-bender script vsim -t test -t rtl > compile.tcl
+bender script vsim -t test -t rtl --vlog-arg="-svinputport=compat" -t deprecated > compile.tcl
 
 $VSIM -c -do 'source compile.tcl; quit' > vcom.log
 
