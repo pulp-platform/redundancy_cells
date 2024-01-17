@@ -13,6 +13,20 @@
 
 package hsiao_ecc_pkg;
 
+  function automatic int unsigned max_vec(int unsigned vec[], int unsigned size);
+    max_vec = 0;
+    for (int unsigned i = 0; i < size; i++) begin
+      max_vec = vec[i] > max_vec ? vec[i] : max_vec;
+    end
+  endfunction
+
+  function automatic int unsigned min_vec(int unsigned vec[], int unsigned size);
+    min_vec = vec[0];
+    for (int unsigned i = 0; i < size; i++) begin
+      min_vec = vec[i] < min_vec ? vec[i] : min_vec;
+    end
+  endfunction
+
   function automatic int unsigned factorial(int unsigned i);
     // if (i == 1) begin
     //   factorial = 1;
@@ -87,10 +101,13 @@ package hsiao_ecc_pkg;
     int unsigned needed = k;
     int unsigned max_fanin = ideal_fanin(k, m);
     int unsigned count_index = 0;
-    bit use_comb = 0;
+    bit comb_added = 0;
     int unsigned tmp_sum = 0;
     int unsigned existing_fanins[] = new[m];
     int unsigned tmp_fanins[]      = new[m];
+    int unsigned min_fanin         = 0;
+    int unsigned work_fanin        = 0;
+    bit comb_used[];
 
     for (int unsigned i = 0; i < m; i++) begin
       existing[i] = new [k+m];
@@ -114,41 +131,78 @@ package hsiao_ecc_pkg;
         end
       end else begin
         // Use subset
-        
-        for (int unsigned i = 0; i < m; i++) begin
-          for (int unsigned j = 0; j < count_index; j++) begin
-            if (existing[i][j]) existing_fanins[i]++;
-          end
+
+        comb_used = new[n_choose_k(m, step)];
+        for (int unsigned i = 0; i < n_choose_k(m, step); i++) begin
+          comb_used[i] = '0;
         end
 
-        // Start with all options, remove unneeded ones
-        for (int i = 0; i < m; i++) begin
-          tmp_fanins[i] = existing_fanins[i];
-        end
-        for (int i = 0; i < n_choose_k(m, step); i++) begin
-          for (int unsigned l = 0; l < step; l++) begin
-            tmp_fanins[combs[i][l]]++;
-          end
-        end
+        while (needed > 0) begin
 
-        for (int i = 0; i < n_choose_k(m, step); i++) begin
-          use_comb = 0;
-          for (int unsigned l = 0; l < step; l++) begin
-            if (tmp_fanins[combs[i][l]] - 1 < max_fanin) use_comb = 1;
-          end
-          if (use_comb) begin
-            // add comb
-            for (int unsigned l = 0; l < step; l++) begin
-              existing[combs[i][l]][count_index] = 1'b1;
-            end
-            needed--;
-            count_index++;
-          end else begin
-            for (int unsigned l = 0; l < step; l++) begin
-              tmp_fanins[combs[i][l]]--;
+          for (int unsigned i = 0; i < m; i++) begin
+            existing_fanins[i] = 0;
+            for (int unsigned j = 0; j < count_index; j++) begin
+              if (existing[i][j]) existing_fanins[i]++;
             end
           end
-          if (count_index >= k) break;
+
+          comb_added = 0;
+
+          min_fanin = min_vec(existing_fanins, m);
+
+          // First add to increase minimum while keeping max low
+          for (int unsigned i = 0; i < n_choose_k(m, step); i++) begin
+            if (comb_used[i]) continue;
+
+            for (int unsigned i = 0; i < m; i++) begin
+              tmp_fanins[i] = existing_fanins[i];
+            end
+
+            for (int unsigned l = 0; l < step; l++) begin
+              tmp_fanins[combs[i][l]]++;
+            end
+
+            if (min_vec(tmp_fanins, m) > min_fanin && max_vec(tmp_fanins, m) <= work_fanin) begin
+              comb_added = 1;
+              for (int unsigned l = 0; l < step; l++) begin
+                existing[combs[i][l]][count_index] = 1'b1;
+              end
+              comb_used[i] = 1;
+              needed--;
+              count_index++;
+              break;
+            end
+          end
+
+          if (comb_added) continue;
+
+          // Then add to increase maximum if previous did not work
+          for (int unsigned i = 0; i < n_choose_k(m, step); i++) begin
+            if (comb_used[i]) continue;
+
+            for (int unsigned i = 0; i < m; i++) begin
+              tmp_fanins[i] = existing_fanins[i];
+            end
+
+            for (int unsigned l = 0; l < step; l++) begin
+              tmp_fanins[combs[i][l]]++;
+            end
+
+            if (max_vec(tmp_fanins, m) <= work_fanin) begin
+              comb_added = 1;
+              for (int unsigned l = 0; l < step; l++) begin
+                existing[combs[i][l]][count_index] = 1'b1;
+              end
+              comb_used[i] = 1;
+              needed--;
+              count_index++;
+              break;
+            end
+          end
+
+          if (!comb_added) begin
+            work_fanin += 1;
+          end
         end
         break;
       end
