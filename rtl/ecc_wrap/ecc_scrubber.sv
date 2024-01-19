@@ -15,7 +15,8 @@
 module ecc_scrubber #(
   parameter int unsigned BankSize       = 256,
   parameter bit          UseExternalECC = 0,
-  parameter int unsigned DataWidth      = 39
+  parameter int unsigned DataWidth      = 39,
+  parameter int unsigned ProtWidth      = 7
 ) (
   input  logic                        clk_i,
   input  logic                        rst_ni,
@@ -83,11 +84,14 @@ module ecc_scrubber #(
     assign scrub_wdata = ecc_in_i;
   end else begin : gen_internal_ecc
     assign ecc_out_o = '0;
-    prim_secded_39_32_cor ecc_corrector (
-      .d_i        ( scrub_rdata ),
-      .d_o        ( scrub_wdata ),
-      .syndrome_o (),
-      .err_o      ( ecc_err     )
+    hsiao_ecc_cor #(
+      .DataWidth (DataWidth-ProtWidth),
+      .ProtWidth (ProtWidth)
+    ) ecc_corrector (
+      .in        ( scrub_rdata ),
+      .out       ( scrub_wdata ),
+      .syndrome_o(),
+      .err_o     ( ecc_err     )
     );
   end
 

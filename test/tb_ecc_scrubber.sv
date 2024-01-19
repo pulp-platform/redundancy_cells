@@ -93,14 +93,14 @@ module tb_ecc_scrubber #(
   typedef struct packed {
     bit                          error;
     data_t                       corrected;
-    logic [                31:0] bit_corrections;
+    logic                        bit_corrections;
     logic [$clog2(BankSize)-1:0] add;
   } result_t;
   result_t golden_queue[$];
 
 
   function automatic void generate_stimuli();
-    logic [31:0] corr;
+    logic corr;
     corr = '0;
 
     repeat (1)
@@ -112,12 +112,9 @@ module tb_ecc_scrubber #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{error: stimuli.error, corrected: stimuli.get_data(), bit_corrections: corr, add: gen_i % BankSize});
+          golden_queue.push_back('{error: stimuli.error, corrected: stimuli.get_data(), bit_corrections: stimuli.error, add: gen_i % BankSize});
         end else begin
           $error("Could not randomize.");
-        end
-        if (stimuli.error) begin
-          corr = corr + 1;
         end
       end
   endfunction : generate_stimuli
@@ -125,7 +122,7 @@ module tb_ecc_scrubber #(
   // Apply Stimuli
 
   logic                        scrub_trigger;
-  logic [                31:0] bit_corrections;
+  logic                        bit_corrections;
   logic                        intc_req;
   logic                        intc_we;
   logic [$clog2(BankSize)-1:0] intc_add;
@@ -179,7 +176,8 @@ module tb_ecc_scrubber #(
     .clk_i            ( clk             ),
     .rst_ni           ( rst_n           ),
     .scrub_trigger_i  ( scrub_trigger   ),
-    .bit_corrections_o( bit_corrections ),
+    .bit_corrected_o  ( bit_corrections ),
+    .uncorrectable_o  (),
     .intc_req_i       ( intc_req        ),
     .intc_we_i        ( intc_we         ),
     .intc_add_i       ( intc_add        ),

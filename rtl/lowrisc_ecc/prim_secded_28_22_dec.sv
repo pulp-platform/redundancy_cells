@@ -16,11 +16,11 @@ module prim_secded_28_22_dec (
 
   // Syndrome calculation
   assign syndrome_o[0] = ^(in & 28'h07003FF);
-  assign syndrome_o[1] = ^(in & 28'h0A0FC0F);
-  assign syndrome_o[2] = ^(in & 28'h1171C71);
+  assign syndrome_o[1] = ^(in & 28'h0B0FC0F);
+  assign syndrome_o[2] = ^(in & 28'h1371C71);
   assign syndrome_o[3] = ^(in & 28'h23B6592);
-  assign syndrome_o[4] = ^(in & 28'h43DAAA4);
-  assign syndrome_o[5] = ^(in & 28'h83ED348);
+  assign syndrome_o[4] = ^(in & 28'h41DAAA4);
+  assign syndrome_o[5] = ^(in & 28'h82ED348);
 
   // Corrected output calculation
   assign d_o[0] = (syndrome_o == 6'h7) ^ in[0];
@@ -43,8 +43,8 @@ module prim_secded_28_22_dec (
   assign d_o[17] = (syndrome_o == 6'h2c) ^ in[17];
   assign d_o[18] = (syndrome_o == 6'h34) ^ in[18];
   assign d_o[19] = (syndrome_o == 6'h38) ^ in[19];
-  assign d_o[20] = (syndrome_o == 6'h3d) ^ in[20];
-  assign d_o[21] = (syndrome_o == 6'h3b) ^ in[21];
+  assign d_o[20] = (syndrome_o == 6'h1f) ^ in[20];
+  assign d_o[21] = (syndrome_o == 6'h2f) ^ in[21];
 
   // err_o calc. bit0: single error, bit1: double error
   assign single_error = ^syndrome_o;

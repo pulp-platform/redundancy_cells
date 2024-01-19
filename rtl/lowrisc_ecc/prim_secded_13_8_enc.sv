@@ -13,10 +13,10 @@ module prim_secded_13_8_enc (
   always_comb begin : p_encode
     out[7:0] = in;
     out[8] = ^(in & 8'h6B);
-    out[9] = ^(in & 8'hF8);
+    out[9] = ^(in & 8'hAD);
     out[10] = ^(in & 8'hD5);
-    out[11] = ^(in & 8'hA7);
-    out[12] = ^(in & 8'h1E);
+    out[11] = ^(in & 8'h36);
+    out[12] = ^(in & 8'hDA);
   end
 
 endmodule : prim_secded_13_8_enc

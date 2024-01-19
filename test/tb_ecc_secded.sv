@@ -187,103 +187,49 @@ module tb_ecc_secded #(
   prot_t prot_out, prot_in, prot_corrected;
   logic [1:0] error, error_corrector, error_correcter_decoder;
 
-  if (DataWidth == 8) begin
-    prim_secded_13_8_enc i_dut_encode (
-      .in (in),
-      .out(prot_out)
-    );
-    assign prot_in = prot_out ^ inject;
-    prim_secded_13_8_dec i_dut_decode (
-      .in        (prot_in),
-      .d_o       (out),
-      .syndrome_o(syndrome),
-      .err_o     (error)
-    );
-    prim_secded_13_8_cor i_dut_correct (
-      .d_i       (prot_in),
-      .d_o       (prot_corrected),
-      .syndrome_o(syndrome_corrector),
-      .err_o     (error_corrector)
-    );
-    prim_secded_13_8_dec i_dut_correct_decode (
-      .in        (prot_corrected),
-      .d_o       (out_corrected),
-      .syndrome_o(syndrome_corrector_decoder),
-      .err_o     (error_correcter_decoder)
-    );
-  end else if (DataWidth == 16) begin
-    prim_secded_22_16_enc i_dut_encode (
-      .in (in),
-      .out(prot_out)
-    );
-    assign prot_in = prot_out ^ inject;
-    prim_secded_22_16_dec i_dut_decode (
-      .in        (prot_in),
-      .d_o       (out),
-      .syndrome_o(syndrome),
-      .err_o     (error)
-    );
-    prim_secded_22_16_cor i_dut_correct (
-      .d_i       (prot_in),
-      .d_o       (prot_corrected),
-      .syndrome_o(syndrome_corrector),
-      .err_o     (error_corrector)
-    );
-    prim_secded_22_16_dec i_dut_correct_decode (
-      .in        (prot_corrected),
-      .d_o       (out_corrected),
-      .syndrome_o(syndrome_corrector_decoder),
-      .err_o     (error_correcter_decoder)
-    );
-  end else if (DataWidth == 32) begin
-    prim_secded_39_32_enc i_dut_encode (
-      .in (in),
-      .out(prot_out)
-    );
-    assign prot_in = prot_out ^ inject;
-    prim_secded_39_32_dec i_dut_decode (
-      .in        (prot_in),
-      .d_o       (out),
-      .syndrome_o(syndrome),
-      .err_o     (error)
-    );
-    prim_secded_39_32_cor i_dut_correct (
-      .d_i       (prot_in),
-      .d_o       (prot_corrected),
-      .syndrome_o(syndrome_corrector),
-      .err_o     (error_corrector)
-    );
-    prim_secded_39_32_dec i_dut_correct_decode (
-      .in        (prot_corrected),
-      .d_o       (out_corrected),
-      .syndrome_o(syndrome_corrector_decoder),
-      .err_o     (error_correcter_decoder)
-    );
-  end else if (DataWidth == 64) begin
-    prim_secded_72_64_enc i_dut_encode (
-      .in (in),
-      .out(prot_out)
-    );
-    assign prot_in = prot_out ^ inject;
-    prim_secded_72_64_dec i_dut_decode (
-      .in        (prot_in),
-      .d_o       (out),
-      .syndrome_o(syndrome),
-      .err_o     (error)
-    );
-    prim_secded_72_64_cor i_dut_correct (
-      .d_i       (prot_in),
-      .d_o       (prot_corrected),
-      .syndrome_o(syndrome_corrector),
-      .err_o     (error_corrector)
-    );
-    prim_secded_72_64_dec i_dut_correct_decode (
-      .in        (prot_corrected),
-      .d_o       (out_corrected),
-      .syndrome_o(syndrome_corrector_decoder),
-      .err_o     (error_correcter_decoder)
-    );
-  end
+  hsiao_ecc_enc #(
+    .DataWidth(DataWidth),
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
+  ) i_dut_encode (
+    .in (in),
+    .out(prot_out)
+  );
+
+  assign prot_in = prot_out ^ inject;
+
+  hsiao_ecc_dec #(
+    .DataWidth(DataWidth),
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
+  ) i_dut_decode (
+    .in        (prot_in),
+    .out       (out),
+    .syndrome_o(syndrome),
+    .err_o     (error)
+  );
+
+  hsiao_ecc_cor #(
+    .DataWidth(DataWidth),
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
+  ) i_dut_correct (
+    .in        (prot_in),
+    .out       (prot_corrected),
+    .syndrome_o(syndrome_corrector),
+    .err_o     (error_corrector)
+  );
+
+  hsiao_ecc_dec #(
+    .DataWidth(DataWidth),
+    .ProtWidth (ProtectBits),
+    .PrintHsiao(1'b1)
+  ) i_dut_correct_decode (
+    .in        (prot_corrected),
+    .out       (out_corrected),
+    .syndrome_o(syndrome_corrector_decoder),
+    .err_o     (error_correcter_decoder)
+  );
 
   /***********************
    *  Output collection  *

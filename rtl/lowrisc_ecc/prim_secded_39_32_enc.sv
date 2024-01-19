@@ -12,13 +12,13 @@ module prim_secded_39_32_enc (
 
   always_comb begin : p_encode
     out[31:0] = in;
-    out[32] = ^(in & 32'h3800CDBC);
-    out[33] = ^(in & 32'hC439C325);
-    out[34] = ^(in & 32'h52D82C63);
-    out[35] = ^(in & 32'hA4363856);
-    out[36] = ^(in & 32'h9B833109);
-    out[37] = ^(in & 32'h2DCF42C0);
-    out[38] = ^(in & 32'h4364969A);
+    out[32] = ^(in & 32'h2CA53295);
+    out[33] = ^(in & 32'h93492CA5);
+    out[34] = ^(in & 32'h552A5329);
+    out[35] = ^(in & 32'hA8D294AA);
+    out[36] = ^(in & 32'h4A2CA54A);
+    out[37] = ^(in & 32'h25534952);
+    out[38] = ^(in & 32'hD294CA54);
   end
 
 endmodule : prim_secded_39_32_enc

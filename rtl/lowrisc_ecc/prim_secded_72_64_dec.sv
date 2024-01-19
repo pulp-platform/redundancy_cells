@@ -15,14 +15,14 @@ module prim_secded_72_64_dec (
   logic single_error;
 
   // Syndrome calculation
-  assign syndrome_o[0] = ^(in & 72'h01F8000000001FFFFF);
-  assign syndrome_o[1] = ^(in & 72'h029D00000FFFE0003F);
-  assign syndrome_o[2] = ^(in & 72'h048F003FF003E007C1);
-  assign syndrome_o[3] = ^(in & 72'h08F10FC0F03C207842);
-  assign syndrome_o[4] = ^(in & 72'h106E71C711C4438884);
-  assign syndrome_o[5] = ^(in & 72'h203EB65926488C9108);
-  assign syndrome_o[6] = ^(in & 72'h40D3DAAA4A91152210);
-  assign syndrome_o[7] = ^(in & 72'h8067ED348D221A4420);
+  assign syndrome_o[0] = ^(in & 72'h015B000000001FFFFF);
+  assign syndrome_o[1] = ^(in & 72'h026B00000FFFE0003F);
+  assign syndrome_o[2] = ^(in & 72'h046D003FF003E007C1);
+  assign syndrome_o[3] = ^(in & 72'h08AD0FC0F03C207842);
+  assign syndrome_o[4] = ^(in & 72'h10B571C711C4438884);
+  assign syndrome_o[5] = ^(in & 72'h20B6B65926488C9108);
+  assign syndrome_o[6] = ^(in & 72'h40D6DAAA4A91152210);
+  assign syndrome_o[7] = ^(in & 72'h80DAED348D221A4420);
 
   // Corrected output calculation
   assign d_o[0] = (syndrome_o == 8'h7) ^ in[0];
@@ -81,14 +81,14 @@ module prim_secded_72_64_dec (
   assign d_o[53] = (syndrome_o == 8'hb0) ^ in[53];
   assign d_o[54] = (syndrome_o == 8'hd0) ^ in[54];
   assign d_o[55] = (syndrome_o == 8'he0) ^ in[55];
-  assign d_o[56] = (syndrome_o == 8'hce) ^ in[56];
-  assign d_o[57] = (syndrome_o == 8'hf4) ^ in[57];
-  assign d_o[58] = (syndrome_o == 8'hb6) ^ in[58];
-  assign d_o[59] = (syndrome_o == 8'h37) ^ in[59];
-  assign d_o[60] = (syndrome_o == 8'h6b) ^ in[60];
-  assign d_o[61] = (syndrome_o == 8'hb9) ^ in[61];
-  assign d_o[62] = (syndrome_o == 8'hd9) ^ in[62];
-  assign d_o[63] = (syndrome_o == 8'h4f) ^ in[63];
+  assign d_o[56] = (syndrome_o == 8'h1f) ^ in[56];
+  assign d_o[57] = (syndrome_o == 8'he3) ^ in[57];
+  assign d_o[58] = (syndrome_o == 8'h7c) ^ in[58];
+  assign d_o[59] = (syndrome_o == 8'h8f) ^ in[59];
+  assign d_o[60] = (syndrome_o == 8'hf1) ^ in[60];
+  assign d_o[61] = (syndrome_o == 8'h3e) ^ in[61];
+  assign d_o[62] = (syndrome_o == 8'hc7) ^ in[62];
+  assign d_o[63] = (syndrome_o == 8'hf8) ^ in[63];
 
   // err_o calc. bit0: single error, bit1: double error
   assign single_error = ^syndrome_o;
