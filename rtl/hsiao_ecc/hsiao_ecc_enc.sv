@@ -25,7 +25,7 @@ module hsiao_ecc_enc #(
 
   if (ProtWidth < $clog2(DataWidth)+2) $error("ProtWidth must be greater than $clog2(DataWidth)+2");
 
-  localparam bit HsiaoMatrix [ProtWidth][TotalWidth] = hsiao_matrix(DataWidth, ProtWidth);
+  localparam bit HsiaoMatrix [MaxParityWidth][MaxDataWidth] = hsiao_matrix(DataWidth, ProtWidth);
   localparam bit [ProtWidth-1:0][TotalWidth-1:0] HsiaoCodes = { << { HsiaoMatrix }};
 
   always_comb begin : proc_encode

@@ -13,14 +13,18 @@
 
 package hsiao_ecc_pkg;
 
-  function automatic int unsigned max_vec(int unsigned vec[], int unsigned size);
+  localparam MaxDataWidth = 1024;
+  localparam MaxParityWidth = 20;
+  localparam MaxChoose = 1000;
+
+  function automatic int unsigned max_vec(int unsigned vec[MaxDataWidth], int unsigned size);
     max_vec = 0;
     for (int unsigned i = 0; i < size; i++) begin
       max_vec = vec[i] > max_vec ? vec[i] : max_vec;
     end
   endfunction
 
-  function automatic int unsigned min_vec(int unsigned vec[], int unsigned size);
+  function automatic int unsigned min_vec(int unsigned vec[MaxDataWidth], int unsigned size);
     min_vec = vec[0];
     for (int unsigned i = 0; i < size; i++) begin
       min_vec = vec[i] < min_vec ? vec[i] : min_vec;
@@ -61,38 +65,8 @@ package hsiao_ecc_pkg;
     return fanin;
   endfunction
 
-  typedef int unsigned combinations_t[][];
-
-  function automatic combinations_t combinations(int unsigned range, int unsigned len);
-    int unsigned total_combinations;
-
-    combinations = new [n_choose_k(range, len)];
-    for (int unsigned i = 0; i < n_choose_k(range, len); i++) begin
-      combinations[i] = new[len];
-    end
-
-    for (int unsigned i = 0; i < len; i++) begin
-      combinations[0][i] = i;
-    end
-    total_combinations = n_choose_k(range, len);
-    for (int unsigned i = 1; i < total_combinations; i++) begin
-      for (int unsigned j = len-1; j >= 0; j--) begin
-        if (combinations[i-1][j] + len-j < range) begin
-          combinations[i][j] = combinations[i-1][j] + 1;
-          for (int unsigned k = 0; k < len; k++) begin
-            if (k >= j) begin
-              combinations[i][k] = combinations[i][j] + k-j;
-            end else begin
-              combinations[i][k] = combinations[i-1][k];
-            end
-          end
-          break;
-        end
-      end
-    end
-  endfunction
-
-  typedef bit parity_vec_t[][];
+  typedef bit parity_vec_t[MaxParityWidth][MaxDataWidth];
+  typedef bit parity_vec_trans_t[MaxDataWidth][MaxParityWidth];
 
   /// Function to generate the Hsiao Code Matrix
   /// k: data bits
@@ -105,22 +79,25 @@ package hsiao_ecc_pkg;
   ///   | 0 0 0 1 x x x x |
   /// Then message times matrix => original message with parity
   function automatic parity_vec_t hsiao_matrix(int unsigned k, int unsigned m);
-    parity_vec_t existing = new[m];
-    combinations_t combs;
+    parity_vec_t existing;
+    int unsigned combs[MaxChoose][MaxParityWidth];
+    int unsigned total_combinations;
 
     int unsigned needed = k;
     int unsigned max_fanin = ideal_fanin(k, m);
     int unsigned count_index = 0;
     bit comb_added = 0;
     int unsigned tmp_sum = 0;
-    int unsigned existing_fanins[] = new[m];
-    int unsigned tmp_fanins[]      = new[m];
+    int unsigned existing_fanins[MaxParityWidth];
+    int unsigned tmp_fanins[MaxParityWidth];
     int unsigned min_fanin         = 0;
     int unsigned work_fanin        = 0;
-    bit comb_used[];
+    bit comb_used[MaxChoose];
+
+    if (k > MaxDataWidth) $fatal(1, "Data Width too large, please adjust package or ECC parameters");
+    if (m > MaxParityWidth) $fatal(1, "Parity Width too large, please adjust package or ECC parameters");
 
     for (int unsigned i = 0; i < m; i++) begin
-      existing[i] = new [k+m];
       for (int unsigned j = 0; j < k+m; j++) begin
         existing[i][j] = '0;
       end
@@ -128,7 +105,29 @@ package hsiao_ecc_pkg;
 
 
     for (int unsigned step = 3; step < m+1; step += 2) begin
-      combs = combinations(m, step);
+
+      // Calculate combinations
+      if (n_choose_k(m, step) > MaxChoose) $fatal(1, "Too many combinations, please adjust ECC package MaxChoose");
+
+      for (int unsigned i = 0; i < step; i++) begin
+        combs[0][i] = i;
+      end
+      total_combinations = n_choose_k(m, step);
+      for (int unsigned i = 1; i < total_combinations; i++) begin
+        for (int unsigned j = step-1; j >= 0; j--) begin
+          if (combs[i-1][j] + step-j < m) begin
+            combs[i][j] = combs[i-1][j] + 1;
+            for (int unsigned k = 0; k < step; k++) begin
+              if (k >= j) begin
+                combs[i][k] = combs[i][j] + k-j;
+              end else begin
+                combs[i][k] = combs[i-1][k];
+              end
+            end
+            break;
+          end
+        end
+      end
 
       if (n_choose_k(m, step) < needed) begin
         // Add all these combinations
@@ -142,7 +141,6 @@ package hsiao_ecc_pkg;
       end else begin
         // Use subset
 
-        comb_used = new[n_choose_k(m, step)];
         for (int unsigned i = 0; i < n_choose_k(m, step); i++) begin
           comb_used[i] = '0;
         end
@@ -227,11 +225,7 @@ package hsiao_ecc_pkg;
     hsiao_matrix = existing;
   endfunction
 
-  function automatic parity_vec_t transpose(parity_vec_t matrix, int unsigned m, int unsigned n);
-    transpose = new[n];
-    for (int unsigned i = 0; i < n; i++) begin
-      transpose[i] = new[m];
-    end
+  function automatic parity_vec_trans_t transpose(parity_vec_t matrix, int unsigned m, int unsigned n);
     for (int unsigned i = 0; i < m; i++) begin
       for (int unsigned j = 0; j < n; j++) begin
         transpose[j][i] = matrix[i][j];
