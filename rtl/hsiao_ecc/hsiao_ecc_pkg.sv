@@ -15,16 +15,17 @@ package hsiao_ecc_pkg;
 
   localparam int unsigned MaxDataWidth = 1024;
   localparam int unsigned MaxParityWidth = 20;
+  localparam int unsigned MaxTotalWidth = MaxDataWidth + MaxParityWidth;
   localparam int unsigned MaxChoose = 1000;
 
-  function automatic int unsigned max_vec(int unsigned vec[MaxDataWidth], int unsigned size);
+  function automatic int unsigned max_vec(int unsigned vec[MaxParityWidth], int unsigned size);
     max_vec = 0;
     for (int unsigned i = 0; i < size; i++) begin
       max_vec = vec[i] > max_vec ? vec[i] : max_vec;
     end
   endfunction
 
-  function automatic int unsigned min_vec(int unsigned vec[MaxDataWidth], int unsigned size);
+  function automatic int unsigned min_vec(int unsigned vec[MaxParityWidth], int unsigned size);
     min_vec = vec[0];
     for (int unsigned i = 0; i < size; i++) begin
       min_vec = vec[i] < min_vec ? vec[i] : min_vec;
@@ -65,8 +66,8 @@ package hsiao_ecc_pkg;
     return fanin;
   endfunction
 
-  typedef bit parity_vec_t[MaxParityWidth][MaxDataWidth];
-  typedef bit parity_vec_trans_t[MaxDataWidth][MaxParityWidth];
+  typedef bit parity_vec_t[MaxParityWidth][MaxTotalWidth];
+  typedef bit parity_vec_trans_t[MaxTotalWidth][MaxParityWidth];
 
   /// Function to generate the Hsiao Code Matrix
   /// k: data bits
