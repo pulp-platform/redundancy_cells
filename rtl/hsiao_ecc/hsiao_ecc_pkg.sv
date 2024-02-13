@@ -13,9 +13,9 @@
 
 package hsiao_ecc_pkg;
 
-  localparam MaxDataWidth = 1024;
-  localparam MaxParityWidth = 20;
-  localparam MaxChoose = 1000;
+  localparam int unsigned MaxDataWidth = 1024;
+  localparam int unsigned MaxParityWidth = 20;
+  localparam int unsigned MaxChoose = 1000;
 
   function automatic int unsigned max_vec(int unsigned vec[MaxDataWidth], int unsigned size);
     max_vec = 0;
@@ -94,8 +94,10 @@ package hsiao_ecc_pkg;
     int unsigned work_fanin        = 0;
     bit comb_used[MaxChoose];
 
-    if (k > MaxDataWidth) $fatal(1, "Data Width too large, please adjust package or ECC parameters");
-    if (m > MaxParityWidth) $fatal(1, "Parity Width too large, please adjust package or ECC parameters");
+    if (k > MaxDataWidth)
+      $fatal(1, "Data Width too large, please adjust package or ECC parameters");
+    if (m > MaxParityWidth)
+      $fatal(1, "Parity Width too large, please adjust package or ECC parameters");
 
     for (int unsigned i = 0; i < m; i++) begin
       for (int unsigned j = 0; j < k+m; j++) begin
@@ -107,7 +109,8 @@ package hsiao_ecc_pkg;
     for (int unsigned step = 3; step < m+1; step += 2) begin
 
       // Calculate combinations
-      if (n_choose_k(m, step) > MaxChoose) $fatal(1, "Too many combinations, please adjust ECC package MaxChoose");
+      if (n_choose_k(m, step) > MaxChoose)
+        $fatal(1, "Too many combinations, please adjust ECC package MaxChoose");
 
       for (int unsigned i = 0; i < step; i++) begin
         combs[0][i] = i;
@@ -225,7 +228,11 @@ package hsiao_ecc_pkg;
     hsiao_matrix = existing;
   endfunction
 
-  function automatic parity_vec_trans_t transpose(parity_vec_t matrix, int unsigned m, int unsigned n);
+  function automatic parity_vec_trans_t transpose(
+    parity_vec_t matrix,
+    int unsigned m,
+    int unsigned n
+  );
     for (int unsigned i = 0; i < m; i++) begin
       for (int unsigned j = 0; j < n; j++) begin
         transpose[j][i] = matrix[i][j];
