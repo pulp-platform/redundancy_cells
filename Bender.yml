@@ -30,7 +30,7 @@ sources:
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
 
-  - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc)
+  - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
     files:
       - rtl/ecc_concat_32_64.sv
       - rtl/lowrisc_ecc/prim_secded_pkg.sv
