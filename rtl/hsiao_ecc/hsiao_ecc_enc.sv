@@ -25,8 +25,8 @@ module hsiao_ecc_enc #(
 
   if (ProtWidth < $clog2(DataWidth)+2) $error("ProtWidth must be greater than $clog2(DataWidth)+2");
 
-  localparam bit HsiaoMatrix [MaxParityWidth][MaxDataWidth] = hsiao_matrix(DataWidth, ProtWidth);
-  localparam bit [ProtWidth-1:0][TotalWidth-1:0] HsiaoCodes = { << { HsiaoMatrix }};
+  localparam bit HsiaoMatrix [MaxParityWidth][MaxTotalWidth] = hsiao_matrix(DataWidth, ProtWidth);
+  localparam bit [MaxParityWidth-1:0][MaxTotalWidth-1:0] HsiaoCodes = { << { HsiaoMatrix }};
 
   always_comb begin : proc_encode
     out[DataWidth-1:0] = in;
@@ -45,7 +45,7 @@ module hsiao_ecc_enc #(
       $display("%s", s);
       $display("hsiao_ecc_enc for %d_%d", TotalWidth, DataWidth);
       for (int i = ProtWidth-1; i >= 0; i--) begin
-        $display("%b",HsiaoCodes[i]);
+        $display("%b",HsiaoCodes[i][TotalWidth-1:0]);
       end
       $display("%s", s);
     end
