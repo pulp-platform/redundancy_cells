@@ -27,19 +27,19 @@ module hsiao_ecc_dec #(
 
   if (ProtWidth < $clog2(DataWidth)+2) $error("ProtWidth must be greater than $clog2(DataWidth)+2");
 
-  localparam bit HsiaoMatrix [ProtWidth][TotalWidth] = hsiao_matrix(DataWidth, ProtWidth);
-  localparam bit [ ProtWidth-1:0][TotalWidth-1:0] HsiaoCodes = { << { HsiaoMatrix }};
-  localparam bit [TotalWidth-1:0][ ProtWidth-1:0] CorrCodes =
+  localparam bit HsiaoMatrix [MaxParityWidth][MaxTotalWidth] = hsiao_matrix(DataWidth, ProtWidth);
+  localparam bit [MaxParityWidth-1:0][ MaxTotalWidth-1:0] HsiaoCodes = { << { HsiaoMatrix }};
+  localparam bit [ MaxTotalWidth-1:0][MaxParityWidth-1:0] CorrCodes  =
                                           { << { transpose(HsiaoMatrix, ProtWidth, TotalWidth) }};
 
   logic single_error;
 
   for (genvar i = 0; i < ProtWidth; i++) begin : gen_syndrome
-    assign syndrome_o[i] = ^(in & HsiaoCodes[i]);
+    assign syndrome_o[i] = ^(in & HsiaoCodes[i][TotalWidth-1:0]);
   end
 
   for (genvar i = 0; i < DataWidth; i++) begin : gen_out
-    assign out[i] = in[i] ^ (syndrome_o == CorrCodes[i]);
+    assign out[i] = in[i] ^ (syndrome_o == CorrCodes[i][ProtWidth-1:0]);
   end
 
   assign single_error = ^syndrome_o;
@@ -56,7 +56,7 @@ module hsiao_ecc_dec #(
       $display("%s", s);
       $display("hsiao_ecc_dec for %d_%d", TotalWidth, DataWidth);
       for (int i = ProtWidth-1; i >= 0; i--) begin
-        $display("%b",HsiaoCodes[i]);
+        $display("%b",HsiaoCodes[i][TotalWidth-1:0]);
       end
       $display("%s", s);
     end
