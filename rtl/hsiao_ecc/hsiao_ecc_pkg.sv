@@ -13,10 +13,16 @@
 
 package hsiao_ecc_pkg;
 
+  /// Static parameters for synthesizability (avoiding dynamic arrays)
+  /// Maximum reasonable Data Width
   localparam int unsigned MaxDataWidth = 1024;
+  /// Maximum Width for Parity Bits. For DW=1024 12 bits are needed, but more are always allowed.
+  /// We limit to 20 for now.
   localparam int unsigned MaxParityWidth = 20;
+  /// Maximum total Width (data + parity)
   localparam int unsigned MaxTotalWidth = MaxDataWidth + MaxParityWidth;
-  localparam int unsigned MaxChoose = 1000;
+  /// Maximum allowed result for n_choose_k to limit excessive array sizes (20 choose 3).
+  localparam int unsigned MaxChoose = 1140;
 
   function automatic int unsigned max_vec(int unsigned vec[MaxParityWidth], int unsigned size);
     max_vec = 0;
