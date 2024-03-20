@@ -11,6 +11,7 @@ redundancy_cells:
     lowrisc_ecc/prim_secded_72_64_enc.sv,
     rtl/TMR_voter.sv,
     rtl/TMR_word_voter,
+    rtl/time_TMR.sv
     # Level 1
     rtl/ecc_concat_32_64.sv,
     rtl/ecc_sram_wrap.sv,
