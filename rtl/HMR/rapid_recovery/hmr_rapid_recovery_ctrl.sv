@@ -14,6 +14,10 @@ module hmr_rapid_recovery_ctrl
   import rapid_recovery_pkg::*;
 #(
   parameter int unsigned RFAddrWidth = 6,
+  parameter int unsigned NumIntRfWrPorts = 2,
+  parameter int unsigned NumIntRfRdPorts = 2,
+  parameter int unsigned NumFpRfWrPorts = 2,
+  parameter int unsigned NumFpRfRdPorts = 2,
   parameter     type     regfile_write_t = logic
 ) (
   input  logic clk_i,
@@ -29,7 +33,8 @@ module hmr_rapid_recovery_ctrl
   output logic debug_req_o,
   input  logic debug_halt_i,
   output logic debug_resume_o,
-  output regfile_write_t recovery_regfile_waddr_o,
+  output regfile_write_t [NumIntRfRdPorts-1:0] int_recovery_regfile_waddr_o,
+  output regfile_write_t [NumFpRfRdPorts-1:0] fp_recovery_regfile_waddr_o,
 
   // Signals to backup state
   output logic backup_enable_o,
@@ -58,12 +63,17 @@ module hmr_rapid_recovery_ctrl
     .address_o (addr_gen_result)
   );
 
-  assign recovery_regfile_waddr_o.we_a = recover_rf_enable_o;
-  assign recovery_regfile_waddr_o.waddr_a = addr_gen_result;
-  assign recovery_regfile_waddr_o.wdata_a = '0;
-  assign recovery_regfile_waddr_o.we_b = recover_rf_enable_o;
-  assign recovery_regfile_waddr_o.waddr_b = 16 + addr_gen_result;
-  assign recovery_regfile_waddr_o.wdata_b = '0;
+  for (genvar i = 0; i < NumIntRfRdPorts; i++) begin
+    assign int_recovery_regfile_waddr_o[i].we = recover_rf_enable_o;
+    assign int_recovery_regfile_waddr_o[i].waddr = i*(32/NumIntRfRdPorts) + addr_gen_result;
+    assign int_recovery_regfile_waddr_o[i].wdata = '0;
+  end
+
+  for (genvar i = 0; i < NumFpRfRdPorts; i++) begin
+    assign fp_recovery_regfile_waddr_o[i].we = recover_rf_enable_o;
+    assign fp_recovery_regfile_waddr_o[i].waddr = i*(32/NumFpRfRdPorts) + addr_gen_result;
+    assign fp_recovery_regfile_waddr_o[i].wdata = '0;
+  end
 
 
   assign instr_lock_o = instr_lock_q;

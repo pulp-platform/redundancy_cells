@@ -1076,9 +1076,12 @@ module HMR_wrap
       /***************************
        * Recovery Register Files *
        ***************************/
-      recovery_rf  #(
-       .ECCEnabled ( 1           ),
-       .ADDR_WIDTH ( RFAddrWidth )
+      recovery_rf #(
+       .ECCEnabled ( 1 ),
+       .AddrWidth ( RFAddrWidth  ),
+       .NumRdPorts ( RfNumRdPorts ),
+       .NumWrPorts ( RfNumWrPorts ),
+       .NonProtectedWidth ( DataWidth )
       ) RRF           (
         .clk_i,
         .rst_ni,

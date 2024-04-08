@@ -35,10 +35,10 @@ logic [ArrayWidth-1:0][AddrWidth-1:0] addr_count;
 for (genvar i = 0; i < NumVotingSignals; i++) begin : gen_addr_counters
   always_ff @(posedge clk_i, negedge  rst_ni) begin : address_generator_counter
     if (~rst_ni)
-      addr_count [i] <= '1;
+      addr_count [i] <= '0;
     else begin
       if (clear_i || addr_count_rst [i])
-        addr_count [i] <= '1;
+        addr_count [i] <= '0;
       else if (enable_i)
         addr_count [i] <= addr_count [i] + 1;
       else
