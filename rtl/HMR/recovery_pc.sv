@@ -16,7 +16,9 @@
 module recovery_pc #(
   parameter  int unsigned ECCEnabled        = 0,
   parameter  int unsigned NonProtectedWidth = 32,
-  parameter  int unsigned ProtectedWidth    = 39,
+  // parameter  int unsigned ProtectedWidth    = 39,
+  parameter  int unsigned ParityWidth       = $clog2(NonProtectedWidth)+2,
+  parameter  int unsigned ProtectedWidth    = NonProtectedWidth + ParityWidth,
   parameter  type         pc_intf_t         = logic,
   localparam int unsigned DataWidth  = ( ECCEnabled ) ? ProtectedWidth
                                                       : NonProtectedWidth
@@ -51,7 +53,10 @@ generate
     /**************************
      * Program Counter Backup *
      **************************/
-    prim_secded_39_32_enc pc_ecc_encoder (
+    hsiao_ecc_enc #(
+        .DataWidth ( NonProtectedWidth ),
+        .ProtWidth ( ParityWidth )
+    ) i_pc_ecc_encoder (
       .in  ( backup_program_counter_i ),
       .out ( pc_d                     )
     );
@@ -69,9 +74,12 @@ generate
       end
     end
 
-    prim_secded_39_32_dec pc_ecc_decoder (
+    hsiao_ecc_dec #(
+        .DataWidth ( NonProtectedWidth ),
+        .ProtWidth ( ParityWidth )
+      ) i_pc_ecc_decoder (
       .in         ( pc_q   ),
-      .d_o        ( pc_out ),
+      .out        ( pc_out ),
       .syndrome_o (        ),
       .err_o      (        )
     );
@@ -79,7 +87,10 @@ generate
     /**********************
      * Branch Addr Backup *
      **********************/
-    prim_secded_39_32_enc branch_addr_ecc_encoder (
+    hsiao_ecc_enc #(
+        .DataWidth ( NonProtectedWidth ),
+        .ProtWidth ( ParityWidth )
+    ) i_branch_addr_ecc_encoder (
       .in  ( backup_branch_addr_i ),
       .out ( branch_addr_d        )
     );
@@ -97,9 +108,12 @@ generate
       end
     end
 
-    prim_secded_39_32_dec branch_addr_ecc_decoder (
+    hsiao_ecc_dec #(
+        .DataWidth ( NonProtectedWidth ),
+        .ProtWidth ( ParityWidth )
+      ) i_branch_addr_ecc_decoder (
       .in         ( branch_addr_q   ),
-      .d_o        ( branch_addr_out ),
+      .out        ( branch_addr_out ),
       .syndrome_o (                 ),
       .err_o      (                 )
     );

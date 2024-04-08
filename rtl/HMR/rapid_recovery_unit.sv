@@ -13,21 +13,28 @@
 module rapid_recovery_unit
   import rapid_recovery_pkg::*;
 #(
+  parameter rapid_recovery_cfg_t RrCfg = rapid_recovery_pkg::RrDefaultCfg,
   parameter int unsigned RfAddrWidth     = 5,
   parameter int unsigned DataWidth       = 32,
   parameter int unsigned EccEnabled      = 1,
+  parameter int unsigned NumIntRfRdPorts = 1,
+  parameter int unsigned NumIntRfWrPorts = 2,
+  parameter int unsigned NumFpRfRdPorts  = 1,
+  parameter int unsigned NumFpRfWrPorts  = 2,
+  parameter bit          RecoveryFullCsr = 1'b0,
+  parameter     type     rapid_recovery_t = logic,
   parameter     type     regfile_write_t = logic,
-  parameter     type     regfile_raddr_t = logic,
-  parameter     type     regfile_rdata_t = logic,
   parameter     type     csr_intf_t      = logic,
-  parameter     type     pc_intf_t       = logic
+  parameter     type     pc_intf_t       = logic,
+  localparam int unsigned NumRfWords = 2 ** RfAddrWidth
 )(
   input  logic           clk_i,
   input  logic           rst_ni,
   /* Signals that cores are not grouped */
   input  logic           core_in_independent_i,
   /* Recovery Register File interface */
-  input  regfile_write_t regfile_write_i,
+  input  regfile_write_t [NumIntRfWrPorts-1:0] int_regfile_write_i,
+  input  regfile_write_t [NumFpRfWrPorts-1:0] fp_regfile_write_i,
   /* Recovery Control and Status Registers interface */
   input  csr_intf_t      backup_csr_i,
   output csr_intf_t      recovery_csr_o,
@@ -57,14 +64,28 @@ module rapid_recovery_unit
   /* enable_rf_recovery_o: allows the register file to be reloaded
                            into the core */
   output logic           enable_rf_recovery_o,
+  /* regfile_recovery_wdata_o: used by the address generator in the
+                               rapid_recovery_ctrl to propagate the RF
+                               addresses to the core during the recovery
+                               routine */
+  output regfile_write_t [NumIntRfWrPorts-1:0] int_regfile_recovery_wdata_o, // To cores RF interface
+  /* regfile_recovery_rdata_o: propagates the content from the backup RF to
+                               the core RF during the recovery routine */
+  output logic [NumIntRfRdPorts-1:0][DataWidth-1:0] int_regfile_recovery_rdata_o,
   /* regfile_recovery_wdata_o: used by the address generator in the 
                                rapid_recovery_ctrl to propagate the RF
                                addresses to the core during the recovery 
                                routine */
-  output regfile_write_t regfile_recovery_wdata_o, // To cores RF interface
+  output regfile_write_t [NumFpRfWrPorts-1:0] fp_regfile_recovery_wdata_o, // To cores RF interface
   /* regfile_recovery_rdata_o: propagates the content from the backup RF to
                                the core RF during the recovery routine */
-  output regfile_rdata_t regfile_recovery_rdata_o,
+  output logic [NumFpRfRdPorts-1:0][DataWidth-1:0] fp_regfile_recovery_rdata_o,
+  /* int_regfile_mem_o: provides the full content of the integer recovery RF to be
+                        entirely reloaded in a single cycle */
+  output logic [NumRfWords-1:0][DataWidth-1:0] int_regfile_mem_o,
+  /* fp_regfile_mem_o: provides the full content of the floating point recovery RF
+                        to be entirely reloaded in a single cycle */
+  output logic [NumRfWords-1:0][DataWidth-1:0] fp_regfile_mem_o,
   /* debug_halt_i: signals that the cores in recovery are halted */
   input  logic           debug_halt_i,
   /* debug_req_o: sends the cores in debug mode during the recovery routine */
@@ -74,10 +95,16 @@ module rapid_recovery_unit
 );
 
 logic csr_renable;
+regfile_write_t [NumIntRfRdPorts-1:0] int_regfile_recovery;
+regfile_write_t [NumFpRfRdPorts-1:0] fp_regfile_recovery;
 
 hmr_rapid_recovery_ctrl #(
-  .RFAddrWidth           ( RfAddrWidth     ),
-  .regfile_write_t       ( regfile_write_t )
+  .RFAddrWidth  ( RfAddrWidth  ),
+  .NumIntRfWrPorts ( NumIntRfWrPorts ),
+  .NumIntRfRdPorts ( NumIntRfRdPorts ),
+  .NumFpRfWrPorts ( NumFpRfWrPorts ),
+  .NumFpRfRdPorts ( NumFpRfRdPorts ),
+  .regfile_write_t ( regfile_write_t )
 ) i_rapid_recovery_ctrl  (
   .clk_i,
   .rst_ni,
@@ -88,78 +115,186 @@ hmr_rapid_recovery_ctrl #(
   .debug_req_o,
   .debug_halt_i,
   .debug_resume_o,
-  .recovery_regfile_waddr_o ( regfile_recovery_wdata_o ),
-  .backup_enable_o          ( backup_enable_o          ),
-  .recover_csr_enable_o     ( csr_renable              ),
-  .recover_pc_enable_o      ( enable_pc_recovery_o     ),
-  .recover_rf_enable_o      ( enable_rf_recovery_o     )
+  .int_recovery_regfile_waddr_o ( int_regfile_recovery ),
+  .fp_recovery_regfile_waddr_o ( fp_regfile_recovery ),
+  .backup_enable_o          ( backup_enable_o ),
+  .recover_csr_enable_o     ( csr_renable ),
+  .recover_pc_enable_o      ( enable_pc_recovery_o ),
+  .recover_rf_enable_o      ( enable_rf_recovery_o )
 );
 
-recovery_csr #(
-  .ECCEnabled    ( EccEnabled ),
-  .csr_intf_t    ( csr_intf_t )
-) i_recovery_csr (
-  .clk_i,
-  .rst_ni,
-  .read_enable_i  ( csr_renable     ),
-  .write_enable_i ( backup_enable_i ),
-  .backup_csr_i   ( backup_csr_i    ),
-  .recovery_csr_o ( recovery_csr_o  )
-);
+if (RrCfg.FullCsrsBackupEnable) begin: gen_reduced_csr
+  recovery_full_csr #(
+    .ECCEnabled    ( EccEnabled ),
+    .csr_intf_t    ( csr_intf_t )
+  ) i_recovery_csr (
+    .clk_i,
+    .rst_ni,
+    .read_enable_i  ( csr_renable     ),
+    .write_enable_i ( backup_enable_i ),
+    .backup_csr_i   ( backup_csr_i    ),
+    .recovery_csr_o ( recovery_csr_o  )
+  );
+end else if (RrCfg.ReducedCsrsBackupEnable) begin: gen_full_csr
+  recovery_csr #(
+    .ECCEnabled    ( EccEnabled ),
+    .csr_intf_t    ( csr_intf_t )
+  ) i_recovery_csr (
+    .clk_i,
+    .rst_ni,
+    .read_enable_i  ( csr_renable     ),
+    .write_enable_i ( backup_enable_i ),
+    .backup_csr_i   ( backup_csr_i    ),
+    .recovery_csr_o ( recovery_csr_o  )
+  );
+end else begin: gen_no_csr
+  assign recovery_csr_o = '0;
+end
 
 /* When cores are not grouped, we store as a recovery program counter the instruction
    that just eneterd the fetch stage. The reason is that if we switch from independent
    to redundant, we do it after a barrier, and if we restart from a barrier instruction
    without setting it up properly first, we never continue the execution. */
-logic [DataWidth-1:0] backup_program_counter;
-assign backup_program_counter = core_in_independent_i ? backup_pc_i.program_counter_if
+if (RrCfg.ProgramCounterBackupEnable) begin: gen_program_counter
+  logic [DataWidth-1:0] backup_program_counter;
+  assign backup_program_counter = core_in_independent_i ? backup_pc_i.program_counter_if
                                                       : backup_pc_i.program_counter;
-recovery_pc #(
-  .ECCEnabled   ( EccEnabled ),
-  .pc_intf_t    ( pc_intf_t  )
-) i_recovery_pc (
-  // Control Ports
-  .clk_i,
-  .rst_ni,
-  .clear_i                    ( '0                   ),
-  .read_enable_i              ( enable_pc_recovery_o ),
-  .write_enable_i             ( backup_enable_i      ),
-  // Backup Ports
-  .backup_program_counter_i   ( backup_program_counter  ),
-  .backup_branch_i            ( backup_pc_i.is_branch   ),
-  .backup_branch_addr_i       ( backup_pc_i.branch_addr ),
-  // Recovery Pors
-  .recovery_program_counter_o ( recovery_pc_o.program_counter ),
-  .recovery_branch_o          ( recovery_pc_o.is_branch       ),
-  .recovery_branch_addr_o     ( recovery_pc_o.branch_addr     )
-);
+  recovery_pc #(
+    .ECCEnabled   ( EccEnabled ),
+    .NonProtectedWidth ( DataWidth ),
+    .pc_intf_t    ( pc_intf_t  )
+  ) i_recovery_pc (
+    // Control Ports
+    .clk_i,
+    .rst_ni,
+    .clear_i                    ( '0                   ),
+    .read_enable_i              ( enable_pc_recovery_o ),
+    .write_enable_i             ( backup_enable_i      ),
+    // Backup Ports
+    .backup_program_counter_i   ( backup_program_counter  ),
+    .backup_branch_i            ( backup_pc_i.is_branch   ),
+    .backup_branch_addr_i       ( backup_pc_i.branch_addr ),
+    // Recovery Pors
+    .recovery_program_counter_o ( recovery_pc_o.program_counter ),
+    .recovery_branch_o          ( recovery_pc_o.is_branch       ),
+    .recovery_branch_addr_o     ( recovery_pc_o.branch_addr     )
+  );
+end else begin: gen_no_program_counter
+  assign enable_pc_recovery_o = '0;
+  assign recovery_pc_o = '0;
+end
 
-recovery_rf  #(
-  .ECCEnabled      ( EccEnabled      ),
-  .ADDR_WIDTH      ( RfAddrWidth     ),
-  .regfile_write_t ( regfile_write_t ),
-  .regfile_raddr_t ( regfile_raddr_t ),
-  .regfile_rdata_t ( regfile_rdata_t )
-) i_recovery_rf    (
-  .clk_i,
-  .rst_ni,
-  //Read port A
-  .raddr_a_i    ( regfile_recovery_wdata_o.waddr_a ),
-  .rdata_a_o    ( regfile_recovery_rdata_o.rdata_a ),
-  //Read port B
-  .raddr_b_i    ( regfile_recovery_wdata_o.waddr_b ),
-  .rdata_b_o    ( regfile_recovery_rdata_o.rdata_b ),
-  //Read port C
-  .raddr_c_i    ( '0                                     ),
-  .rdata_c_o    (                                        ),
-  // Write Port A
-  .waddr_a_i    ( regfile_write_i.waddr_a                ),
-  .wdata_a_i    ( regfile_write_i.wdata_a                ),
-  .we_a_i       ( regfile_write_i.we_a & backup_enable_i ),
-  // Write Port B
-  .waddr_b_i    ( regfile_write_i.waddr_b                ),
-  .wdata_b_i    ( regfile_write_i.wdata_b                ),
-  .we_b_i       ( regfile_write_i.we_b & backup_enable_i )
-);
+// recovery_rf  #(
+//   .ECCEnabled      ( EccEnabled      ),
+//   .ADDR_WIDTH      ( RfAddrWidth     ),
+//   .regfile_write_t ( regfile_write_t ),
+//   .regfile_raddr_t ( regfile_raddr_t ),
+//   .regfile_rdata_t ( regfile_rdata_t )
+// ) i_recovery_rf    (
+//   .clk_i,
+//   .rst_ni,
+//   //Read port A
+//   .raddr_a_i    ( regfile_recovery_wdata_o.waddr_a ),
+//   .rdata_a_o    ( regfile_recovery_rdata_o.rdata_a ),
+//   //Read port B
+//   .raddr_b_i    ( regfile_recovery_wdata_o.waddr_b ),
+//   .rdata_b_o    ( regfile_recovery_rdata_o.rdata_b ),
+//   //Read port C
+//   .raddr_c_i    ( '0                                     ),
+//   .rdata_c_o    (                                        ),
+//   // Write Port A
+//   .waddr_a_i    ( regfile_write_i.waddr_a                ),
+//   .wdata_a_i    ( regfile_write_i.wdata_a                ),
+//   .we_a_i       ( regfile_write_i.we_a & backup_enable_i ),
+//   // Write Port B
+//   .waddr_b_i    ( regfile_write_i.waddr_b                ),
+//   .wdata_b_i    ( regfile_write_i.wdata_b                ),
+//   .we_b_i       ( regfile_write_i.we_b & backup_enable_i )
+// );
+
+if (RrCfg.IntRegFileBackupEnable) begin: gen_int_regfile
+  logic [NumIntRfWrPorts-1:0] int_regfile_we;
+  logic [NumIntRfWrPorts-1:0][DataWidth-1:0] int_regfile_wdata;
+  logic [NumIntRfWrPorts-1:0][RfAddrWidth-1:0] int_regfile_waddr;
+  logic [NumIntRfRdPorts-1:0][DataWidth-1:0] int_regfile_rdata;
+  logic [NumIntRfRdPorts-1:0][RfAddrWidth-1:0] int_regfile_raddr;
+
+  for (genvar i = 0; i < NumIntRfWrPorts; i++) begin: gen_wr_port_connection
+    assign int_regfile_we[i] = int_regfile_write_i[i].we & backup_enable_i;
+    assign int_regfile_wdata[i] = int_regfile_write_i[i].wdata;
+    assign int_regfile_waddr[i] = int_regfile_write_i[i].waddr;
+    assign int_regfile_recovery_wdata_o[i].waddr = int_regfile_recovery[i].waddr;
+    assign int_regfile_recovery_wdata_o[i].wdata = '0;
+    assign int_regfile_recovery_wdata_o[i].we = '0;
+  end
+
+  for (genvar i = 0; i < NumIntRfRdPorts; i++) begin: gen_rd_port_connection
+    assign int_regfile_recovery_rdata_o[i] = int_regfile_rdata[i];
+    assign int_regfile_raddr[i] = (i < NumIntRfWrPorts) ? int_regfile_recovery[i].waddr : '0;
+    // if (i > NumIntRfWrPorts)
+    //   assign int_regfile_raddr[i] = int_regfile_recovery[i].waddr;
+    // else
+    //   assign int_regfile_raddr[i] = '0;
+  end
+
+  recovery_rf #(
+    .ECCEnabled ( EccEnabled ),
+    .AddrWidth ( RfAddrWidth ),
+    .NumRdPorts ( NumIntRfRdPorts ),
+    .NumWrPorts ( NumIntRfWrPorts ),
+    .NonProtectedWidth ( DataWidth )
+  ) i_int_recovery_rf (
+    .clk_i,
+    .rst_ni,
+    .rf_mem_o ( int_regfile_mem_o ),
+    .raddr_i ( int_regfile_raddr ),
+    .rdata_o ( int_regfile_rdata ),
+    .waddr_i ( int_regfile_waddr ),
+    .wdata_i ( int_regfile_wdata ),
+    .we_i ( int_regfile_we )
+  );
+end else begin: gen_no_int_regfile
+  assign int_regfile_recovery_wdata_o = '0;
+end
+
+if (RrCfg.FpRegFileBackupEnable) begin: gen_fp_regfile
+  logic [NumFpRfWrPorts-1:0] fp_regfile_we;
+  logic [NumFpRfWrPorts-1:0][DataWidth-1:0] fp_regfile_wdata;
+  logic [NumFpRfWrPorts-1:0][RfAddrWidth-1:0] fp_regfile_waddr;
+  logic [NumFpRfRdPorts-1:0][DataWidth-1:0] fp_regfile_rdata;
+  logic [NumFpRfRdPorts-1:0][RfAddrWidth-1:0] fp_regfile_raddr;
+
+  for (genvar i = 0; i < NumFpRfWrPorts; i++) begin: gen_wr_port_connection
+    assign fp_regfile_we[i] = fp_regfile_write_i[i].we & backup_enable_i;
+    assign fp_regfile_wdata[i] = fp_regfile_write_i[i].wdata;
+    assign fp_regfile_waddr[i] = fp_regfile_write_i[i].waddr;
+    assign fp_regfile_recovery_wdata_o[i].waddr = fp_regfile_recovery[i].waddr;
+    assign fp_regfile_recovery_wdata_o[i].wdata = '0;
+    assign fp_regfile_recovery_wdata_o[i].we = '0;
+  end
+  for (genvar i = 0; i < NumFpRfRdPorts; i++) begin: gen_rd_port_connection
+    assign fp_regfile_recovery_rdata_o[i] = fp_regfile_rdata[i];
+    assign fp_regfile_raddr[i] = (i < NumFpRfWrPorts) ? fp_regfile_recovery[i].waddr : '0;
+  end
+
+  recovery_rf #(
+    .ECCEnabled ( EccEnabled ),
+    .AddrWidth ( RfAddrWidth ),
+    .NumRdPorts ( NumFpRfRdPorts ),
+    .NumWrPorts ( NumFpRfWrPorts ),
+    .NonProtectedWidth ( DataWidth )
+  ) i_fp_recovery_rf (
+    .clk_i,
+    .rst_ni,
+    .rf_mem_o ( fp_regfile_mem_o ),
+    .raddr_i ( fp_regfile_raddr ),
+    .rdata_o ( fp_regfile_rdata ),
+    .waddr_i ( fp_regfile_waddr ),
+    .wdata_i ( fp_regfile_wdata ),
+    .we_i ( fp_regfile_we )
+  );
+end else begin: gen_no_fp_regfile
+  assign fp_regfile_recovery_wdata_o = '0;
+end
 
 endmodule: rapid_recovery_unit
