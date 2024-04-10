@@ -34,7 +34,7 @@ module tb_time_dmr_retry_lock;
     int error_cnt;
 
     // Aux signals to show what faults are going on
-    enum {NONE, DATA_ERROR, OPERATION_ERROR, VALID_ERROR, READY_ERROR, ID_ERROR} fault_type, fault_current;
+    enum {NONE, DATA_ERROR, VALID_ERROR, READY_ERROR, ID_ERROR, OPERATION_ERROR} fault_type, fault_current;
 
     // Signals for DUTS
     logic clk;

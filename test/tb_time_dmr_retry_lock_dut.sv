@@ -58,7 +58,7 @@ module tb_time_dmr_retry_lock_dut # (
     logic [ID_SIZE-1:0] in_id_redundant;
     
     // Feedback connection
-    logic [ID_SIZE-1:0] id_retry;
+    logic [ID_SIZE-1:0] id_retry, next_id;
     logic valid_retry;
     logic ready_retry;
     
@@ -73,8 +73,8 @@ module tb_time_dmr_retry_lock_dut # (
         .DataType(tmr_stacked_t),
         .ID_SIZE(ID_SIZE)
     ) i_retry_start (
-        .clk_i(clk),
-        .rst_ni(rst_n),
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
 
         // Upstream connection
         .data_i(in_tmr_stack),
@@ -102,6 +102,8 @@ module tb_time_dmr_retry_lock_dut # (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
         .enable_i(1'b1),
+
+        .next_id_o(next_id),
 
         // Upstream connection
         .data_i(data_retry2dmr),
@@ -136,7 +138,7 @@ module tb_time_dmr_retry_lock_dut # (
 
         // Upstream Connection
         // Error Injection
-        assign pipe_valid[0]  = in_valid_redundant ^ valid_error_i && (opgrp == in_tmr_stack_redundant.operation);
+        assign pipe_valid[0]  = (in_valid_redundant ^ valid_error_i) && (opgrp == in_tmr_stack_redundant.operation);
         assign pipe_data[0]   = in_tmr_stack_redundant.data ^ data_error_i;
         assign pipe_id[0]      = in_id_redundant ^ id_error_i;
         assign in_opgrp_ready[opgrp] = pipe_ready[0] ^ ready_error_i;
@@ -222,6 +224,8 @@ module tb_time_dmr_retry_lock_dut # (
         .rst_ni(rst_ni),
         .enable_i(1'b1),
 
+        .next_id_i(next_id),
+
         // Upstream connection
         .data_i(out_tmr_stack),
         .id_i   (out_tmr_id),
@@ -243,6 +247,9 @@ module tb_time_dmr_retry_lock_dut # (
         .DataType(tmr_stacked_t),
         .ID_SIZE(ID_SIZE)
     ) i_retry_end (
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+
         // Upstream connection
         .data_i(data_dmr2retry),
         .id_i(id_dmr2retry),

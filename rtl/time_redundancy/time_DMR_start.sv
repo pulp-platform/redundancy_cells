@@ -17,6 +17,9 @@ module time_DMR_start # (
     input logic rst_ni,
     input logic enable_i,
 
+    // Direct connection
+    output logic [IDSize-1:0] next_id_o,
+
     // Upstream connection
     input DataType data_i,
     input logic [ID_SIZE-1:0] id_i,
@@ -38,7 +41,7 @@ module time_DMR_start # (
     typedef enum logic [1:0] {STORE_AND_SEND, SEND, REPLICATE} state_t;
     state_t state_v[3], state_d[3], state_q[3];
     DataType [2:0] data_d, data_q;
-    logic [2:0][ID_SIZE-1:0] id_v, id_d, id_q;
+    logic [2:0][ID_SIZE-1:0] id_v, id_d, id_q, id_next;
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin : next_state_logic
@@ -47,16 +50,18 @@ module time_DMR_start # (
             data_d[r] = data_q[r];
             id_v[r] = id_q[r];
 
+            if (UseExternalId) begin
+                id_next[r] = id_i;
+            end else begin
+                id_next[r] = id_q[r] + 1;
+            end
+
             case (state_q[r])
                 STORE_AND_SEND:
                     if (valid_i) begin
                         data_d[r] = data_i;
-                        if (UseExternalId) begin
-                            id_v[r] = id_i;
-                        end else begin
-                            id_v[r] = id_q[r] + 1;
-                        end
-
+                        id_v[r] = id_next[r];
+        
                         if (ready_i) begin
                             if (enable_i) begin
                                 state_v[r] = REPLICATE;
@@ -124,6 +129,7 @@ module time_DMR_start # (
     always_comb begin: output_voters
         `VOTE3to1(data_d, data_o);
         `VOTE3to1(id_v, id_o);
+        `VOTE3to1(id_next, next_id_o);
     end
 
 endmodule

@@ -37,7 +37,7 @@ module tb_time_dmr_retry;
     tagged_data_t data_in,  data_detectable, data_redundant,  data_error,  data_redundant_faulty,  data_detected, data_out;
     logic valid_in, valid_detectable, valid_redundant, valid_error, valid_redundant_faulty, valid_detected, valid_out;
     logic ready_in, ready_detectable, ready_redundant, ready_error, ready_redundant_faulty, ready_detected, ready_out;
-    logic [ID_SIZE-1:0] id_detectable, id_redundant, id_error, id_redundant_faulty, id_detected;
+    logic [ID_SIZE-1:0] id_detectable, id_redundant, id_error, id_redundant_faulty, id_detected, next_id;
     logic fault_detected;
 
     // Feedback connection
@@ -91,6 +91,8 @@ module tb_time_dmr_retry;
         .rst_ni(rst_n),
         .enable_i(enable),
 
+        .next_id_o(next_id),
+
         // Upstream connection
         .data_i(data_detectable),
         .id_i(id_detectable),
@@ -119,6 +121,8 @@ module tb_time_dmr_retry;
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
+
+        .next_id_i(next_id),
 
         // Upstream connection
         .data_i(data_redundant_faulty),

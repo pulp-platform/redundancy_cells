@@ -67,6 +67,9 @@ module tb_retry;
         .DataType(data_t),
         .ID_SIZE(ID_SIZE)
     ) dut_end (
+        .clk_i(clk),
+        .rst_ni(rst_n),
+
         // Upstream connection
         .data_i(data_middle),
         .id_i(id_middle),

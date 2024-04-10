@@ -31,7 +31,7 @@ module tb_time_dmr;
     logic valid_in, valid_redundant, valid_error, valid_redundant_faulty, valid_out;
     logic ready_in, ready_redundant, ready_error, ready_redundant_faulty, ready_out;
     logic faulty_out;
-    logic [ID_SIZE-1:0] id_redundant, id_error, id_redundant_faulty;
+    logic [ID_SIZE-1:0] id_redundant, id_error, id_redundant_faulty, id_next;
 
     // Clock Generation
     initial begin
@@ -52,6 +52,8 @@ module tb_time_dmr;
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
+
+        .next_id_o(id_next),
 
         // Upstream connection
         .data_i(data_in),
@@ -80,6 +82,9 @@ module tb_time_dmr;
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
+
+        .next_id_i(id_next),
+
 
         // Upstream connection
         .data_i(data_redundant_faulty),

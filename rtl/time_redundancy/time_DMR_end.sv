@@ -22,6 +22,10 @@ module time_DMR_end # (
     input logic rst_ni,
     input logic enable_i,
 
+    // Direct connection to corresponding time_DMR_start module
+    input logic [ID_SIZE-1:0] next_id_i,
+
+
     // Upstream connection
     input DataType data_i,
     input logic [ID_SIZE-1:0] id_i,
@@ -157,7 +161,7 @@ module time_DMR_end # (
 
     typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID} state_t;
     state_t state_v[3], state_d[3], state_q[3];
-    logic [2:0] ready_ov, valid_ov, lock, faulty_ov;
+    logic [2:0] ready_internal, valid_internal, lock_internal, faulty_ov;
 
     // Special State Description:
     // Wait for Ready: We got some data that is usable, but downstream can't use it yet
@@ -215,39 +219,32 @@ module time_DMR_end # (
         always_comb begin: output_generation_comb
             if (enable_i) begin
                 case (state_q[r])
-                    BASE:           valid_ov[r] = valid_i & new_element_arrived[r];
-                    WAIT_FOR_READY: valid_ov[r] = valid_i;
-                    WAIT_FOR_VALID: valid_ov[r] = 0;
+                    BASE:           valid_internal[r] = valid_i & new_element_arrived[r];
+                    WAIT_FOR_READY: valid_internal[r] = valid_i;
+                    WAIT_FOR_VALID: valid_internal[r] = 0;
                 endcase
 
                 case (state_q[r])
-                    BASE:           lock[r] = !ready_i | !full_same[r][0];
-                    WAIT_FOR_READY: lock[r] = !ready_i;
-                    WAIT_FOR_VALID: lock[r] = !valid_i;
+                    BASE:           lock_internal[r] = !ready_i | !full_same[r][0];
+                    WAIT_FOR_READY: lock_internal[r] = !ready_i;
+                    WAIT_FOR_VALID: lock_internal[r] = !valid_i;
                 endcase
 
                 case (state_q[r])
-                    BASE:           ready_ov[r] =  ready_i | !new_element_arrived[r];
-                    WAIT_FOR_READY: ready_ov[r] =  ready_i;
-                    WAIT_FOR_VALID: ready_ov[r] = !valid_i;
+                    BASE:           ready_internal[r] =  ready_i | !new_element_arrived[r];
+                    WAIT_FOR_READY: ready_internal[r] =  ready_i;
+                    WAIT_FOR_VALID: ready_internal[r] = !valid_i;
                 endcase
 
                 faulty_ov[r] = id_same[r][0] & !data_usable[r];
 
             end else begin
-                valid_ov[r] = valid_i;
-                lock[r] = 0;
+                valid_internal[r] = valid_i;
+                lock_internal[r] = 0;
                 faulty_ov[r] = 0;
-                ready_ov[r] = ready_i;
+                ready_internal[r] = ready_i;
             end
         end
-    end
-
-    // Output Voting Logic
-    always_comb begin: output_voters
-        `VOTE3to1(ready_ov, ready_o);
-        `VOTE3to1(valid_ov, valid_o);
-        `VOTE3to1(faulty_ov, faulty_o);
     end
 
 
@@ -256,14 +253,19 @@ module time_DMR_end # (
 
     logic [2:0] lock_v, lock_d, lock_q;
     logic [2:0][$clog2(LockTimeout)-1:0] counter_v, counter_d, counter_q;
+    logic [2:0] lock_reset;
 
     // Next State Combinatorial Logic
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin : lock_comb
+
             if (counter_q[r] > LockTimeout) begin
                 lock_v[r] = 0;
                 counter_v[r] = 0;
+                lock_reset[r] = 1;
+
             end else begin
+                lock_reset[r] = 0;
 
                 if (lock_q[r] & !valid_i) begin // TODO: Add dependency on valid
                     counter_v[r] = counter_q[r] + 1;
@@ -273,7 +275,7 @@ module time_DMR_end # (
 
                 // To set Lock -> 1 require previous imput to be valid, to set Lock -> 0 lock don't require anything
                 if (valid_i | lock_q[r]) begin
-                    lock_v[r] = lock[r];
+                    lock_v[r] = lock_internal[r];
                 end else begin
                     lock_v[r] = lock_q[r];
                 end
@@ -298,4 +300,50 @@ module time_DMR_end # (
              counter_q <= counter_d;
         end
     end
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+    // Output Deduplication Based on ID
+
+    logic [2:0][2 ** ID_SIZE-1:0] recently_seen_d, recently_seen_q;
+    logic [2:0] ready_ov, valid_ov;
+
+    for (genvar r = 0; r < 3; r++) begin
+        always_comb begin
+            recently_seen_d[r] = recently_seen_q[r];
+
+            recently_seen_d[r][next_id_i] = 0;
+
+            if (valid_internal[r] & ready_internal[r]) begin
+                recently_seen_d[r][id_o] = 1;
+            end
+        end
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if(~rst_ni) begin
+            recently_seen_q <= ~'0;
+        end else begin
+            recently_seen_q <= recently_seen_d;
+        end
+    end
+
+    for (genvar r = 0; r < 3; r++) begin
+        always_comb begin
+            if (enable_i & recently_seen_q[r][id_q] & valid_internal[r]) begin
+                valid_ov[r] = 0;
+                ready_ov[r] = 1;
+            end else begin
+                valid_ov[r] = valid_internal[r];
+                ready_ov[r] = ready_internal[r];
+            end
+        end
+    end
+
+    // Output Voting Logic
+    always_comb begin: output_voters
+        `VOTE3to1(ready_ov, ready_o);
+        `VOTE3to1(valid_ov, valid_o);
+        `VOTE3to1(faulty_ov, faulty_o);
+    end
+
 endmodule
