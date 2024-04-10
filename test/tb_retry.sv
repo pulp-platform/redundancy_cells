@@ -57,9 +57,9 @@ module tb_retry;
         .ready_i(ready_middle),
 
         // Retry Connection
-        .failed_id_i(id_retry),
-        .failed_valid_i(valid_retry),
-        .failed_ready_o(ready_retry)
+        .retry_id_i(id_retry),
+        .retry_valid_i(valid_retry),
+        .retry_ready_o(ready_retry)
     );
 
 
@@ -83,9 +83,9 @@ module tb_retry;
         .ready_i(ready_out),
 
         // Retry Connection
-        .failed_id_o(id_retry),
-        .failed_valid_o(valid_retry),
-        .failed_ready_i(ready_retry)
+        .retry_id_o(id_retry),
+        .retry_valid_o(valid_retry),
+        .retry_ready_i(ready_retry)
     );
 
     // Data Application

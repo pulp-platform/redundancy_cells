@@ -184,7 +184,7 @@ module tb_time_dmr;
                     DATA_ERROR: data_error <= $random;
                     VALID_ERROR: valid_error <= 1;
                     READY_ERROR: ready_error <= 1;
-                    ID_ERROR: id_error <= $random;
+                    ID_ERROR: id_error <= (1 << $urandom_range(0,IDSize-1));
                 endcase
             end
             $display("Ending Test with fault type {%s}", fault_type.name());

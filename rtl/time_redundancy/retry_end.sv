@@ -18,24 +18,24 @@ module retry_end # (
     input logic ready_i,
 
     // Retry Connection
-    output logic [IDSize-1:0] failed_id_o,
-    output logic failed_valid_o,
-    input logic failed_ready_i
+    output logic [IDSize-1:0] retry_id_o,
+    output logic retry_valid_o,
+    input logic retry_ready_i
 );
     
     // Assign signals
-    assign failed_id_o = id_i;
+    assign retry_id_o = id_i;
     assign data_o = data_i;
 
     always_comb begin
         if (faulty_i) begin
-            failed_valid_o = valid_i;
-            ready_o = failed_ready_i;
+            retry_valid_o = valid_i;
+            ready_o = retry_ready_i;
             valid_o = 0;
         end else begin
             valid_o = valid_i;
             ready_o = ready_i;
-            failed_valid_o = 0;
+            retry_valid_o = 0;
         end
     end
 

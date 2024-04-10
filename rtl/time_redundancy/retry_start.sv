@@ -17,9 +17,9 @@ module retry_start # (
     input logic ready_i,
 
     // Retry Connection
-    input logic [IDSize-1:0] failed_id_i,
-    input logic failed_valid_i,
-    output logic failed_ready_o
+    input logic [IDSize-1:0] retry_id_i,
+    input logic retry_valid_i,
+    output logic retry_ready_o
 );
 
     //////////////////////////////////////////////////////////////////////
@@ -29,14 +29,14 @@ module retry_start # (
 
     always_comb begin
 
-        if (ready_i | failed_valid_i) begin
-            failed_valid_d = failed_valid_i;
+        if (ready_i | retry_valid_i) begin
+            failed_valid_d = retry_valid_i;
         end else begin
             failed_valid_d = failed_valid_q;
         end
 
-        if (failed_valid_i & failed_ready_o) begin
-            failed_id_d = failed_id_i;
+        if (retry_valid_i & retry_ready_o) begin
+            failed_id_d = retry_id_i;
         end else begin
             failed_id_d = failed_id_q;
         end
@@ -52,15 +52,19 @@ module retry_start # (
         end
     end
 
-    assign failed_ready_o = ready_i | ~failed_valid_q;
+    assign retry_ready_o = ready_i | ~failed_valid_q;
 
     //////////////////////////////////////////////////////////////////////
-    // ID Counter
+    // ID Counter with parity bit
+
     logic [IDSize-1:0] counter_id_d, counter_id_q;
+    logic [IDSize-2:0] id_next_noparity;
 
     always_comb begin // TODO: Only count on valid?
+        id_next_noparity = counter_id_q[IDSize-2:0] + 1;
+        
         if ((failed_valid_q | valid_i) & ready_i) begin
-            counter_id_d = counter_id_q + 1;
+            counter_id_d = {^id_next_noparity, id_next_noparity};
         end else begin
             counter_id_d = counter_id_q;
         end
@@ -77,14 +81,14 @@ module retry_start # (
     //////////////////////////////////////////////////////////////////////
     // General Element storage
 
-    logic [2 ** IDSize-1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
+    logic [2 ** (IDSize-1)-1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
 
     always_comb begin
         // Keep data as is as abase
         data_storage_d = data_storage_q;
 
         if ((failed_valid_q | valid_i) & ready_i) begin
-            data_storage_d[counter_id_q] = data_o;
+            data_storage_d[counter_id_q[IDSize-2:0]] = data_o;
         end
     end
 
@@ -98,7 +102,7 @@ module retry_start # (
 
     always_comb begin
         if (failed_valid_q & ready_i) begin
-            data_o = data_storage_q[failed_id_q];
+            data_o = data_storage_q[failed_id_q[IDSize-2:0]];
         end else if (valid_i & ready_i) begin
             data_o = data_i;
         end else begin

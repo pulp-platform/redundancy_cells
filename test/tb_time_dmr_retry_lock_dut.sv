@@ -22,7 +22,6 @@ module tb_time_dmr_retry_lock_dut # (
     output logic ready_o,
 
     // Error Injection
-    input logic [OpgroupWidth-1:0] operation_error_i,
     input DataType data_error_i,
     input logic [IDSize-1:0] id_error_i,
     input logic valid_error_i,
@@ -88,9 +87,9 @@ module tb_time_dmr_retry_lock_dut # (
         .ready_i(ready_retry2dmr),
 
         // Retry Connection
-        .failed_id_i(id_retry),
-        .failed_valid_i(valid_retry),
-        .failed_ready_o(ready_retry)
+        .retry_id_i(id_retry),
+        .retry_valid_i(valid_retry),
+        .retry_ready_o(ready_retry)
     );
 
 
@@ -263,9 +262,9 @@ module tb_time_dmr_retry_lock_dut # (
         .ready_i(ready_i),
 
         // Retry Connection
-        .failed_id_o(id_retry),
-        .failed_valid_o(valid_retry),
-        .failed_ready_i(ready_retry)
+        .retry_id_o(id_retry),
+        .retry_valid_o(valid_retry),
+        .retry_ready_i(ready_retry)
     );
 
     assign data_o = out_stacked.data;

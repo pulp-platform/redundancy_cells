@@ -75,9 +75,9 @@ module tb_time_dmr_retry;
         .ready_i(ready_detectable),
 
         // Retry Connection
-        .failed_id_i(id_retry),
-        .failed_valid_i(valid_retry),
-        .failed_ready_o(ready_retry)
+        .retry_id_i(id_retry),
+        .retry_valid_i(valid_retry),
+        .retry_ready_o(ready_retry)
     );
 
 
@@ -144,6 +144,9 @@ module tb_time_dmr_retry;
         .DataType(tagged_data_t),
         .IDSize(IDSize)
     ) dut_retry_end (
+        .clk_i(clk),                
+        .rst_ni(rst_n),       
+
         // Upstream connection
         .data_i(data_detected),
         .id_i(id_detected),
@@ -157,9 +160,9 @@ module tb_time_dmr_retry;
         .ready_i(ready_out),
 
         // Retry Connection
-        .failed_id_o(id_retry),
-        .failed_valid_o(valid_retry),
-        .failed_ready_i(ready_retry)
+        .retry_id_o(id_retry),
+        .retry_valid_o(valid_retry),
+        .retry_ready_i(ready_retry)
     );
 
     // Data Application
@@ -246,7 +249,7 @@ module tb_time_dmr_retry;
                     DATA_ERROR: data_error <= $random;
                     VALID_ERROR: valid_error <= 1;
                     READY_ERROR: ready_error <= 1;
-                    ID_ERROR: id_error <= $random;
+                    ID_ERROR: id_error <= (1 << $urandom_range(0,IDSize-1));
                 endcase
             end
             $display("Ending Test with fault type {%s}", fault_type.name());
@@ -308,6 +311,7 @@ module tb_time_dmr_retry;
                         end else begin
                             error = 0;
                             found = 1;
+                            break;
                         end
                     end else begin
                         golden_queue.push_back(data_golden);

@@ -7,8 +7,8 @@ module time_DMR_start # (
     // For an in-order process, this can be set to 1
     // For an out of order process, it needs to be big enough so that the
     // out-of-orderness can never  rearange the elements with the same id
-    // next to each other.
-    // As an estimate you can use log2(longest_pipeline) + 1.
+    // next to each other and needs an extra bit for error detection.
+    // As an estimate you can use log2(longest_pipeline) + 2.
     // Needs to match with time_TMR_end!
     parameter IDSize = 1,
     // Set to 1 if the id_i port should be used
@@ -43,6 +43,7 @@ module time_DMR_start # (
     state_t state_v[3], state_d[3], state_q[3];
     DataType [2:0] data_d, data_q;
     logic [2:0][IDSize-1:0] id_v, id_d, id_q, id_next;
+    logic [2:0][IDSize-2:0] id_next_noparity;
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin : next_state_logic
@@ -51,10 +52,11 @@ module time_DMR_start # (
             data_d[r] = data_q[r];
             id_v[r] = id_q[r];
 
+            id_next_noparity[r] =  id_q[r][IDSize-2:0] + 1;
             if (UseExternalId) begin
                 id_next[r] = id_i;
             end else begin
-                id_next[r] = id_q[r] + 1;
+                id_next[r] = {^id_next_noparity[r], id_next_noparity[r]};
             end
 
             case (state_q[r])

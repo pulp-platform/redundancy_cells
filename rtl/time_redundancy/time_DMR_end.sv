@@ -82,7 +82,7 @@ module time_DMR_end # (
             data_same_in[r] = '0;
             id_same_in[r] = '0;
 
-                        // If disabled just send out input
+            // If disabled just send out input
             if (!enable_i) begin
                 data_ov[r] = data_i;
                 id_ov[r] = id_i;
@@ -161,7 +161,7 @@ module time_DMR_end # (
 
     typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID} state_t;
     state_t state_v[3], state_d[3], state_q[3];
-    logic [2:0] ready_internal, valid_internal, lock_internal, faulty_ov;
+    logic [2:0] ready_ov, valid_internal, lock_internal, faulty_ov;
 
     // Special State Description:
     // Wait for Ready: We got some data that is usable, but downstream can't use it yet
@@ -231,18 +231,14 @@ module time_DMR_end # (
                 endcase
 
                 case (state_q[r])
-                    BASE:           ready_internal[r] =  ready_i | !new_element_arrived[r];
-                    WAIT_FOR_READY: ready_internal[r] =  ready_i;
-                    WAIT_FOR_VALID: ready_internal[r] = !valid_i;
+                    BASE:           ready_ov[r] =  ready_i | !new_element_arrived[r];
+                    WAIT_FOR_READY: ready_ov[r] =  ready_i;
+                    WAIT_FOR_VALID: ready_ov[r] = !valid_i;
                 endcase
-
-                faulty_ov[r] = id_same[r][0] & !data_usable[r];
-
             end else begin
                 valid_internal[r] = valid_i;
                 lock_internal[r] = 0;
-                faulty_ov[r] = 0;
-                ready_internal[r] = ready_i;
+                ready_ov[r] = ready_i;
             end
         end
     end
@@ -302,19 +298,22 @@ module time_DMR_end # (
     end
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-    // Output Deduplication Based on ID
+    // Output Deduplication Based on ID and ID Faults
 
-    logic [2:0][2 ** IDSize-1:0] recently_seen_d, recently_seen_q;
-    logic [2:0] ready_ov, valid_ov;
+    logic id_fault_q;
+    assign id_fault_q = ^id_q;
+
+    logic [2:0][2 ** (IDSize-1)-1:0] recently_seen_d, recently_seen_q;
+    logic [2:0] valid_ov;
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin
             recently_seen_d[r] = recently_seen_q[r];
 
-            recently_seen_d[r][next_id_i] = 0;
+            recently_seen_d[r][next_id_i[IDSize-2:0]] = 0;
 
-            if (valid_internal[r] & ready_internal[r]) begin
-                recently_seen_d[r][id_o] = 1;
+            if (valid_internal[r] & ready_i & !id_fault_q) begin
+                recently_seen_d[r][id_q[IDSize-2:0]] = 1;
             end
         end
     end
@@ -329,12 +328,16 @@ module time_DMR_end # (
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin
-            if (enable_i & recently_seen_q[r][id_q] & valid_internal[r]) begin
-                valid_ov[r] = 0;
-                ready_ov[r] = 1;
+            if (enable_i) begin
+                if (id_fault_q | recently_seen_q[r][id_q[IDSize-2:0]] & valid_internal[r]) begin
+                    valid_ov[r] = 0;
+                end else begin
+                    valid_ov[r] = valid_internal[r];
+                end  
+                faulty_ov[r] = id_same[r][0] & !data_usable[r];
             end else begin
                 valid_ov[r] = valid_internal[r];
-                ready_ov[r] = ready_internal[r];
+                faulty_ov[r] = 0;
             end
         end
     end
