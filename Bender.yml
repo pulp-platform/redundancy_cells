@@ -22,12 +22,12 @@ sources:
   - rtl/hsiao_ecc/hsiao_ecc_enc.sv
   - rtl/hsiao_ecc/hsiao_ecc_dec.sv
   - rtl/hsiao_ecc/hsiao_ecc_cor.sv
+  - rtl/time_redundancy/time_TMR.sv
+  - rtl/time_redundancy/time_DMR.sv
+  - rtl/time_redundancy/retry.sv
+  - rtl/time_redundancy/rr_arb_tree_lock.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_word_voter.sv
-  - rtl/time_TMR.sv
-  - rtl/time_DMR.sv
-  - rtl/retry.sv
-  - rtl/rr_arb_tree_lock.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
