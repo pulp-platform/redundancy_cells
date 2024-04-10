@@ -10,8 +10,10 @@
 //
 // Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
 //         Wolfgang Roenninger <wroennin@iis.ee.ethz.ch>, ETH Zurich
-// Date: 02.04.2019
-// Description: logarithmic arbitration tree with round robin arbitration scheme.
+//         Maurus Item <itemm@student.ethz.ch>, ETH Zurich
+// Date: 10.04.2023
+// Description: logarithmic arbitration tree with round robin arbitration scheme
+// that can be externally locked to not arbitrate.
 
 /// The rr_arb_tree employs non-starving round robin-arbitration - i.e., the priorities
 /// rotate each cycle.
@@ -89,7 +91,7 @@ module rr_arb_tree_lock #(
   input  logic                rst_ni,
   /// Clears the arbiter state. Only used if `ExtPrio` is `1'b0` or `LockIn` is `1'b1`.
   input  logic                flush_i,
-  /// External round-robin priority. 
+  /// External round-robin priority.
   input  idx_t                rr_i,
   /// lock idx signal, only used if Only used if `ExtPrio` is `1'b0.`
   input logic                 lock_rr_i,
