@@ -7,29 +7,29 @@ module tb_time_dmr_retry_lock_dut # (
     parameter int LockTimeout = 5,
 
     // How many parallel instances to generate and how many registers they should each have
-    parameter int NUM_OPGROUPS = 3,
-    parameter int OPGROUP_WIDTH = 2,
-    parameter int ID_SIZE = 4,
-    parameter [NUM_OPGROUPS-1:0][7:0] OPGROUP_NUM_REGS = {8'd10, 8'd10, 8'd10}
+    parameter int NumOpgroups = 3,
+    parameter int OpgroupWidth = 2,
+    parameter int IDSize = 4,
+    parameter [NumOpgroups-1:0][7:0] OpgroupNumRegs = {8'd10, 8'd10, 8'd10}
 ) (
     input logic clk_i,
     input logic rst_ni,
 
     // Upstream connection
-    input logic [OPGROUP_WIDTH-1:0] operation_i,
+    input logic [OpgroupWidth-1:0] operation_i,
     input DataType data_i,
     input logic valid_i,
     output logic ready_o,
 
     // Error Injection
-    input logic [OPGROUP_WIDTH-1:0] operation_error_i,
+    input logic [OpgroupWidth-1:0] operation_error_i,
     input DataType data_error_i,
-    input logic [ID_SIZE-1:0] id_error_i,
+    input logic [IDSize-1:0] id_error_i,
     input logic valid_error_i,
     input logic ready_error_i,
 
     // Downstream connection
-    output logic [OPGROUP_WIDTH-1:0] operation_o,
+    output logic [OpgroupWidth-1:0] operation_o,
     output DataType data_o,
     output logic valid_o,
     input logic ready_i
@@ -43,7 +43,7 @@ module tb_time_dmr_retry_lock_dut # (
 
     // Typedef for stacked signal in TMR
     typedef struct packed {
-        logic [ID_SIZE-1:0] id;
+        logic [IDSize-1:0] id;
         DataType            data;
     } rr_stacked_t;
 
@@ -55,23 +55,23 @@ module tb_time_dmr_retry_lock_dut # (
     // Signals for after TMR
     tmr_stacked_t in_tmr_stack_redundant;
     logic in_valid_redundant, in_ready_redundant;
-    logic [ID_SIZE-1:0] in_id_redundant;
+    logic [IDSize-1:0] in_id_redundant;
     
     // Feedback connection
-    logic [ID_SIZE-1:0] id_retry, next_id;
+    logic [IDSize-1:0] id_retry, next_id;
     logic valid_retry;
     logic ready_retry;
     
     // Connection between retry and DMR
     tmr_stacked_t data_retry2dmr;
-    logic [ID_SIZE-1:0] id_retry2dmr;
+    logic [IDSize-1:0] id_retry2dmr;
     logic valid_retry2dmr;
     logic ready_retry2dmr;
 
     // DUT Instances
     retry_start #(
         .DataType(tmr_stacked_t),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) i_retry_start (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
@@ -96,7 +96,7 @@ module tb_time_dmr_retry_lock_dut # (
 
     time_DMR_start #(
         .DataType(tmr_stacked_t),
-        .ID_SIZE (ID_SIZE),
+        .IDSize (IDSize),
         .UseExternalId(1)
     ) i_time_DMR_start (
         .clk_i(clk_i),
@@ -119,22 +119,22 @@ module tb_time_dmr_retry_lock_dut # (
     );
 
     // Handshake signal array for opgroup block
-    logic [NUM_OPGROUPS-1:0] in_opgrp_ready, out_opgrp_valid, out_opgrp_ready;
-    rr_stacked_t [NUM_OPGROUPS-1:0] out_opgrp_rr_stack;
+    logic [NumOpgroups-1:0] in_opgrp_ready, out_opgrp_valid, out_opgrp_ready;
+    rr_stacked_t [NumOpgroups-1:0] out_opgrp_rr_stack;
     rr_stacked_t out_rr_stack;
 
     // Pass ready up based on the current operation_i
     assign in_ready_redundant = in_valid_redundant & in_opgrp_ready[in_tmr_stack_redundant.operation];
 
-    for (genvar opgrp = 0; opgrp < int'(NUM_OPGROUPS); opgrp++) begin : gen_operation_groups
-        localparam NUM_REGS = OPGROUP_NUM_REGS[opgrp];
+    for (genvar opgrp = 0; opgrp < int'(NumOpgroups); opgrp++) begin : gen_operation_groups
+        localparam NUM_REGS = OpgroupNumRegs[opgrp];
 
         // Input pipeline signals, index i holds signal after i register stages
 
         DataType               [0:NUM_REGS]                 pipe_data;
         logic                  [0:NUM_REGS]                 pipe_valid;
         logic                  [0:NUM_REGS]                 pipe_ready;
-        logic     [0:NUM_REGS][ID_SIZE-1:0]                 pipe_id;
+        logic     [0:NUM_REGS][IDSize-1:0]                 pipe_id;
 
         // Upstream Connection
         // Error Injection
@@ -159,7 +159,7 @@ module tb_time_dmr_retry_lock_dut # (
             assign reg_ena = (pipe_ready[i] & pipe_valid[i]);  // | reg_ena_i[i];
             // Generate the pipeline registers within the stages, use enable-registers
             `FFL(pipe_data[i+1],      pipe_data[i],      reg_ena, DataType'('0))
-            `FFL(  pipe_id[i+1],      pipe_id[i],        reg_ena, ID_SIZE'('0))
+            `FFL(  pipe_id[i+1],      pipe_id[i],        reg_ena, IDSize'('0))
         end
 
         // Downstream connection
@@ -178,7 +178,7 @@ module tb_time_dmr_retry_lock_dut # (
 
     // Round-Robin arbiter to decide which result to use
     rr_arb_tree_lock #(
-        .NumIn     ( NUM_OPGROUPS ),
+        .NumIn     ( NumOpgroups ),
         .DataType  ( rr_stacked_t  ),
         .AxiVldRdy ( 1'b1         )
     ) i_arbiter (
@@ -203,14 +203,14 @@ module tb_time_dmr_retry_lock_dut # (
 
     // Signals for after TMR
     tmr_stacked_t out_stacked;
-    logic [ID_SIZE-1:0] out_tmr_id;
+    logic [IDSize-1:0] out_tmr_id;
 
     assign out_tmr_id = out_rr_stack.id;
     assign out_tmr_stack.data = out_rr_stack.data;
 
     // Connection between retry and DMR
     tmr_stacked_t data_dmr2retry;
-    logic [ID_SIZE-1:0] id_dmr2retry;
+    logic [IDSize-1:0] id_dmr2retry;
     logic faulty_dmr2retry;
     logic valid_dmr2retry;
     logic ready_dmr2retry;
@@ -218,7 +218,7 @@ module tb_time_dmr_retry_lock_dut # (
     time_DMR_end #(
         .DataType(tmr_stacked_t),
         .LockTimeout(LockTimeout),
-        .ID_SIZE (ID_SIZE)
+        .IDSize (IDSize)
     ) i_time_DMR_end (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
@@ -245,7 +245,7 @@ module tb_time_dmr_retry_lock_dut # (
 
     retry_end #(
         .DataType(tmr_stacked_t),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) i_retry_end (
         .clk_i(clk_i),
         .rst_ni(rst_ni),

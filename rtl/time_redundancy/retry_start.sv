@@ -1,6 +1,6 @@
 module retry_start # (
     parameter type DataType  = logic,
-    parameter ID_SIZE = 1
+    parameter IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -12,19 +12,19 @@ module retry_start # (
 
     // Downstream connection
     output DataType data_o,
-    output logic [ID_SIZE-1:0] id_o,
+    output logic [IDSize-1:0] id_o,
     output logic valid_o,
     input logic ready_i,
 
     // Retry Connection
-    input logic [ID_SIZE-1:0] failed_id_i,
+    input logic [IDSize-1:0] failed_id_i,
     input logic failed_valid_i,
     output logic failed_ready_o
 );
 
     //////////////////////////////////////////////////////////////////////
     // Register to store failed id for one cycle
-    logic [ID_SIZE-1:0] failed_id_d, failed_id_q;
+    logic [IDSize-1:0] failed_id_d, failed_id_q;
     logic failed_valid_d, failed_valid_q;
 
     always_comb begin
@@ -56,7 +56,7 @@ module retry_start # (
 
     //////////////////////////////////////////////////////////////////////
     // ID Counter
-    logic [ID_SIZE-1:0] counter_id_d, counter_id_q;
+    logic [IDSize-1:0] counter_id_d, counter_id_q;
 
     always_comb begin // TODO: Only count on valid?
         if ((failed_valid_q | valid_i) & ready_i) begin
@@ -77,7 +77,7 @@ module retry_start # (
     //////////////////////////////////////////////////////////////////////
     // General Element storage
 
-    logic [2 ** ID_SIZE-1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
+    logic [2 ** IDSize-1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
 
     always_comb begin
         // Keep data as is as abase

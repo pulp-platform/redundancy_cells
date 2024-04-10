@@ -10,7 +10,7 @@ module time_TMR_start # (
     // next to each other.
     // As an estimate you can use log2(longest_pipeline) + 1.
     // Needs to match with time_TMR_end!
-    parameter ID_SIZE = 1
+    parameter IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -23,7 +23,7 @@ module time_TMR_start # (
 
     // Downstream connection
     output DataType data_o,
-    output logic [ID_SIZE-1:0] id_o,
+    output logic [IDSize-1:0] id_o,
     output logic valid_o,
     input logic ready_i
 );
@@ -36,7 +36,7 @@ module time_TMR_start # (
     typedef enum logic [1:0] {STORE_AND_SEND, SEND, REPLICATE_ONE, REPLICATE_TWO} state_t;
     state_t state_v[3], state_d[3], state_q[3];
     DataType [2:0] data_d, data_q;
-    logic [2:0][ID_SIZE-1:0] id_v, id_d, id_q;
+    logic [2:0][IDSize-1:0] id_v, id_d, id_q;
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin : next_state_logic

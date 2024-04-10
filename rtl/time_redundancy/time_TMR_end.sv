@@ -16,7 +16,7 @@ module time_TMR_end # (
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
     // Needs to match with time_TMR_start!
-    parameter ID_SIZE = 1
+    parameter IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -24,7 +24,7 @@ module time_TMR_end # (
 
     // Upstream connection
     input DataType data_i,
-    input logic [ID_SIZE-1:0] id_i,
+    input logic [IDSize-1:0] id_i,
     input logic valid_i,
     output logic ready_o,
 
@@ -40,7 +40,7 @@ module time_TMR_end # (
     // Storage of incomming results and generating good output data
 
     DataType data_d1, data_q1, data_d2, data_q2;
-    logic [ID_SIZE-1:0] id_d1, id_q1, id_d2, id_q2;
+    logic [IDSize-1:0] id_d1, id_q1, id_d2, id_q2;
 
     // Next State Combinatorial Logic
     always_comb begin : data_storage_comb

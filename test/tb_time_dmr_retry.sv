@@ -16,7 +16,7 @@ module tb_time_dmr_retry;
         tag_t       tag;
     } tagged_data_t;
 
-    parameter ID_SIZE = 4;
+    parameter IDSize = 4;
     localparam int LockTimeout = 4;
 
     // Testbench signals
@@ -37,11 +37,11 @@ module tb_time_dmr_retry;
     tagged_data_t data_in,  data_detectable, data_redundant,  data_error,  data_redundant_faulty,  data_detected, data_out;
     logic valid_in, valid_detectable, valid_redundant, valid_error, valid_redundant_faulty, valid_detected, valid_out;
     logic ready_in, ready_detectable, ready_redundant, ready_error, ready_redundant_faulty, ready_detected, ready_out;
-    logic [ID_SIZE-1:0] id_detectable, id_redundant, id_error, id_redundant_faulty, id_detected, next_id;
+    logic [IDSize-1:0] id_detectable, id_redundant, id_error, id_redundant_faulty, id_detected, next_id;
     logic fault_detected;
 
     // Feedback connection
-    logic [ID_SIZE-1:0] id_retry;
+    logic [IDSize-1:0] id_retry;
     logic valid_retry;
     logic ready_retry;
 
@@ -58,7 +58,7 @@ module tb_time_dmr_retry;
     // DUT Instances
     retry_start #(
         .DataType(tagged_data_t),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) dut_retry_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -84,7 +84,7 @@ module tb_time_dmr_retry;
     // DUT Instances
     time_DMR_start #(
         .DataType(tagged_data_t),
-        .ID_SIZE(ID_SIZE),
+        .IDSize(IDSize),
         .UseExternalId(1)
     ) dut_DMR_start (
         .clk_i(clk),
@@ -116,7 +116,7 @@ module tb_time_dmr_retry;
     time_DMR_end #(
         .DataType(tagged_data_t),
         .LockTimeout(LockTimeout),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) dut_DMR_end (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -142,7 +142,7 @@ module tb_time_dmr_retry;
     // DUT Instances
     retry_end #(
         .DataType(tagged_data_t),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) dut_retry_end (
         // Upstream connection
         .data_i(data_detected),
@@ -318,7 +318,7 @@ module tb_time_dmr_retry;
                     error = 1;
                     error_cnt += 1;
                 end
-            end else if (golden_queue.size() > 2 ** ID_SIZE) begin
+            end else if (golden_queue.size() > 2 ** IDSize) begin
                 $display("[T=%t] Data does not get output in a timely manner!", $time);
                 error = 1;
                 error_cnt += 1;     

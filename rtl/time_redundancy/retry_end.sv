@@ -1,13 +1,13 @@
 module retry_end # (
     parameter type DataType  = logic,
-    parameter ID_SIZE = 1
+    parameter IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
 
     // Upstream connection
     input DataType data_i,
-    input logic [ID_SIZE-1:0] id_i,
+    input logic [IDSize-1:0] id_i,
     input logic faulty_i,
     input logic valid_i,
     output logic ready_o,
@@ -18,7 +18,7 @@ module retry_end # (
     input logic ready_i,
 
     // Retry Connection
-    output logic [ID_SIZE-1:0] failed_id_o,
+    output logic [IDSize-1:0] failed_id_o,
     output logic failed_valid_o,
     input logic failed_ready_i
 );

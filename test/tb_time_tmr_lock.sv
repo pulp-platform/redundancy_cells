@@ -12,15 +12,15 @@ module tb_time_tmr_lock;
 
     // Parameters
     typedef logic [7:0] data_t;
-    parameter int NUM_OPGROUPS = 3;
-    parameter int OPGROUP_WIDTH = 2;
-    parameter int ID_SIZE = 4;
+    parameter int NumOpgroups = 3;
+    parameter int OpgroupWidth = 2;
+    parameter int IDSize = 4;
     localparam int LockTimeout = 5;
 
     // Testebench signals
-    data_t golden_queue [NUM_OPGROUPS-1:0][$];
+    data_t golden_queue [NumOpgroups-1:0][$];
     data_t data_golden, data_actual;
-    logic [OPGROUP_WIDTH-1:0] operation_actual;
+    logic [OpgroupWidth-1:0] operation_actual;
     logic error;
     int error_cnt;
 
@@ -32,16 +32,16 @@ module tb_time_tmr_lock;
     logic rst_n;
 
     data_t in_data;
-    logic [OPGROUP_WIDTH-1:0] in_operation;
+    logic [OpgroupWidth-1:0] in_operation;
     logic in_valid, in_ready;
 
     data_t data_error;
-    logic [OPGROUP_WIDTH-1:0] operation_error;
+    logic [OpgroupWidth-1:0] operation_error;
     logic valid_error, ready_error;
-    logic [ID_SIZE-1:0] id_error;
+    logic [IDSize-1:0] id_error;
 
     data_t out_data;
-    logic [OPGROUP_WIDTH-1:0] out_operation;
+    logic [OpgroupWidth-1:0] out_operation;
     logic out_valid, out_ready;
 
     // Clock Generation
@@ -57,11 +57,11 @@ module tb_time_tmr_lock;
     // Instantiation of full fpnew datapath dut
     tb_time_tmr_lock_dut #(
         .DataType(data_t),       
-        .NUM_OPGROUPS(NUM_OPGROUPS),
-        .OPGROUP_WIDTH(OPGROUP_WIDTH),
-        .ID_SIZE(ID_SIZE),
+        .NumOpgroups(NumOpgroups),
+        .OpgroupWidth(OpgroupWidth),
+        .IDSize(IDSize),
         .LockTimeout(LockTimeout),
-        .OPGROUP_NUM_REGS({8'd4, 8'd3, 8'd3})
+        .OpgroupNumRegs({8'd4, 8'd3, 8'd3})
     ) dut (
         .clk_i(clk),                
         .rst_ni(rst_n),          
@@ -89,7 +89,7 @@ module tb_time_tmr_lock;
     // Data Application
     initial begin
         data_t new_data;
-        logic [OPGROUP_WIDTH-1:0] new_operation;
+        logic [OpgroupWidth-1:0] new_operation;
 
         // Initialize Handshake and Data
         in_data = 8'h00;
@@ -108,7 +108,7 @@ module tb_time_tmr_lock;
             end
 
             // Build next data element
-            new_operation = $urandom_range(0, NUM_OPGROUPS-1);
+            new_operation = $urandom_range(0, NumOpgroups-1);
             new_data = $random;
 
             // Apply Data

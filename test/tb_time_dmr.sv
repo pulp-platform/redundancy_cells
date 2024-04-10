@@ -9,7 +9,7 @@ module tb_time_dmr;
 
     // Parameters
     typedef logic [7:0] data_t;
-    parameter ID_SIZE = 4;
+    parameter IDSize = 4;
     localparam int LockTimeout = 4;
 
     // Testbench signals
@@ -31,7 +31,7 @@ module tb_time_dmr;
     logic valid_in, valid_redundant, valid_error, valid_redundant_faulty, valid_out;
     logic ready_in, ready_redundant, ready_error, ready_redundant_faulty, ready_out;
     logic faulty_out;
-    logic [ID_SIZE-1:0] id_redundant, id_error, id_redundant_faulty, id_next;
+    logic [IDSize-1:0] id_redundant, id_error, id_redundant_faulty, id_next;
 
     // Clock Generation
     initial begin
@@ -46,7 +46,7 @@ module tb_time_dmr;
     // DUT Instances
     time_DMR_start #(
         .DataType(data_t),
-        .ID_SIZE(ID_SIZE),
+        .IDSize(IDSize),
         .UseExternalId(0)
     ) dut_start (
         .clk_i(clk),
@@ -77,7 +77,7 @@ module tb_time_dmr;
     time_DMR_end #(
         .DataType(data_t),
         .LockTimeout(LockTimeout),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) dut_end (
         .clk_i(clk),
         .rst_ni(rst_n),

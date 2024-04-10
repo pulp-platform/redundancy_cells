@@ -16,25 +16,25 @@ module time_DMR_end # (
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
     // Needs to match with time_TMR_start!
-    parameter ID_SIZE = 1
+    parameter IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
     input logic enable_i,
 
     // Direct connection to corresponding time_DMR_start module
-    input logic [ID_SIZE-1:0] next_id_i,
+    input logic [IDSize-1:0] next_id_i,
 
 
     // Upstream connection
     input DataType data_i,
-    input logic [ID_SIZE-1:0] id_i,
+    input logic [IDSize-1:0] id_i,
     input logic valid_i,
     output logic ready_o,
 
     // Downstream connection
     output DataType data_o,
-    output logic [ID_SIZE-1:0] id_o,
+    output logic [IDSize-1:0] id_o,
     output logic faulty_o,
     output logic valid_o,
     input logic ready_i,
@@ -46,7 +46,7 @@ module time_DMR_end # (
     // Storage of incomming results and generating good output data
 
     DataType data_d, data_q;
-    logic [ID_SIZE-1:0] id_d, id_q;
+    logic [IDSize-1:0] id_d, id_q;
 
     // Next State Combinatorial Logic
     always_comb begin : data_storage_comb
@@ -75,7 +75,7 @@ module time_DMR_end # (
     logic [2:0] data_same_in, id_same_in;
     logic [2:0] data_same_d, data_same_q, id_same_d, id_same_q;
     logic [2:0][$bits(DataType)-1:0] data_ov;
-    logic [2:0][ID_SIZE-1:0] id_ov;
+    logic [2:0][IDSize-1:0] id_ov;
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin: data_same_generation_comb
@@ -304,7 +304,7 @@ module time_DMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Output Deduplication Based on ID
 
-    logic [2:0][2 ** ID_SIZE-1:0] recently_seen_d, recently_seen_q;
+    logic [2:0][2 ** IDSize-1:0] recently_seen_d, recently_seen_q;
     logic [2:0] ready_ov, valid_ov;
 
     for (genvar r = 0; r < 3; r++) begin

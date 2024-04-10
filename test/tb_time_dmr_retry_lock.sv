@@ -11,9 +11,9 @@ module tb_time_dmr_retry_lock;
     localparam unsigned TESTS = 10000;
 
     // Parameters
-    parameter int NUM_OPGROUPS = 3;
-    parameter int OPGROUP_WIDTH = 2;
-    parameter int ID_SIZE = 4;
+    parameter int NumOpgroups = 3;
+    parameter int OpgroupWidth = 2;
+    parameter int IDSize = 4;
     localparam int LockTimeout = 5;
 
     // Data Type with Tag for testbench
@@ -26,9 +26,9 @@ module tb_time_dmr_retry_lock;
     } tagged_data_t;
 
     // Testebench signals
-    tagged_data_t golden_queue [NUM_OPGROUPS-1:0][$];
+    tagged_data_t golden_queue [NumOpgroups-1:0][$];
     tagged_data_t data_golden, data_actual;
-    logic [OPGROUP_WIDTH-1:0] operation_actual;
+    logic [OpgroupWidth-1:0] operation_actual;
 
     logic error;
     int error_cnt;
@@ -41,16 +41,16 @@ module tb_time_dmr_retry_lock;
     logic rst_n;
 
     tagged_data_t in_data;
-    logic [OPGROUP_WIDTH-1:0] in_operation;
+    logic [OpgroupWidth-1:0] in_operation;
     logic in_valid, in_ready;
 
     tagged_data_t data_error;
-    logic [OPGROUP_WIDTH-1:0] operation_error;
+    logic [OpgroupWidth-1:0] operation_error;
     logic valid_error, ready_error;
-    logic [ID_SIZE-1:0] id_error;
+    logic [IDSize-1:0] id_error;
 
     tagged_data_t out_data;
-    logic [OPGROUP_WIDTH-1:0] out_operation;
+    logic [OpgroupWidth-1:0] out_operation;
     logic out_valid, out_ready;
 
     // Clock Generation
@@ -66,11 +66,11 @@ module tb_time_dmr_retry_lock;
     // Instantiation of full fpnew datapath dut
     tb_time_dmr_retry_lock_dut #(
         .DataType(tagged_data_t),       
-        .NUM_OPGROUPS(NUM_OPGROUPS),
-        .OPGROUP_WIDTH(OPGROUP_WIDTH),
-        .ID_SIZE(ID_SIZE),
+        .NumOpgroups(NumOpgroups),
+        .OpgroupWidth(OpgroupWidth),
+        .IDSize(IDSize),
         .LockTimeout(LockTimeout),
-        .OPGROUP_NUM_REGS({8'd4, 8'd3, 8'd3})
+        .OpgroupNumRegs({8'd4, 8'd3, 8'd3})
     ) dut (
         .clk_i(clk),                
         .rst_ni(rst_n),          
@@ -97,7 +97,7 @@ module tb_time_dmr_retry_lock;
 
     // Data Application
     initial begin
-        logic [OPGROUP_WIDTH-1:0] operation_new;
+        logic [OpgroupWidth-1:0] operation_new;
         tag_t tag_new;
         tagged_data_t data_new;
 
@@ -120,7 +120,7 @@ module tb_time_dmr_retry_lock;
             end
 
             // Build next data element
-            operation_new = $urandom_range(0, NUM_OPGROUPS-1);
+            operation_new = $urandom_range(0, NumOpgroups-1);
             tag_new += 1;
             data_new.data = $random;
             data_new.tag = tag_new;
@@ -258,8 +258,8 @@ module tb_time_dmr_retry_lock;
 
 
             // Check that no queue runs out of bounds
-            for (int operation = 0; operation < NUM_OPGROUPS; operation++) begin
-                if (golden_queue[operation].size() > 2 ** ID_SIZE) begin
+            for (int operation = 0; operation < NumOpgroups; operation++) begin
+                if (golden_queue[operation].size() > 2 ** IDSize) begin
                     $display("[T=%t] Data does not get output in a timely manner!", $time);
                     error = 1;
                     error_cnt += 1;     

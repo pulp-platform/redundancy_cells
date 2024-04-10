@@ -9,7 +9,7 @@ module tb_retry;
 
     // Parameters
     typedef logic [7:0] data_t;
-    parameter ID_SIZE = 2;
+    parameter IDSize = 2;
 
     // Testbench signals
     data_t golden_queue [$];
@@ -24,7 +24,7 @@ module tb_retry;
     data_t data_in,  data_middle, data_out;
     logic valid_in, valid_middle, valid_retry, valid_out;
     logic ready_in, ready_middle, ready_retry, ready_out;
-    logic [ID_SIZE-1:0] id_middle, id_retry;
+    logic [IDSize-1:0] id_middle, id_retry;
     logic faulty;
 
     // Clock Generation
@@ -40,7 +40,7 @@ module tb_retry;
     // DUT Instances
     retry_start #(
         .DataType(data_t),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) dut_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -65,7 +65,7 @@ module tb_retry;
 
     retry_end #(
         .DataType(data_t),
-        .ID_SIZE(ID_SIZE)
+        .IDSize(IDSize)
     ) dut_end (
         .clk_i(clk),
         .rst_ni(rst_n),
