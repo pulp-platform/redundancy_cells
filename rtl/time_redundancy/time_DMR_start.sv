@@ -93,10 +93,8 @@ module time_DMR_start # (
     end
 
     // Next State Voting Logic
-    always_comb begin : voting_logic
-        `VOTE3to3ENUM(state_v, state_d);
-        `VOTE3to3(id_v, id_d);
-    end
+    `VOTE3to3ENUM(state_v, state_d);
+    `VOTE3to3(id_v, id_d);
 
     // State Storage
     `FF(state_q, state_d, {STORE_AND_SEND, STORE_AND_SEND, STORE_AND_SEND});
@@ -122,10 +120,8 @@ module time_DMR_start # (
     end
 
     // Output Voting Logic
-    always_comb begin: output_voters
-        `VOTE3to1(data_d, data_o);
-        `VOTE3to1(id_v, id_o);
-        `VOTE3to1(id_next, next_id_o);
-    end
+    `VOTE3to1(data_d, data_o);
+    `VOTE3to1(id_v, id_o);
+    `VOTE3to1(id_next, next_id_o);
 
 endmodule

@@ -100,9 +100,7 @@ module time_TMR_end # (
     end
 
     // Output Voting Logic
-    always_comb begin : data_voting_logic
-        `VOTE3to1(data_ov, data_o);
-    end
+    `VOTE3to1(data_ov, data_o);
 
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of same / not same for one extra cycle
@@ -223,9 +221,7 @@ module time_TMR_end # (
     end
 
     // Next State Voting Logic
-    always_comb begin : voting_logic
-        `VOTE3to3ENUM(state_v, state_d);
-    end
+    `VOTE3to3ENUM(state_v, state_d);
 
     // State Storage
     `FF(state_q, state_d, {WAIT_FOR_VALID, WAIT_FOR_VALID, WAIT_FOR_VALID});
@@ -263,11 +259,8 @@ module time_TMR_end # (
     end
 
     // Output Voting Logic
-    always_comb begin: output_voters
-        `VOTE3to1(ready_ov, ready_o);
-        `VOTE3to1(valid_ov, valid_o);
-    end
-
+    `VOTE3to1(ready_ov, ready_o);
+    `VOTE3to1(valid_ov, valid_o);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to lock / unlock Arbitrator with Watchdog timer
@@ -300,11 +293,9 @@ module time_TMR_end # (
     end
 
     // Next State Voting Logic / Output Voting Logic
-    always_comb begin : lockoting_logic
-        `VOTE3to3(lock_v, lock_d);
-        `VOTE3to1(lock_v, lock_o);
-        `VOTE3to3(counter_v, counter_d);
-    end
+    `VOTE3to3(lock_v, lock_d);
+    `VOTE3to1(lock_v, lock_o);
+    `VOTE3to3(counter_v, counter_d);
 
     // State Storage
     `FF(lock_q, lock_d, '0);
