@@ -210,7 +210,7 @@ module tb_time_dmr_retry_lock_dut # (
     // Connection between retry and DMR
     tmr_stacked_t data_dmr2retry;
     logic [IDSize-1:0] id_dmr2retry;
-    logic faulty_dmr2retry;
+    logic needs_retry_dmr2retry;
     logic valid_dmr2retry;
     logic ready_dmr2retry;
 
@@ -231,15 +231,18 @@ module tb_time_dmr_retry_lock_dut # (
         .valid_i(out_tmr_valid),
         .ready_o(out_tmr_ready),
 
+        // Lock connection to upstream
+        .lock_o(lock),
+
         // Downstream connection
         .data_o(data_dmr2retry),
         .id_o(id_dmr2retry),
-        .faulty_o(faulty_dmr2retry),
+        .needs_retry_o(needs_retry_dmr2retry),
         .valid_o(valid_dmr2retry),
         .ready_i(ready_dmr2retry),
 
-        // Lock connection
-        .lock_o(lock)
+        // Flag output
+        .fault_detected_o(/*Unused*/)
     );
 
     retry_end #(
@@ -252,7 +255,7 @@ module tb_time_dmr_retry_lock_dut # (
         // Upstream connection
         .data_i(data_dmr2retry),
         .id_i(id_dmr2retry),
-        .faulty_i(faulty_dmr2retry),
+        .needs_retry_i(needs_retry_dmr2retry),
         .valid_i(valid_dmr2retry),
         .ready_o(ready_dmr2retry),
 

@@ -25,22 +25,24 @@ module time_DMR_end # (
     // Direct connection to corresponding time_DMR_start module
     input logic [IDSize-1:0] next_id_i,
 
-
     // Upstream connection
     input DataType data_i,
     input logic [IDSize-1:0] id_i,
     input logic valid_i,
     output logic ready_o,
 
+    // Signal for working with upstream Lockable RR Arbiter
+    output logic lock_o,
+
     // Downstream connection
     output DataType data_o,
     output logic [IDSize-1:0] id_o,
-    output logic faulty_o,
+    output logic needs_retry_o,
     output logic valid_o,
     input logic ready_i,
 
-    // Signal for working with Lockable RR Arbiter
-    output logic lock_o
+    // Output Flags for Error Counting
+    output logic fault_detected_o
 );
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of incomming results and generating good output data
@@ -161,7 +163,7 @@ module time_DMR_end # (
 
     typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID} state_t;
     state_t state_v[3], state_d[3], state_q[3];
-    logic [2:0] ready_ov, valid_internal, lock_internal, faulty_ov;
+    logic [2:0] ready_ov, valid_internal, lock_internal, needs_retry_ov;
 
     // Special State Description:
     // Wait for Ready: We got some data that is usable, but downstream can't use it yet
@@ -334,10 +336,10 @@ module time_DMR_end # (
                 end else begin
                     valid_ov[r] = valid_internal[r];
                 end  
-                faulty_ov[r] = id_same[r][0] & !data_usable[r];
+                needs_retry_ov[r] = id_same[r][0] & !data_usable[r];
             end else begin
                 valid_ov[r] = valid_internal[r];
-                faulty_ov[r] = 0;
+                needs_retry_ov[r] = 0;
             end
         end
     end
@@ -346,7 +348,29 @@ module time_DMR_end # (
     always_comb begin: output_voters
         `VOTE3to1(ready_ov, ready_o);
         `VOTE3to1(valid_ov, valid_o);
-        `VOTE3to1(faulty_ov, faulty_o);
+        `VOTE3to1(needs_retry_ov, needs_retry_o);
     end
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+    // Build error flag
+
+    // Since we can sometimes output data that only showed up for one cycle e.g. when another id was faulty
+    // or handshake failed and are sure it does not need retry, but a fault occured anyway
+    // We can not us the need_retry_o signal to signify all faults. Instead we have a special signal
+    // In a non-error case, we should have a full same signal every other cycle
+    // So if that is not the case we had a fault.
+    logic fault_detected_d, fault_detected_q;
+
+    assign fault_detected_d = ~|full_same[0][1:0];
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : fault_detection_deduplication
+        if(~rst_ni) begin
+             fault_detected_q <= '0;
+        end else begin
+             fault_detected_q <= fault_detected_d;
+        end
+    end
+
+    assign fault_detected_o = fault_detected_d & !fault_detected_q;
 
 endmodule

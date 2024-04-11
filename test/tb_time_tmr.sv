@@ -87,7 +87,10 @@ module tb_time_tmr;
         .data_o(data_out),
         .valid_o(valid_out),
         .ready_i(ready_out),
-        .lock_o(/*Unused*/)
+        .lock_o(/*Unused*/),
+
+        // Flags
+        .fault_detected_o(/* Unused */)
     );
 
     // Data Application

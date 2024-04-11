@@ -22,7 +22,6 @@ module tb_time_tmr_lock_dut # (
     output logic ready_o,
 
     // Error Injection
-    input logic [OpgroupWidth-1:0] operation_error_i,
     input DataType data_error_i,
     input logic [IDSize-1:0] id_error_i,
     input logic valid_error_i,
@@ -187,7 +186,10 @@ module tb_time_tmr_lock_dut # (
         .data_o(out_stacked),
         .valid_o(valid_o),
         .ready_i(ready_i),
-        .lock_o(lock)
+        .lock_o(lock),
+
+        // Flags
+        .fault_detected_o(/* Unused */)
     );
 
     assign data_o = out_stacked.data;

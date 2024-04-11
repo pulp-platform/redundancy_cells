@@ -25,7 +25,7 @@ module tb_retry;
     logic valid_in, valid_middle, valid_retry, valid_out;
     logic ready_in, ready_middle, ready_retry, ready_out;
     logic [IDSize-1:0] id_middle, id_retry;
-    logic faulty;
+    logic needs_retry_middle;
 
     // Clock Generation
     initial begin
@@ -73,7 +73,7 @@ module tb_retry;
         // Upstream connection
         .data_i(data_middle),
         .id_i(id_middle),
-        .faulty_i(faulty),
+        .needs_retry_i(needs_retry_middle),
         .valid_i(valid_middle),
         .ready_o(ready_middle),
 
@@ -128,12 +128,12 @@ module tb_retry;
             repeat ($urandom_range(15, 20)) begin
                 @(posedge clk);
                 # (APPLICATION_DELAY);
-                faulty = '0;
+                needs_retry_middle = '0;
             end
 
             @(posedge clk);
             # (APPLICATION_DELAY);
-            faulty = '1;
+            needs_retry_middle = '1;
         end
 
         $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, error_cnt);

@@ -25,7 +25,7 @@ module tb_time_tmr_lock;
     int error_cnt;
 
     // Aux signals to show what faults are going on
-    enum {NONE, DATA_ERROR, VALID_ERROR, READY_ERROR, ID_ERROR, OPERATION_ERROR} fault_type, fault_current;
+    enum {NONE, DATA_ERROR, VALID_ERROR, READY_ERROR, ID_ERROR} fault_type, fault_current;
 
     // Signals for DUTS
     logic clk;
@@ -36,7 +36,6 @@ module tb_time_tmr_lock;
     logic in_valid, in_ready;
 
     data_t data_error;
-    logic [OpgroupWidth-1:0] operation_error;
     logic valid_error, ready_error;
     logic [IDSize-1:0] id_error;
 
@@ -72,7 +71,6 @@ module tb_time_tmr_lock;
         .valid_i(in_valid),         
         .ready_o(in_ready),       
 
-        .operation_error_i(operation_error),
         .data_error_i     (data_error),
         .valid_error_i    (valid_error),
         .ready_error_i    (ready_error),
@@ -131,7 +129,7 @@ module tb_time_tmr_lock;
 
     // Fault inject
     initial begin
-        for (logic [2:0] ft = 0; ft < 6; ft++) begin
+        for (logic [2:0] ft = 0; ft < 5; ft++) begin
             fault_type[2:0] = ft;
             $display("Starting Test with fault type {%s}", fault_type.name());
 
@@ -143,7 +141,6 @@ module tb_time_tmr_lock;
                     # (APPLICATION_DELAY);
                     fault_current = NONE;          
                     data_error = '0; 
-                    operation_error = '0;
                     valid_error = '0;
                     ready_error = '0;
                     id_error = '0;
@@ -154,12 +151,10 @@ module tb_time_tmr_lock;
                 # (APPLICATION_DELAY);
                 fault_current <= fault_type; 
                 data_error <= '0; 
-                operation_error <= '0;
                 valid_error <= '0;
                 ready_error <= '0;     
                 case (fault_type)
                     DATA_ERROR: data_error <= $random;
-                    OPERATION_ERROR: operation_error <= $random;
                     VALID_ERROR: valid_error <= 1;
                     READY_ERROR: ready_error <= 1;
                     ID_ERROR: id_error <= $random;

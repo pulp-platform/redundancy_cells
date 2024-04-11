@@ -30,7 +30,7 @@ module tb_time_dmr;
     data_t data_in,  data_redundant,  data_error,  data_redundant_faulty,  data_out;
     logic valid_in, valid_redundant, valid_error, valid_redundant_faulty, valid_out;
     logic ready_in, ready_redundant, ready_error, ready_redundant_faulty, ready_out;
-    logic faulty_out;
+    logic needs_retry_out;
     logic [IDSize-1:0] id_redundant, id_error, id_redundant_faulty, id_next;
 
     // Clock Generation
@@ -91,14 +91,16 @@ module tb_time_dmr;
         .id_i(id_redundant_faulty),
         .valid_i(valid_redundant_faulty),
         .ready_o(ready_redundant),
+        .lock_o(/*Unused*/),
 
         // Downstream connection
         .data_o(data_out),
         .id_o(/*Unused*/),
-        .faulty_o(faulty_out),
+        .needs_retry_o(needs_retry_out),
         .valid_o(valid_out),
         .ready_i(ready_out),
-        .lock_o(/*Unused*/)
+
+        .fault_detected_o(/*Unused*/)
     );
 
     // Data Application
@@ -232,7 +234,7 @@ module tb_time_dmr;
             if (golden_queue.size() > 0) begin
                 data_golden = golden_queue.pop_front();
                 // Check output
-                if (faulty_out) begin
+                if (needs_retry_out) begin
                     fault_budget -= 1;
                     if (fault_budget < 0) begin
                         $error("[T=%t] More faults detected than injected!", $time);

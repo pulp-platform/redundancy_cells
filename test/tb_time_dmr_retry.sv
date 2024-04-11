@@ -38,7 +38,7 @@ module tb_time_dmr_retry;
     logic valid_in, valid_detectable, valid_redundant, valid_error, valid_redundant_faulty, valid_detected, valid_out;
     logic ready_in, ready_detectable, ready_redundant, ready_error, ready_redundant_faulty, ready_detected, ready_out;
     logic [IDSize-1:0] id_detectable, id_redundant, id_error, id_redundant_faulty, id_detected, next_id;
-    logic fault_detected;
+    logic needs_retry_detected;
 
     // Feedback connection
     logic [IDSize-1:0] id_retry;
@@ -133,10 +133,12 @@ module tb_time_dmr_retry;
         // Downstream connection
         .data_o(data_detected),
         .id_o(id_detected),
-        .faulty_o(fault_detected),
+        .needs_retry_o(needs_retry_detected),
         .valid_o(valid_detected),
         .ready_i(ready_detected),
-        .lock_o(/*Unused*/)
+        .lock_o(/*Unused*/),
+
+        .fault_detected_o(/*Unused*/)
     );
 
     // DUT Instances
@@ -150,7 +152,7 @@ module tb_time_dmr_retry;
         // Upstream connection
         .data_i(data_detected),
         .id_i(id_detected),
-        .faulty_i(fault_detected),
+        .needs_retry_i(needs_retry_detected),
         .valid_i(valid_detected),
         .ready_o(ready_detected),
 

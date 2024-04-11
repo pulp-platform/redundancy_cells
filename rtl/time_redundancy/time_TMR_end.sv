@@ -34,7 +34,10 @@ module time_TMR_end # (
     input logic ready_i,
 
     // Signal for working with Lockable RR Arbiter
-    output logic lock_o
+    output logic lock_o,
+
+    // Flag for External Error Counter
+    output logic fault_detected_o
 );
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of incomming results and generating good output data
@@ -352,4 +355,27 @@ module time_TMR_end # (
              counter_q <= counter_d;
         end
     end
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+    // Build error flag
+
+    // Since we can already output at two same elements we could have not seen an error yet, 
+    // so we can't rely on valid / ready to be in sync with 3 same elements!
+    // Instead we use the following observation: If the data comes nicely in pairs of 3 we 
+    // always have at least two data elements that are the same.
+    // Make output only 1 for a signly cycle even if internal pipeline is stopped
+    logic fault_detected_d, fault_detected_q;
+
+    assign fault_detected_d = ~|full_same[0][2:0];
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : fault_detection_deduplication
+        if(~rst_ni) begin
+             fault_detected_q <= '0;
+        end else begin
+             fault_detected_q <= fault_detected_d;
+        end
+    end
+
+    assign fault_detected_o = fault_detected_d & !fault_detected_q;
+
 endmodule

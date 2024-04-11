@@ -8,7 +8,7 @@ module retry_end # (
     // Upstream connection
     input DataType data_i,
     input logic [IDSize-1:0] id_i,
-    input logic faulty_i,
+    input logic needs_retry_i,
     input logic valid_i,
     output logic ready_o,
 
@@ -28,7 +28,7 @@ module retry_end # (
     assign data_o = data_i;
 
     always_comb begin
-        if (faulty_i) begin
+        if (needs_retry_i) begin
             retry_valid_o = valid_i;
             ready_o = retry_ready_i;
             valid_o = 0;
