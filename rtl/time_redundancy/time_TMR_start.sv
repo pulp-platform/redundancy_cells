@@ -1,4 +1,5 @@
 `include "voters.svh"
+`include "common_cells/registers.svh"
 
 module time_TMR_start # (
     // The data type you want to send through / replicate
@@ -89,17 +90,9 @@ module time_TMR_start # (
     end
 
     // State Storage
-    always_ff @(posedge clk_i or negedge rst_ni) begin: state_ff
-        if (~rst_ni) begin
-            state_q <= {STORE_AND_SEND, STORE_AND_SEND, STORE_AND_SEND};
-            data_q  <= '0;
-            id_q    <= '0;
-        end else begin
-            state_q <= state_d;
-            data_q  <= data_d;
-            id_q    <= id_d;
-        end
-    end
+    `FF(state_q, state_d, {STORE_AND_SEND, STORE_AND_SEND, STORE_AND_SEND});
+    `FF(data_q, data_d, '0);
+    `FF(id_q, id_d, '0);
 
     // Output Combinatorial Logic
     always_comb begin : output_logic

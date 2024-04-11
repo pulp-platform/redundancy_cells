@@ -1,3 +1,5 @@
+`include "common_cells/registers.svh"
+
 module retry_start # (
     parameter type DataType  = logic,
     parameter IDSize = 1
@@ -28,7 +30,6 @@ module retry_start # (
     logic failed_valid_d, failed_valid_q;
 
     always_comb begin
-
         if (ready_i | retry_valid_i) begin
             failed_valid_d = retry_valid_i;
         end else begin
@@ -42,15 +43,8 @@ module retry_start # (
         end
     end
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(~rst_ni) begin
-            failed_id_q <= 0;
-            failed_valid_q <= 0;
-        end else begin
-            failed_id_q <= failed_id_d;
-            failed_valid_q <= failed_valid_d;
-        end
-    end
+    `FF(failed_id_q, failed_id_d, '0);
+    `FF(failed_valid_q, failed_valid_d, '0);
 
     assign retry_ready_o = ready_i | ~failed_valid_q;
 
@@ -70,13 +64,7 @@ module retry_start # (
         end
     end
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(~rst_ni) begin
-            counter_id_q <= 0;
-        end else begin
-            counter_id_q <= counter_id_d;
-        end
-    end
+    `FF(counter_id_q, counter_id_d, 0);
 
     //////////////////////////////////////////////////////////////////////
     // General Element storage
@@ -92,13 +80,7 @@ module retry_start # (
         end
     end
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(~rst_ni) begin
-            data_storage_q <= 0;
-        end else begin
-            data_storage_q <= data_storage_d;
-        end
-    end
+    `FF(data_storage_q, data_storage_d, 0);
 
     always_comb begin
         if (failed_valid_q & ready_i) begin

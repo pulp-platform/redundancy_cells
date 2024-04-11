@@ -1,4 +1,5 @@
 `include "voters.svh"
+`include "common_cells/registers.svh"
 
 module time_DMR_end # (
     // The data type you want to send through / replicate
@@ -47,35 +48,23 @@ module time_DMR_end # (
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of incomming results and generating good output data
 
-    DataType data_d, data_q;
-    logic [IDSize-1:0] id_d, id_q;
+    DataType data_q;
+    logic [IDSize-1:0] id_q;
 
     // Next State Combinatorial Logic
-    always_comb begin : data_storage_comb
-        if (valid_i & ready_o & enable_i) begin
-            data_d = data_i;
-            id_d   = id_i;
-        end else begin
-            data_d = data_q;
-            id_d   = id_q;
-        end
-    end
+    logic load_enable;
+    assign load_enable = valid_i & ready_o & enable_i;
 
     // Storage Element
-    always_ff @(posedge clk_i or negedge rst_ni) begin: data_storage_ff
-        if (~rst_ni) begin
-            data_q <= 'h1;
-            id_q   <= 'h1;
-        end else begin
-            data_q <= data_d;
-            id_q   <= id_d;
-        end
-    end
+    `FFL(data_q, data_i, load_enable, 'h1);
+    `FFL(id_q, id_i, load_enable, 'h1);
 
-    // Output Combinatorial Logic (and flag genereration for handshake)
+    /////////////////////////////////////////////////////////////////////////////////
+    // Comparisons genereration for Handshake / State Machine
+
     logic [2:0][1:0] data_same, id_same, full_same, partial_same;
     logic [2:0] data_same_in, id_same_in;
-    logic [2:0] data_same_d, data_same_q, id_same_d, id_same_q;
+    logic [2:0] data_same_q, id_same_q;
     logic [2:0][$bits(DataType)-1:0] data_ov;
     logic [2:0][IDSize-1:0] id_ov;
 
@@ -107,29 +96,8 @@ module time_DMR_end # (
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of same / not same for one extra cycle
 
-    // Next State Combinatorial Logic
-    for (genvar r = 0; r < 3; r++) begin
-        always_comb begin : data_same_storage_comb
-            if (valid_i & ready_o & enable_i) begin
-                data_same_d[r] = data_same_in[r];
-                id_same_d[r]   = id_same_in[r];
-            end else begin
-                data_same_d[r] = data_same_q[r];
-                id_same_d[r]   = id_same_q[r];
-            end
-        end
-    end
-
-    // Storage Element
-    always_ff @(posedge clk_i or negedge rst_ni) begin: data_same_storage_ff
-        if (~rst_ni) begin
-            data_same_q <= {1'b1, 1'b1, 1'b1};
-            id_same_q   <= {1'b1, 1'b1, 1'b1};
-        end else begin
-            data_same_q <= data_same_d;
-            id_same_q   <= id_same_d;
-        end
-    end
+    `FFL(data_same_q, data_same_in, load_enable, {1'b1, 1'b1, 1'b1});
+    `FFL(id_same_q, id_same_in,  load_enable, {1'b1, 1'b1, 1'b1});
 
     // Output (merged) signal assigment
     for (genvar r = 0; r < 3; r++) begin
@@ -156,7 +124,6 @@ module time_DMR_end # (
             data_usable[r] = data_same[r][0];
         end
     end
-
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to figure out handshake
@@ -208,13 +175,7 @@ module time_DMR_end # (
     end
 
     // State Storage
-    always_ff @(posedge clk_i or negedge rst_ni) begin : state_storage_ff
-        if(~rst_ni) begin
-             state_q <= {WAIT_FOR_VALID, WAIT_FOR_VALID, WAIT_FOR_VALID};
-        end else begin
-             state_q <= state_d;
-        end
-    end
+    `FF(state_q, state_d, {WAIT_FOR_VALID, WAIT_FOR_VALID, WAIT_FOR_VALID});
 
     // Output Combinatorial Logic
     for (genvar r = 0; r < 3; r++) begin
@@ -245,9 +206,8 @@ module time_DMR_end # (
         end
     end
 
-
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-    // State machine to lock / unlock arbitrator with Watchdog timer
+    // State machine to lock / unlock Arbitrator with Watchdog timer
 
     logic [2:0] lock_v, lock_d, lock_q;
     logic [2:0][$clog2(LockTimeout)-1:0] counter_v, counter_d, counter_q;
@@ -289,18 +249,11 @@ module time_DMR_end # (
     end
 
     // State Storage
-    always_ff @(posedge clk_i or negedge rst_ni) begin : lock_ff
-        if(~rst_ni) begin
-             lock_q <= '0;
-             counter_q <= '0;
-        end else begin
-             lock_q <= lock_d;
-             counter_q <= counter_d;
-        end
-    end
+    `FF(lock_q, lock_d, '0);
+    `FF(counter_q, counter_d, '0);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-    // Output Deduplication Based on ID and ID Faults
+    // Output deduplication based on ID and ID Faults
 
     logic id_fault_q;
     assign id_fault_q = ^id_q;
@@ -320,13 +273,8 @@ module time_DMR_end # (
         end
     end
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(~rst_ni) begin
-            recently_seen_q <= ~'0;
-        end else begin
-            recently_seen_q <= recently_seen_d;
-        end
-    end
+    // State Storage
+    `FF(recently_seen_q, recently_seen_d, ~'0);
 
     for (genvar r = 0; r < 3; r++) begin
         always_comb begin
@@ -359,17 +307,12 @@ module time_DMR_end # (
     // We can not us the need_retry_o signal to signify all faults. Instead we have a special signal
     // In a non-error case, we should have a full same signal every other cycle
     // So if that is not the case we had a fault.
+
     logic fault_detected_d, fault_detected_q;
 
     assign fault_detected_d = ~|full_same[0][1:0];
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin : fault_detection_deduplication
-        if(~rst_ni) begin
-             fault_detected_q <= '0;
-        end else begin
-             fault_detected_q <= fault_detected_d;
-        end
-    end
+    `FF(fault_detected_q, fault_detected_d, '0);
 
     assign fault_detected_o = fault_detected_d & !fault_detected_q;
 
