@@ -134,6 +134,13 @@ module tb_retry;
             @(posedge clk);
             # (APPLICATION_DELAY);
             needs_retry_middle = '1;
+
+            // Wait for handshake
+            # (AQUISITION_DELAY - APPLICATION_DELAY);
+            while (!(ready_middle & valid_middle)) begin
+                @(posedge clk);
+                # AQUISITION_DELAY;
+            end
         end
 
         $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, error_cnt);

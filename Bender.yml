@@ -111,9 +111,7 @@ sources:
       - test/tb_time_dmr.sv
       - test/tb_retry.sv
       - test/tb_time_dmr_retry.sv
-      - test/tb_time_tmr_lock_dut.sv
       - test/tb_time_tmr_lock.sv
-      - test/tb_time_dmr_retry_lock_dut.sv
       - test/tb_time_dmr_retry_lock.sv
       - test/tb_rr_arb_tree_lock.sv
 

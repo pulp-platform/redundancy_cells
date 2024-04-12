@@ -1,206 +1,241 @@
-module tb_time_tmr_lock;
-    // Clock Parameters
+`include "common_cells/registers.svh"
 
-    timeunit 1ns;
-    timeprecision 10ps;
+module tb_time_tmr_lock #(
+    // DUT Parameters
+    parameter int LockTimeout = 5,
+    parameter int NumOpgroups = 3,
+    parameter int OpgroupWidth = $clog2(NumOpgroups),
+    parameter int IDSize = 5,
+    parameter [NumOpgroups-1:0][7:0] OpgroupNumRegs = {8'd4, 8'd3, 8'd3},
 
-    localparam time CLK_PERIOD = 10ns;
-    localparam time APPLICATION_DELAY = 2ns;
-    localparam time AQUISITION_DELAY = 8ns;
-    localparam unsigned RST_CLK_CYCLES = 10;
-    localparam unsigned TESTS = 10000;
+    // TB Parameters
+    parameter int unsigned TESTS = 10000,
+    parameter time CLK_PERIOD = 10ns,
+    parameter time APPLICATION_DELAY = 2ns,
+    parameter time AQUISITION_DELAY = 8ns
+) ( /* no ports on TB */ );
+    
+    `include "tb_time.svh"
 
-    // Parameters
-    typedef logic [7:0] data_t;
-    parameter int NumOpgroups = 3;
-    parameter int OpgroupWidth = 2;
-    parameter int IDSize = 4;
-    localparam int LockTimeout = 5;
+    //////////////////////////////////////////////////////////////////////////////////7
+    // DUT (s)
+    //////////////////////////////////////////////////////////////////////////////////7
 
-    // Testebench signals
-    data_t golden_queue [NumOpgroups-1:0][$];
-    data_t data_golden, data_actual;
-    logic [OpgroupWidth-1:0] operation_actual;
-    logic error;
-    int error_cnt;
+    typedef logic              [7:0] data_t;
+    typedef logic [OpgroupWidth-1:0] operation_t;
+    typedef logic       [IDSize-1:0] id_t;
 
-    // Aux signals to show what faults are going on
-    enum {NONE, DATA_ERROR, VALID_ERROR, READY_ERROR, ID_ERROR} fault_type, fault_current;
+    // Typedef for stacked signal in TMR
+    typedef struct packed {
+        data_t      data;
+        operation_t operation;
+    } tmr_stacked_t;
 
-    // Signals for DUTS
-    logic clk;
-    logic rst_n;
+    // Typedef for stacked signal in TMR
+    typedef struct packed {
+        id_t        id;
+        data_t      data;
+    } rr_stacked_t;
 
-    data_t in_data;
-    logic [OpgroupWidth-1:0] in_operation;
-    logic in_valid, in_ready;
+    // Input & Output
+    data_t data_in, data_out;
+    operation_t operation_in, operation_out;
 
-    data_t data_error;
-    logic valid_error, ready_error;
-    logic [IDSize-1:0] id_error;
+    // Fault Connections for Injection
+    data_t  data_fault;
+    logic valid_fault;
+    logic  ready_fault;
+    id_t id_fault;
 
-    data_t out_data;
-    logic [OpgroupWidth-1:0] out_operation;
-    logic out_valid, out_ready;
+    tmr_stacked_t in_tmr_stack;
+    assign in_tmr_stack.data = data_in;
+    assign in_tmr_stack.operation = operation_in;
 
-    // Clock Generation
-    initial begin
-        clk = '1;
-        rst_n = '0;
-        repeat (10) @(posedge clk);
-        rst_n = 1;
+    // Signals for after TMR
+    tmr_stacked_t in_tmr_stack_redundant;
+    logic in_valid_redundant, in_ready_redundant;
+    id_t in_id_redundant;
+    
+    time_TMR_start #(
+        .DataType(tmr_stacked_t),
+        .IDSize (IDSize)
+    ) i_time_TMR_start (
+        .clk_i(clk),
+        .rst_ni(rst_n),
+        .enable_i(enable),
+
+        // Upstream connection
+        .data_i(in_tmr_stack),
+        .valid_i(valid_in),
+        .ready_o(ready_in),
+
+        // Downstream connection
+        .data_o(in_tmr_stack_redundant),
+        .id_o   (in_id_redundant),
+        .valid_o(in_valid_redundant),
+        .ready_i(in_ready_redundant)
+    );
+
+    // Handshake signal array for opgroup block
+    logic [NumOpgroups-1:0] in_opgrp_ready, out_opgrp_valid, out_opgrp_ready;
+    rr_stacked_t [NumOpgroups-1:0] out_opgrp_rr_stack;
+    rr_stacked_t out_rr_stack;
+
+    // Pass ready up based on the current operation_i
+    assign in_ready_redundant = in_valid_redundant & in_opgrp_ready[in_tmr_stack_redundant.operation];
+
+    for (genvar opgrp = 0; opgrp < int'(NumOpgroups); opgrp++) begin : gen_operation_groups
+        localparam NUM_REGS = OpgroupNumRegs[opgrp];
+
+        // Input pipeline signals, index i holds signal after i register stages
+        data_t [0:NUM_REGS] pipe_data;
+        logic  [0:NUM_REGS] pipe_valid;
+        logic  [0:NUM_REGS] pipe_ready;
+        id_t   [0:NUM_REGS] pipe_id;
+
+        // Upstream Connection
+        // Error Injection
+        assign pipe_valid[0]  = (in_valid_redundant ^ valid_fault) && (opgrp == in_tmr_stack_redundant.operation);
+        assign pipe_data[0]   = in_tmr_stack_redundant.data ^ data_fault;
+        assign pipe_id[0]      = in_id_redundant ^ id_fault;
+        assign in_opgrp_ready[opgrp] = pipe_ready[0] ^ ready_fault;
+
+        // Generate the register stages
+        for (genvar i = 0; i < NUM_REGS; i++) begin : gen_pipeline
+            // Internal register enable for this stage
+            logic reg_ena;
+
+            // Determine the ready signal of the current stage - advance the pipeline:
+            // 1. if the next stage is ready for our data
+            // 2. if the next stage only holds a bubble (not valid) -> we can pop it
+            assign pipe_ready[i] = pipe_ready[i+1] | ~pipe_valid[i+1];
+
+            // Valid: enabled by ready signal, synchronous clear with the flush signal
+            `FFLARNC(pipe_valid[i+1], pipe_valid[i], pipe_ready[i], 1'b0, 1'b0, clk, rst_n)
+            // Enable register if pipleine ready and a valid data item is present
+            assign reg_ena = (pipe_ready[i] & pipe_valid[i]);  // | reg_ena_i[i];
+            // Generate the pipeline registers within the stages, use enable-registers
+            `FFLARN(pipe_data[i+1],      pipe_data[i],      reg_ena, data_t'('0), clk, rst_n)
+            `FFLARN(  pipe_id[i+1],      pipe_id[i],        reg_ena, id_t'('0), clk, rst_n)
+        end
+
+        // Downstream connection
+        assign out_opgrp_valid[opgrp] = pipe_valid[NUM_REGS];
+        assign out_opgrp_rr_stack[opgrp].data  = pipe_data[NUM_REGS];
+        assign out_opgrp_rr_stack[opgrp].id    = pipe_id[NUM_REGS];
+        assign pipe_ready[NUM_REGS]   = out_opgrp_ready[opgrp];
     end
 
-    always #((CLK_PERIOD/2)) clk = ~clk;
+    // Signals for after RR
+    logic out_tmr_valid, out_tmr_ready;
+    tmr_stacked_t out_tmr_stack;
 
-    // Instantiation of full fpnew datapath dut
-    tb_time_tmr_lock_dut #(
-        .DataType(data_t),       
-        .NumOpgroups(NumOpgroups),
-        .OpgroupWidth(OpgroupWidth),
-        .IDSize(IDSize),
-        .LockTimeout(LockTimeout),
-        .OpgroupNumRegs({8'd4, 8'd3, 8'd3})
-    ) dut (
-        .clk_i(clk),                
-        .rst_ni(rst_n),          
+    // Backpropagating lock signal
+    logic lock;
 
-        // Ustream
-        .operation_i(in_operation),
-        .data_i(in_data),           
-        .valid_i(in_valid),         
-        .ready_o(in_ready),       
+    // Round-Robin arbiter to decide which result to use
+    rr_arb_tree_lock #(
+        .NumIn     ( NumOpgroups ),
+        .DataType  ( rr_stacked_t  ),
+        .AxiVldRdy ( 1'b1         )
+    ) i_arbiter (
+        .clk_i(clk),
+        .rst_ni(rst_n),
+        .flush_i('0),
+        .rr_i   ('0),
+        .lock_rr_i (lock),
 
-        .data_error_i     (data_error),
-        .valid_error_i    (valid_error),
-        .ready_error_i    (ready_error),
-        .id_error_i       (id_error),
+        // Upstream connection
+        .req_i(out_opgrp_valid),
+        .gnt_o(out_opgrp_ready),
+        .data_i(out_opgrp_rr_stack), 
 
-        // Downstream
-        .operation_o(out_operation),
-        .data_o(out_data),           
-        .valid_o(out_valid),          
-        .ready_i(out_ready)         
+        // Downstream connection
+        .gnt_i(out_tmr_ready),
+        .req_o(out_tmr_valid),
+        .data_o(out_rr_stack),
+        .idx_o(out_tmr_stack.operation)
     );
 
 
-    // Data Application
+    // Signals for after TMR
+    tmr_stacked_t out_stacked;
+    id_t out_tmr_id;
+
+    assign out_tmr_id = out_rr_stack.id;
+    assign out_tmr_stack.data = out_rr_stack.data;
+
+    time_TMR_end #(
+        .DataType(tmr_stacked_t),
+        .LockTimeout(LockTimeout),
+        .IDSize (IDSize)
+    ) i_time_TMR_end (
+        .clk_i(clk),
+        .rst_ni(rst_n),
+        .enable_i(enable),
+
+        // Upstream connection
+        .data_i(out_tmr_stack),
+        .id_i   (out_tmr_id),
+        .valid_i(out_tmr_valid),
+        .ready_o(out_tmr_ready),
+
+        // Downstream connection
+        .data_o(out_stacked),
+        .valid_o(valid_out),
+        .ready_i(ready_out),
+        .lock_o(lock),
+
+        // Flags
+        .fault_detected_o(/* Unused */)
+    );
+
+    assign data_out = out_stacked.data;
+    assign operation_out = out_stacked.operation;
+
+    //////////////////////////////////////////////////////////////////////////////////7
+    // Data Input
+    //////////////////////////////////////////////////////////////////////////////////7
+    data_t golden_queue [NumOpgroups-1:0][$];
+
     initial begin
-        data_t new_data;
-        logic [OpgroupWidth-1:0] new_operation;
-
-        // Initialize Handshake and Data
-        in_data = 8'h00;
-        in_operation = '0;
-        in_valid = 1'b0;
-
-        // Wait for reset to be lifted
-        @(posedge rst_n);
-
         forever begin
-            // Wait random time (with no valid data)
-            repeat ($urandom_range(1, 10)) begin
-                @(posedge clk);
-                # APPLICATION_DELAY;
-                in_valid = '0;
-            end
-
-            // Build next data element
-            new_operation = $urandom_range(0, NumOpgroups-1);
-            new_data = $random;
-
-            // Apply Data
-            in_data = new_data;
-            in_operation = new_operation;
-            in_valid = '1;
-
-            // Save data for future
-            golden_queue[new_operation].push_back(new_data);
-
-            // Wait for handshake and as soon as it happens invalidate data
-            # (AQUISITION_DELAY - APPLICATION_DELAY);
-            while (!in_ready) begin
-                @(posedge clk);
-                # AQUISITION_DELAY;
-            end;
-
+            input_handshake_begin();
+            operation_in = $urandom_range(0, NumOpgroups-1);;
+            data_in = $random;
+            golden_queue[operation_in].push_back(data_in);
+            input_handshake_end();
         end
     end
 
-    // Fault inject
-    initial begin
-        for (logic [2:0] ft = 0; ft < 5; ft++) begin
-            fault_type[2:0] = ft;
-            $display("Starting Test with fault type {%s}", fault_type.name());
+    //////////////////////////////////////////////////////////////////////////////////7
+    // Data Output
+    //////////////////////////////////////////////////////////////////////////////////7
+    data_t data_golden, data_actual;
+    logic [OpgroupWidth-1:0] operation_actual;
+    logic error; // Helper signal so one can quickly scroll to errors in questa
+    longint unsigned error_cnt = 0;
 
-            repeat (TESTS) begin
-
-                // Send correct data for some cycles to space errors
-                repeat ($urandom_range(45, 55)) begin
-                    @(posedge clk);
-                    # (APPLICATION_DELAY);
-                    fault_current = NONE;          
-                    data_error = '0; 
-                    valid_error = '0;
-                    ready_error = '0;
-                    id_error = '0;
-                end
-
-                // Send wrong data
-                @(posedge clk);
-                # (APPLICATION_DELAY);
-                fault_current <= fault_type; 
-                data_error <= '0; 
-                valid_error <= '0;
-                ready_error <= '0;     
-                case (fault_type)
-                    DATA_ERROR: data_error <= $random;
-                    VALID_ERROR: valid_error <= 1;
-                    READY_ERROR: ready_error <= 1;
-                    ID_ERROR: id_error <= $random;
-                endcase
-            end
-            $display("Ending Test with fault type {%s}", fault_type.name());
+    // Progress reporting
+    task reset_metrics();
+        reset();
+        error_cnt = 0;
+        in_hs_count = 0;
+        out_hs_count = 0;
+        for (int i = 0; i < NumOpgroups; i++) begin
+            golden_queue[i].delete();
         end
-        $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, error_cnt);
-        $finish(error_cnt);
-    end
+    endtask
 
-
-    // Aquisition & Validation
     initial begin
         $timeformat(-9, 0, " ns", 20);
-
-
-        // Initialize Handshake
-        out_ready = '0;
-
-        // Wait for reset to be lifted
-        @(posedge rst_n);
-
         forever begin
-            // Wait random time (while not ready)
-            repeat ($urandom_range(1, 10)) begin
-                @(posedge clk);
-                # APPLICATION_DELAY;
-                out_ready = '0;
-            end
-
-            // Set ready
-            out_ready = '1;
-
-            // Wait for handshake
-            # (AQUISITION_DELAY - APPLICATION_DELAY);
-            while (!out_valid) begin
-                @(posedge clk);
-                # AQUISITION_DELAY;
-            end;
-
+            output_handshake_start();
             // Once it happened check if output was good and reset ready again
-            data_actual = out_data;
-            operation_actual = out_operation;
-            if (golden_queue[out_operation].size() > 0) begin
-                data_golden = golden_queue[out_operation].pop_front();
+            data_actual = data_out;
+            operation_actual = operation_out;
+            if (golden_queue[operation_actual].size() > 0) begin
+                data_golden = golden_queue[operation_actual].pop_front();
                 if (data_actual != data_golden) begin
                     $display("[T=%t] Operation %h -> Data %h Mismatch, should be %h", $time, operation_actual, data_actual, data_golden);
                     error = 1;
@@ -213,7 +248,123 @@ module tb_time_tmr_lock;
                 error = 1;
                 error_cnt += 1;
             end
+            output_handshake_end();
         end
     end
 
-endmodule : tb_time_tmr_lock
+    //////////////////////////////////////////////////////////////////////////////////7
+    // Fault Injection
+    //////////////////////////////////////////////////////////////////////////////////7
+
+    longint unsigned min_fault_delay = 45;
+    longint unsigned max_fault_delay = 55;
+
+    // Signals to show what faults are going on
+    enum {NONE, DATA_FAULT, VALID_FAULT, READY_FAULT, ID_FAULT} fault_type, fault_current;
+
+    initial data_fault  = '0; 
+    initial valid_fault = '0;
+    initial ready_fault = '0;
+    initial id_fault    = '0;
+
+    task inject_fault();
+        // Send correct data for some cycles to space errors
+        repeat ($urandom_range(min_fault_delay, max_fault_delay)) begin
+            @(posedge clk);
+            fault_current = NONE;          
+            data_fault = '0; 
+            valid_fault = '0;
+            ready_fault = '0;
+            id_fault = '0;
+        end
+        
+        // Send wrong data
+        fault_current = fault_type;
+        case (fault_type)
+            DATA_FAULT: data_fault = $random;
+            VALID_FAULT: valid_fault = 1;
+            READY_FAULT: ready_fault = 1;
+            ID_FAULT: id_fault = $random;
+        endcase 
+
+        // Send correct data again
+        @(posedge clk);
+        fault_current = NONE;          
+        data_fault = '0; 
+        valid_fault = '0;
+        ready_fault = '0;
+        id_fault = '0;
+    endtask
+
+    //////////////////////////////////////////////////////////////////////////////////7
+    // Main Loop
+    //////////////////////////////////////////////////////////////////////////////////7
+    longint unsigned total_error_cnt = 0;
+
+    initial begin
+        reset_metrics();
+
+        // Check normal operation
+        fault_type = NONE;
+        enable = 0;
+        repeat (10 * TESTS) @(posedge clk);
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc disabled and no faults, got %d errors.", error_cnt);
+        reset_metrics();
+
+        enable = 1;
+        repeat (TESTS) @(posedge clk);
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc enabled and no faults, got %d errors.", error_cnt);
+        reset_metrics();
+
+        // Check fault tolerance
+        fault_type = DATA_FAULT;
+        enable = 1;
+        repeat (TESTS) inject_fault();
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc enabled and data faults, got %d errors.", error_cnt);
+        reset_metrics();
+
+        fault_type = VALID_FAULT;
+        enable = 1;
+        repeat (TESTS) inject_fault();
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc enabled and valid fault, got %d errors.", error_cnt);
+        reset_metrics();
+
+        fault_type = READY_FAULT;
+        enable = 1;
+        repeat (TESTS) inject_fault();
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc enabled and ready faults, got %d errors.", error_cnt);
+        reset_metrics();
+
+        fault_type = ID_FAULT;
+        enable = 1;
+        repeat (TESTS) inject_fault();
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc enabled and ready faults, got %d errors.", error_cnt);
+        reset_metrics();
+
+        // Measure throughput
+        fault_type = NONE;
+        enable = 0;
+        in_hs_max_starvation = 0;
+        out_hs_max_starvation = 0;
+        repeat (TESTS) @(posedge clk);
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc disabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        reset_metrics();
+
+        enable = 1;
+        repeat (TESTS) @(posedge clk);
+        total_error_cnt += error_cnt;
+        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        reset_metrics();
+        $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, total_error_cnt);
+        $finish(error_cnt);
+    end
+
+
+endmodule
