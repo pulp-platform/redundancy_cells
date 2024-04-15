@@ -85,10 +85,8 @@ module retry_start # (
     always_comb begin
         if (failed_valid_q & ready_i) begin
             data_o = data_storage_q[failed_id_q[IDSize-2:0]];
-        end else if (valid_i & ready_i) begin
-            data_o = data_i;
         end else begin
-            data_o = '0;
+            data_o = data_i;
         end
         id_o = counter_id_q;
     end
