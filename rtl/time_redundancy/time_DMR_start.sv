@@ -41,69 +41,63 @@ module time_DMR_start # (
 
     // Next State Combinatorial Logic
     typedef enum logic [1:0] {STORE_AND_SEND, SEND, REPLICATE} state_t;
-    state_t state_v[3], state_d[3], state_q[3];
-    DataType [2:0] data_d, data_q;
-    logic [2:0][IDSize-1:0] id_v, id_d, id_q, id_next;
-    logic [2:0][IDSize-2:0] id_next_noparity;
+    state_t state_d, state_q;
+    DataType data_d, data_q;
+    logic [IDSize-1:0] id_d, id_q;
+    logic [IDSize-2:0] next_id_o_noparity;
 
-    for (genvar r = 0; r < 3; r++) begin
-        always_comb begin : next_state_logic
-            // Default to staying in same state
-            state_v[r] = state_q[r];
-            data_d[r] = data_q[r];
-            id_v[r] = id_q[r];
+    always_comb begin : next_state_logic
+        // Default to staying in same state
+        state_d = state_q;
+        data_d = data_q;
+        id_d = id_q;
 
-            id_next_noparity[r] =  id_q[r][IDSize-2:0] + 1;
-            if (UseExternalId) begin
-                id_next[r] = id_i;
-            end else begin
-                id_next[r] = {^id_next_noparity[r], id_next_noparity[r]};
-            end
+        next_id_o_noparity =  id_q[IDSize-2:0] + 1;
+        if (UseExternalId) begin
+            next_id_o = id_i;
+        end else begin
+            next_id_o = {^next_id_o_noparity, next_id_o_noparity};
+        end
 
-            case (state_q[r])
-                STORE_AND_SEND:
-                    if (valid_i) begin
-                        data_d[r] = data_i;
-                        id_v[r] = id_next[r];
-        
-                        if (ready_i) begin
-                            if (enable_i) begin
-                                state_v[r] = REPLICATE;
-                            end else begin
-                                state_v[r] = STORE_AND_SEND;
-                            end
-                        end else begin
-                            state_v[r] = SEND;
-                        end
-                    end
-                SEND:
+        case (state_q)
+            STORE_AND_SEND:
+                if (valid_i) begin
+                    data_d = data_i;
+                    id_d = next_id_o;
+    
                     if (ready_i) begin
                         if (enable_i) begin
-                            state_v[r] = REPLICATE; // Reset seqeuence
+                            state_d = REPLICATE;
                         end else begin
-                            state_v[r] = STORE_AND_SEND;
+                            state_d = STORE_AND_SEND;
                         end
+                    end else begin
+                        state_d = SEND;
                     end
-                REPLICATE:
-                    if (ready_i) begin
-                        state_v[r] = STORE_AND_SEND;
+                end
+            SEND:
+                if (ready_i) begin
+                    if (enable_i) begin
+                        state_d = REPLICATE; // Reset seqeuence
+                    end else begin
+                        state_d = STORE_AND_SEND;
                     end
-            endcase
-        end
+                end
+            REPLICATE:
+                if (ready_i) begin
+                    state_d = STORE_AND_SEND;
+                end
+        endcase
     end
 
-    // Next State Voting Logic
-    `VOTE3to3ENUM(state_v, state_d);
-    `VOTE3to3(id_v, id_d);
-
     // State Storage
-    `FF(state_q, state_d, {STORE_AND_SEND, STORE_AND_SEND, STORE_AND_SEND});
+    `FF(state_q, state_d, STORE_AND_SEND);
     `FF(data_q, data_d, '0);
     `FF(id_q, id_d, '0);
 
     // Output Combinatorial Logic
     always_comb begin : output_logic
-        case (state_q[0])
+        case (state_q)
             STORE_AND_SEND: begin
                 valid_o = valid_i;
                 ready_o = 1;
@@ -120,8 +114,7 @@ module time_DMR_start # (
     end
 
     // Output Voting Logic
-    `VOTE3to1(data_d, data_o);
-    `VOTE3to1(id_v, id_o);
-    `VOTE3to1(id_next, next_id_o);
+    assign data_o = data_d;
+    assign id_o = id_d;
 
 endmodule
