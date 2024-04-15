@@ -10,14 +10,14 @@ module time_DMR_end # (
     // For an out-of-order process (with RR Arbitrator) you should set it to 5
     // In case your combinatorial logic takes more than once cycle to compute an element
     // multiply by the respective number of cycles
-    parameter int LockTimeout = 4,
+    parameter int unsigned LockTimeout = 4,
     // The size of the ID to use as an auxilliary signal
     // For an in-order process, this can be set to 1
     // For an out of order process, it needs to be big enough so that the out-of-orderness can never
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
     // Needs to match with time_TMR_start!
-    parameter IDSize = 1
+    parameter int unsigned IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,

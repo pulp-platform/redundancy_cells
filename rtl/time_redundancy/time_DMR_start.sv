@@ -11,9 +11,9 @@ module time_DMR_start # (
     // next to each other and needs an extra bit for error detection.
     // As an estimate you can use log2(longest_pipeline) + 2.
     // Needs to match with time_TMR_end!
-    parameter IDSize = 1,
+    parameter int unsigned IDSize = 1,
     // Set to 1 if the id_i port should be used
-    parameter UseExternalId = 0
+    parameter bit UseExternalId = 0
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -53,7 +53,7 @@ module time_DMR_start # (
         id_d = id_q;
 
         next_id_o_noparity =  id_q[IDSize-2:0] + 1;
-        if (UseExternalId) begin
+        if (UseExternalId == 1) begin
             next_id_o = id_i;
         end else begin
             next_id_o = {^next_id_o_noparity, next_id_o_noparity};

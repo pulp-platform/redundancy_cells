@@ -11,7 +11,7 @@ module time_TMR_start # (
     // next to each other.
     // As an estimate you can use log2(longest_pipeline) + 1.
     // Needs to match with time_TMR_end!
-    parameter IDSize = 1
+    parameter int unsigned IDSize = 1
 ) (
     input logic clk_i,
     input logic rst_ni,
