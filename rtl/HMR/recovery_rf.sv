@@ -36,6 +36,7 @@ module recovery_rf #(
   parameter  int unsigned ParityWidth       = $clog2(NonProtectedWidth)+2,
   parameter  int unsigned ProtectedWidth    = NonProtectedWidth + ParityWidth,
   parameter  int unsigned FPU               = 0,
+  parameter  bit          SingleCycleRecovery = 1'b0,
   parameter  type         regfile_write_t   = logic,
   parameter  type         regfile_raddr_t   = logic,
   parameter  type         regfile_rdata_t   = logic,
@@ -58,6 +59,7 @@ module recovery_rf #(
 
   logic [NumWrPorts-1:0][NonProtectedWidth-1:0] mem;
   logic [NumWrPorts-1:0][DataWidth-1:0] ecc_mem, wdata;
+  logic [NumRdPorts-1:0][DataWidth-1:0] rdata;
   logic [NumWrPorts-1:0][NumWords-1:0] we_dec;
 
   if (ECCEnabled) begin : gen_ecc
@@ -71,16 +73,32 @@ module recovery_rf #(
       );
     end
 
-    for (genvar i = 0; i < NumWords; i++) begin
+    for (genvar i = 0; i < NumRdPorts; i++) begin
       hsiao_ecc_dec #(
         .DataWidth ( NonProtectedWidth ),
         .ProtWidth ( ParityWidth )
       ) i_ecc_decoder (
-        .in         ( ecc_mem[i] ),
-        .out        ( mem[i]     ),
+        .in         ( rdata[i]   ),
+        .out        ( rdata_o[i] ),
         .syndrome_o ( ),
         .err_o      ( )
       );
+    end
+
+    if (SingleCycleRecovery) begin: gen_full_rf_access
+      for (genvar i = 0; i < NumWords; i++) begin
+        hsiao_ecc_dec #(
+        .DataWidth ( NonProtectedWidth ),
+        .ProtWidth ( ParityWidth )
+      ) i_ecc_full_decoder (
+        .in         ( ecc_mem[i]  ),
+        .out        ( rf_mem_o[i] ),
+        .syndrome_o ( ),
+        .err_o      ( )
+      );
+      end
+    end else begin: gen_no_full_rf_access
+      assign rf_mem_o = '0;
     end
   end else begin : no_ecc_region
     for (genvar i = 0; i < NumWrPorts; i++)
@@ -88,6 +106,9 @@ module recovery_rf #(
 
     for (genvar i = 0; i < NumWords; i++)
       assign mem[i] = ecc_mem[i];
+
+    for (genvar i = 0; i < NumRdPorts; i++)
+      assign rdata_o[i] = rdata[i];
   end
 
   for (genvar j = 0; j < NumWrPorts; j++) begin
@@ -111,9 +132,7 @@ module recovery_rf #(
   end
 
   for (genvar i = 0; i < NumRdPorts; i++) begin
-    assign rdata_o[i] = mem[raddr_i[i]];
+    assign rdata[i] = ecc_mem[raddr_i[i]];
   end
-
-  assign rf_mem_o = mem;
 
 endmodule
