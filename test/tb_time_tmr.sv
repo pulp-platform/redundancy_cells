@@ -2,6 +2,7 @@ module tb_time_tmr #(
     // DUT Parameters
     parameter IDSize = 4,
     parameter int LockTimeout = 4,
+    parameter bit EarlyValidEnable = 0,
 
     // TB Parameters
     parameter int unsigned TESTS = 10000,
@@ -51,7 +52,8 @@ module tb_time_tmr #(
     time_TMR_end #(
         .DataType(data_t),
         .LockTimeout(LockTimeout),
-        .IDSize(IDSize)
+        .IDSize(IDSize),
+        .EarlyValidEnable(EarlyValidEnable)
     ) dut_end (
         .clk_i(clk),
         .rst_ni(rst_n),
