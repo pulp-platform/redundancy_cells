@@ -17,7 +17,16 @@ module time_TMR_end # (
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
     // Needs to match with time_TMR_start!
-    parameter int unsigned IDSize = 1
+    parameter int unsigned IDSize = 1,
+    // This parameter chooses the implementation of the internal state machine.
+    // EarlyValidEnable = 1:
+    //   The state machine will return a valid output after it recieved two out of three 
+    //   data elements belonging together if possible e.g. no faults occur (otherwise valid in third cycle)
+    //   This option slightly increases area and critical path.
+    // EarlyValidEnable = 0:
+    //   The sate machine will always return a valid data element after collecting all 3 parts.
+    //   Internal area and critical path are reduced.
+    parameter bit EarlyValidEnable = 0
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -116,126 +125,234 @@ module time_TMR_end # (
     assign full_same = data_same & id_same;
     assign partial_same = data_same | id_same;
 
-    /////////////////////////////////////////////////////////////////////////////////
-    // Logic to find out what we should do with our data based on same / not same
-
-    logic  element_needs_shift;
-    logic  new_element_arrived;
-    logic  element_in_input;
-    logic  element_relies_on_input;
-    logic  data_usable;
-
-    // Flag Combinatorial Logic
-    always_comb begin : data_flags_generation_comb
-        // Some new element just showed up and we need to send data outwards again.
-        new_element_arrived = (id_same != 5'b11111) && ( // ID All same -> No element change counts. ID always needs to change!
-            (full_same & 5'b01111) == 5'b00001 ||           // 1st and 2nd element the same, other two each different from pair
-            (full_same & 5'b10111) == 5'b00010              // 1st and 3rd element the same, other two each different from pair
-        );
-
-        // Data or id is in the input -> We should consume the input for this element
-        // Same data or id count as matches since we can remove an inexact pair on error and be fine
-        // (Pairs where one thing matches and the other doesn't which are from a different elements can only happen with two errors)
-        element_in_input = |partial_same[1:0];
-
-        // Second register does not contain something that is completely the same elsewhere -> We should keep shifting until it is
-        element_needs_shift = ~|full_same[2:1];
-
-        // Data is in input and only one of the registers -> We need to take valid_i into account for valid_o
-        element_relies_on_input = |full_same[1:0] & ~full_same[2];
-
-        // Data has at least two new things that are the same
-        data_usable = |data_same[2:0];
-    end
-
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to figure out handshake
+    logic lock_internal;
 
-    typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID, WAIT_FOR_DATA} state_t;
-    state_t state_d, state_q;
-    logic lock;
+    if (EarlyValidEnable) begin: gen_early_valid_statemachine
 
-    // Special State Description:
-    // Wait for Ready: We got some data that is usable, but downstream can't use it yet
-    // -> We keep shifting as far as our pipeline goes to collect all data samples if we haven't yet and then stop
-    // Wait for Valid: We got some data that is usable, and sent it downstream right away
-    // -> We try to collect one more piece of our data and then move on
+        // Input signal reassignment to make state machine more readable
+        logic  element_needs_shift;
+        logic  new_element_arrived;
+        logic  element_in_input;
+        logic  element_relies_on_input;
+        logic  data_usable;
 
-    // Next State Combinatorial Logic
-    always_comb begin : next_state_generation_comb
-        // Default to staying in the same state
-        state_d = state_q;
+        always_comb begin : input_reassignment_comb
+            // Some new element just showed up and we need to send data outwards again.
+            new_element_arrived = (id_same != 5'b11111) && ( // ID All same -> No element change counts. ID always needs to change!
+                (full_same & 5'b01111) == 5'b00001 ||           // 1st and 2nd element the same, other two each different from pair
+                (full_same & 5'b10111) == 5'b00010              // 1st and 3rd element the same, other two each different from pair
+            );
 
-        case (state_q)
-            BASE:
-                if (valid_i) begin
-                    if (new_element_arrived) begin
-                        if (!data_usable) begin
-                            state_d = WAIT_FOR_DATA;
-                        end else begin
-                            if (ready_i) begin
-                                if (element_needs_shift) begin
-                                    // We can already send our data element, but it needs another shift to collect -> Go into special stat for this
-                                    state_d = WAIT_FOR_VALID;
-                                end
+            // Data or id is in the input -> We should consume the input for this element
+            // Same data or id count as matches since we can remove an inexact pair on error and be fine
+            // (Pairs where one thing matches and the other doesn't which are from a different elements can only happen with two errors)
+            element_in_input = |partial_same[1:0];
+
+            // Second register does not contain something that is completely the same elsewhere -> We should keep shifting until it is
+            element_needs_shift = ~|full_same[2:1];
+
+            // Data is in input and only one of the registers -> We need to take valid_i into account for valid_o
+            element_relies_on_input = |full_same[1:0] & ~full_same[2];
+
+            // Data has at least two new things that are the same
+            data_usable = |data_same[2:0];
+        end
+
+        // State Definition
+        // Special State Description:
+        // WAIT_FOR_READY: We got some data that is usable, but downstream can't use it yet
+        // -> We keep shifting as far as our pipeline goes to collect all data samples if we haven't yet and then stop
+        // WAIT_FOR_VALID: We got some data that is usable, and sent it downstream right away
+        // -> We try to collect one more piece of our data and then move on
+        // WAIT_FOR_DATA: We got some pieces of data that should belong together but they are not the same
+        // -> We try to collect one more piece of the same data and then send it downstream
+        typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID, WAIT_FOR_DATA} state_t;
+        state_t state_d, state_q;
+
+
+        // Next State Combinatorial Logic
+        always_comb begin : next_state_generation_comb
+            // Default to staying in the same state
+            state_d = state_q;
+
+            case (state_q)
+                BASE:
+                    if (valid_i) begin
+                        if (new_element_arrived) begin
+                            if (!data_usable) begin
+                                state_d = WAIT_FOR_DATA;
                             end else begin
-                                state_d = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
+                                if (ready_i) begin
+                                    if (element_needs_shift) begin
+                                        // We can already send our data element, but it needs another shift to collect -> Go into special stat for this
+                                        state_d = WAIT_FOR_VALID;
+                                    end
+                                end else begin
+                                    state_d = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
+                                end
                             end
                         end
                     end
-                end
-            WAIT_FOR_READY:
-                if (ready_i) begin
-                    state_d = BASE; // Downstream takes the data that we are holding and we can go back to the base state
-                end
-            WAIT_FOR_VALID: begin
-                if (valid_i) begin
-                    state_d = BASE; // We needed another shift to get back into base state
-                end
-            end
-            WAIT_FOR_DATA: begin
-                if (valid_i) begin
-                    // We got another shift to get our redundant data completed
+                WAIT_FOR_READY:
                     if (ready_i) begin
-                        state_d = BASE; // And we send it on to the next stage immediately
-                    end else begin
-                        state_d = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
+                        state_d = BASE; // Downstream takes the data that we are holding and we can go back to the base state
+                    end
+                WAIT_FOR_VALID: begin
+                    if (valid_i) begin
+                        state_d = BASE; // We needed another shift to get back into base state
                     end
                 end
+                WAIT_FOR_DATA: begin
+                    if (valid_i) begin
+                        // We got another shift to get our redundant data completed
+                        if (ready_i) begin
+                            state_d = BASE; // And we send it on to the next stage immediately
+                        end else begin
+                            state_d = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
+                        end
+                    end
+                end
+            endcase
+        end
+
+        // State Storage
+        `FF(state_q, state_d, WAIT_FOR_VALID);
+
+        // Output Combinatorial Logic
+        always_comb begin: output_generation_comb
+            if (enable_i) begin
+                case (state_q)
+                    BASE:           valid_o = (!element_relies_on_input | valid_i) & data_usable & new_element_arrived;
+                    WAIT_FOR_DATA:  valid_o = (!element_relies_on_input | valid_i) & data_usable;
+                    WAIT_FOR_READY: valid_o = (!element_relies_on_input | valid_i);
+                    WAIT_FOR_VALID: valid_o = 0;
+                endcase
+
+                case (state_q)
+                    BASE:           lock_internal = !ready_i | element_needs_shift | !new_element_arrived;
+                    WAIT_FOR_DATA:  lock_internal = !ready_i | element_needs_shift;
+                    WAIT_FOR_READY: lock_internal = !ready_i;
+                    WAIT_FOR_VALID: lock_internal = !valid_i;
+                endcase
+
+                case (state_q)
+                    BASE:           ready_o =  ready_i & element_in_input | element_needs_shift | !new_element_arrived;
+                    WAIT_FOR_DATA:  ready_o =  ready_i & element_in_input | element_needs_shift;
+                    WAIT_FOR_READY: ready_o =  ready_i & element_in_input | element_needs_shift;
+                    WAIT_FOR_VALID: ready_o =  element_in_input;
+                endcase
+            end else begin
+                valid_o = valid_i;
+                lock_internal = 0;
+                ready_o = ready_i;
             end
-        endcase
-    end
+        end
+    end else begin : gen_late_valid_statemachine
 
-    // State Storage
-    `FF(state_q, state_d, WAIT_FOR_VALID);
+        // Input signal reassignment to make state machine more readable
+        logic new_id_arrived;
+        logic id_in_input;
+        logic id_all_same;
+        logic data_usable;
 
-    // Output Combinatorial Logic
-    always_comb begin: output_generation_comb
-        if (enable_i) begin
+        always_comb begin : data_flags_generation_comb
+            new_id_arrived = (
+                (id_same == 5'b00111) ||
+                (id_same == 5'b00100) ||
+                (id_same == 5'b00010) ||
+                (id_same == 5'b01010)
+            );
+
+            id_in_input = |id_same[1:0];
+
+            id_all_same = &id_same[2:0];
+
+            data_usable = |data_same[2:0];
+        end
+
+        // State Definition
+        // Special State Description:
+        // WAIT_FOR_READY: We got some data that is usable, but downstream can't use it yet
+        // -> We keep shifting as far as our pipeline goes to collect all data samples if we haven't yet and then stop
+        // WAIT_FOR_VALID: We got two usable pieces of data in the last and another register
+        // -> We need to wait for at least one new data element before data can be valid again
+        // WAIT_FOR_VALID_X2: We have recieved three fully usable pieces of data
+        // -> We need to wait for at least two new data elements before data can be valid again
+        typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID, WAIT_FOR_VALID_X2} state_t;
+        state_t state_d, state_q;
+
+        // Next State Combinatorial Logic
+        always_comb begin : next_state_generation_comb
+            // Default to staying in the same state
+            state_d = state_q;
+
             case (state_q)
-                BASE:           valid_o = (!element_relies_on_input | valid_i) & data_usable & new_element_arrived;
-                WAIT_FOR_DATA:  valid_o = (!element_relies_on_input | valid_i) & data_usable;
-                WAIT_FOR_READY: valid_o = (!element_relies_on_input | valid_i);
-                WAIT_FOR_VALID: valid_o = 0;
+                BASE:
+                    if (new_id_arrived) begin
+                        if (ready_i) begin
+                            if (id_all_same) begin
+                                state_d = WAIT_FOR_VALID_X2;
+                            end else begin
+                                state_d = WAIT_FOR_VALID;
+                            end
+                        end else begin
+                            state_d = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
+                        end
+                    end
+                WAIT_FOR_READY:
+                    if (ready_i) begin
+                        if (id_all_same) begin
+                            state_d = WAIT_FOR_VALID_X2;
+                        end else begin
+                            state_d = WAIT_FOR_VALID;
+                        end
+                    end
+                WAIT_FOR_VALID: begin
+                    if (valid_i) begin
+                        state_d = BASE;
+                    end
+                end
+                WAIT_FOR_VALID_X2: begin
+                    if (valid_i) begin
+                        state_d = WAIT_FOR_VALID;
+                    end
+                end
             endcase
+        end
 
-            case (state_q)
-                BASE:           lock = !ready_i | element_needs_shift | !new_element_arrived;
-                WAIT_FOR_DATA:  lock = !ready_i | element_needs_shift;
-                WAIT_FOR_READY: lock = !ready_i;
-                WAIT_FOR_VALID: lock = !valid_i;
-            endcase
+        // State Storage
+        `FF(state_q, state_d, WAIT_FOR_VALID);
 
-            case (state_q)
-                BASE:           ready_o =  ready_i & element_in_input | element_needs_shift | !new_element_arrived;
-                WAIT_FOR_DATA:  ready_o =  ready_i & element_in_input | element_needs_shift;
-                WAIT_FOR_READY: ready_o =  ready_i & element_in_input | element_needs_shift;
-                WAIT_FOR_VALID: ready_o =  element_in_input;
-            endcase
-        end else begin
-            valid_o = valid_i;
-            lock = 0;
-            ready_o = ready_i;
+        // Output Combinatorial Logic
+        always_comb begin: output_generation_comb
+            if (enable_i) begin
+                case (state_q)
+                    BASE:              valid_o = new_id_arrived & data_usable;
+                    WAIT_FOR_READY:    valid_o = new_id_arrived & data_usable;
+                    WAIT_FOR_VALID:    valid_o = 0;
+                    WAIT_FOR_VALID_X2: valid_o = 0;
+                endcase
+
+                case (state_q)
+                    BASE:              lock_internal = !ready_i | !new_id_arrived;
+                    WAIT_FOR_READY:    lock_internal = !ready_i;
+                    WAIT_FOR_VALID:    lock_internal = 1;
+                    WAIT_FOR_VALID_X2: lock_internal = 1;
+                endcase
+
+                case (state_q)
+                    BASE:              ready_o =  ready_i & id_in_input | !new_id_arrived;
+                    WAIT_FOR_READY:    ready_o =  ready_i & id_in_input;
+                    WAIT_FOR_VALID:    ready_o =  1;
+                    WAIT_FOR_VALID_X2: ready_o =  1;
+                endcase
+            end else begin
+                valid_o = valid_i;
+                lock_internal = 0;
+                ready_o = ready_i;
+            end
         end
     end
 
@@ -260,7 +377,7 @@ module time_TMR_end # (
 
             // To set Lock -> 1 require previous imput to be valid, to set Lock -> 0 lock don't require anything
             if (valid_i | lock_q) begin
-                lock_d = lock;
+                lock_d = lock_internal;
             end else begin
                 lock_d = lock_q;
             end

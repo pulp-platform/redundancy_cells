@@ -51,8 +51,10 @@ call_vsim -GDataWidth=64 tb_ecc_secded
 call_vsim tb_ecc_scrubber
 call_vsim tb_voter_macros
 
-call_vsim tb_time_tmr
-call_vsim tb_time_tmr_lock
+call_vsim tb_time_tmr -GEarlyValidEnable=0
+call_vsim tb_time_tmr -GEarlyValidEnable=1
+call_vsim tb_time_tmr_lock -GEarlyValidEnable=0
+call_vsim tb_time_tmr_lock -GEarlyValidEnable=1
 call_vsim tb_time_dmr
 call_vsim tb_retry
 call_vsim tb_retry_inorder
