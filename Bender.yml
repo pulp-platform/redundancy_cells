@@ -37,6 +37,7 @@ sources:
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
+  - rtl/time_redundancy/redundancy_controller.sv
   - rtl/time_redundancy/retry_inorder_start.sv
   - rtl/time_redundancy/retry_start.sv
   - rtl/time_redundancy/time_TMR_end.sv
@@ -111,6 +112,7 @@ sources:
       - test/tb_voter_macros.sv
       - test/tb_time_tmr.sv
       - test/tb_time_dmr.sv
+      - test/tb_redundancy_controller.sv
       - test/tb_retry.sv
       - test/tb_retry_inorder.sv
       - test/tb_time_dmr_retry.sv

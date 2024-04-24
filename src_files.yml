@@ -32,6 +32,7 @@ redundancy_cells:
     rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv,
     rlt/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv,
     rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv,
+    rtl/time_redundancy/redundancy_controller.sv
     rtl/time_redundancy/retry_inorder_start.sv
     rtl/time_redundancy/retry_start.sv
     rtl/time_redundancy/time_TMR_end.sv
