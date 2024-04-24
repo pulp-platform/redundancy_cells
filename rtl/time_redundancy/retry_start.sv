@@ -1,4 +1,5 @@
 `include "common_cells/registers.svh"
+`include "voters.svh"
 
 module retry_start # (
     parameter type DataType  = logic,
@@ -52,13 +53,10 @@ module retry_start # (
     // ID Counter with parity bit
 
     logic [IDSize-1:0] counter_id_d, counter_id_q;
-    logic [IDSize-2:0] id_next_noparity;
 
-    always_comb begin // TODO: Only count on valid?
-        id_next_noparity = counter_id_q[IDSize-2:0] + 1;
-        
+    always_comb begin
         if ((failed_valid_q | valid_i) & ready_i) begin
-            counter_id_d = {^id_next_noparity, id_next_noparity};
+            `INCREMENT_WITH_PARITY(counter_id_q, counter_id_d);
         end else begin
             counter_id_d = counter_id_q;
         end
