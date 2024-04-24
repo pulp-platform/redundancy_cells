@@ -25,3 +25,9 @@ end
 always_comb begin \
     `MAJORITY(input_signal[0], input_signal[1], input_signal[2],  output_signal); \
 end
+
+`define INCREMENT_WITH_PARITY(input_signal, output_signal) \
+begin \
+    output_signal[$bits(input_signal)-2:0] = input_signal[$bits(input_signal)-2:0] + 1; \
+    output_signal[$bits(input_signal)-1] = ^output_signal[$bits(input_signal)-2:0]; \
+end

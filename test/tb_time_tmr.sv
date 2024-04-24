@@ -3,6 +3,7 @@ module tb_time_tmr #(
     parameter IDSize = 4,
     parameter int LockTimeout = 4,
     parameter bit EarlyValidEnable = 0,
+    parameter bit InternalRedundancy = 0,
 
     // TB Parameters
     parameter int unsigned TESTS = 10000,
@@ -31,7 +32,8 @@ module tb_time_tmr #(
 
     time_TMR_start #(
         .DataType(data_t),
-        .IDSize(IDSize)
+        .IDSize(IDSize),
+        .InternalRedundancy(InternalRedundancy)
     ) dut_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -53,7 +55,8 @@ module tb_time_tmr #(
         .DataType(data_t),
         .LockTimeout(LockTimeout),
         .IDSize(IDSize),
-        .EarlyValidEnable(EarlyValidEnable)
+        .EarlyValidEnable(EarlyValidEnable),
+        .InternalRedundancy(InternalRedundancy)
     ) dut_end (
         .clk_i(clk),
         .rst_ni(rst_n),
