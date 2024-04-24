@@ -51,6 +51,7 @@ call_vsim tb_retry
 call_vsim tb_retry_inorder
 
 for redundancy in 0 1; do
+  call_vsim tb_redundancy_controller -GInternalRedundancy=$redundancy
   
   for early_valid in 0 1; do
     call_vsim tb_time_tmr -GEarlyValidEnable=$early_valid -GInternalRedundancy=$redundancy

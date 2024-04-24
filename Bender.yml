@@ -104,6 +104,7 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
       - test/tb_time_tmr.sv
       - test/tb_time_dmr.sv
+      - test/tb_redundancy_controller.sv
       - test/tb_retry.sv
       - test/tb_retry_inorder.sv
       - test/tb_time_dmr_retry.sv
