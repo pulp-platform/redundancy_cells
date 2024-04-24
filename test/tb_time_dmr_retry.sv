@@ -1,11 +1,17 @@
-module tb_time_dmr_retry;
+module tb_time_dmr_retry #(
+    // DUT Parameters
+    parameter int IDSize = 4,
+    parameter int LockTimeout = 4,
+    parameter bit InternalRedundancy = 0,
 
-    // Clock Parameters
-    localparam time CLK_PERIOD = 10ns;
-    localparam time APPLICATION_DELAY = 2ns;
-    localparam time AQUISITION_DELAY = 8ns;
+    // TB Parameters
+    parameter int unsigned TESTS = 10000,
+    parameter time CLK_PERIOD = 10ns,
+    parameter time APPLICATION_DELAY = 2ns,
+    parameter time AQUISITION_DELAY = 8ns
+) ( /* no ports on TB */ );
+
     localparam unsigned RST_CLK_CYCLES = 10;
-    localparam unsigned TESTS = 10000;
 
     // Parameters
     typedef logic [7:0] data_t;
@@ -15,9 +21,6 @@ module tb_time_dmr_retry;
         data_t      data;
         tag_t       tag;
     } tagged_data_t;
-
-    parameter IDSize = 4;
-    localparam int LockTimeout = 4;
 
     // Testbench signals
     tagged_data_t golden_queue [$];
@@ -85,7 +88,8 @@ module tb_time_dmr_retry;
     time_DMR_start #(
         .DataType(tagged_data_t),
         .IDSize(IDSize),
-        .UseExternalId(1)
+        .UseExternalId(1),
+        .InternalRedundancy(InternalRedundancy)
     ) dut_DMR_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -116,7 +120,8 @@ module tb_time_dmr_retry;
     time_DMR_end #(
         .DataType(tagged_data_t),
         .LockTimeout(LockTimeout),
-        .IDSize(IDSize)
+        .IDSize(IDSize),
+        .InternalRedundancy(InternalRedundancy)
     ) dut_DMR_end (
         .clk_i(clk),
         .rst_ni(rst_n),

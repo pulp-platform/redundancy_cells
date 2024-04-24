@@ -7,7 +7,8 @@ module tb_time_tmr_lock #(
     parameter int OpgroupWidth = $clog2(NumOpgroups),
     parameter int IDSize = 5,
     parameter [NumOpgroups-1:0][7:0] OpgroupNumRegs = {8'd4, 8'd3, 8'd3},
-    parameter bit EarlyValidEnable,
+    parameter bit EarlyValidEnable = 0,
+    parameter bit InternalRedundancy = 0,
 
     // TB Parameters
     parameter int unsigned TESTS = 10000,
@@ -59,7 +60,8 @@ module tb_time_tmr_lock #(
     
     time_TMR_start #(
         .DataType(tmr_stacked_t),
-        .IDSize (IDSize)
+        .IDSize (IDSize),
+        .InternalRedundancy(InternalRedundancy)
     ) i_time_TMR_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -170,7 +172,8 @@ module tb_time_tmr_lock #(
         .DataType(tmr_stacked_t),
         .LockTimeout(LockTimeout),
         .IDSize (IDSize),
-        .EarlyValidEnable(EarlyValidEnable)
+        .EarlyValidEnable(EarlyValidEnable),
+        .InternalRedundancy(InternalRedundancy)
     ) i_time_TMR_end (
         .clk_i(clk),
         .rst_ni(rst_n),
