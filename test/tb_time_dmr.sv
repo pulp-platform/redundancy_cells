@@ -1,7 +1,7 @@
 module tb_time_dmr #(
     // DUT Parameters
     parameter IDSize = 4,
-    parameter int LockTimeout = 4,
+    parameter int LockTimeout = 4 * 12,
     parameter bit InternalRedundancy = 0,
 
     // TB Parameters
@@ -129,7 +129,7 @@ module tb_time_dmr #(
                         $error("[T=%t] More faults detected than injected!", $time);
                         error = 1;
                         error_cnt += 1;
-                    end 
+                    end
                 end else begin
                     if (data_actual != data_golden) begin
                         $error("[T=%t] Mismatch: Golden: %h, Actual: %h", $time, data_golden, data_actual);
@@ -154,18 +154,18 @@ module tb_time_dmr #(
     // Fault Injection
     //////////////////////////////////////////////////////////////////////////////////7
 
-    longint unsigned min_fault_delay = 15;
-    longint unsigned max_fault_delay = 20;
+    longint unsigned min_fault_delay = 12 * 4;
+    longint unsigned max_fault_delay = 12 * 4 + 20;
 
     // Signals to show what faults are going on
     enum {NONE, DATA_FAULT, VALID_FAULT, READY_FAULT, ID_FAULT} fault_type, fault_current;
 
     assign data_redundant_faulty =  data_redundant ^  data_fault;
-    assign valid_redundant_faulty = valid_redundant ^ valid_fault;
-    assign ready_redundant_faulty = ready_redundant ^ ready_fault;
+    assign valid_redundant_faulty = (valid_redundant & stall) ^ valid_fault;
+    assign ready_redundant_faulty = (ready_redundant & stall) ^ ready_fault;
     assign id_redundant_faulty = id_redundant ^ id_fault;
 
-    initial data_fault  = '0; 
+    initial data_fault  = '0;
     initial valid_fault = '0;
     initial ready_fault = '0;
     initial id_fault    = '0;
@@ -174,13 +174,13 @@ module tb_time_dmr #(
         // Send correct data for some cycles to space errors
         repeat ($urandom_range(min_fault_delay, max_fault_delay)) begin
             @(posedge clk);
-            fault_current = NONE;          
-            data_fault = '0; 
+            fault_current = NONE;
+            data_fault = '0;
             valid_fault = '0;
             ready_fault = '0;
             id_fault = '0;
         end
-        
+
         // Send wrong data
         fault_current = fault_type;
         case (fault_type)
@@ -194,8 +194,8 @@ module tb_time_dmr #(
 
         // Send correct data again
         @(posedge clk);
-        fault_current = NONE;          
-        data_fault = '0; 
+        fault_current = NONE;
+        data_fault = '0;
         valid_fault = '0;
         ready_fault = '0;
         id_fault = '0;
@@ -257,15 +257,22 @@ module tb_time_dmr #(
         enable = 0;
         in_hs_max_starvation = 0;
         out_hs_max_starvation = 0;
+        internal_hs_max_starvation = 0;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
         $display("Ending Test with ecc disabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        if (TESTS - out_hs_count > TESTS / 20) begin
+            $error("Stall detected with ecc disabled!");
+        end
         reset_metrics();
 
         enable = 1;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
-        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS /2, error_cnt);
+        if (TESTS /2 - out_hs_count > TESTS / 20) begin
+            $error("Stall detected with ecc enabled!");
+        end
         reset_metrics();
         $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, total_error_cnt);
         $finish(error_cnt);

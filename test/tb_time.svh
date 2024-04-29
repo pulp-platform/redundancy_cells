@@ -6,6 +6,7 @@ logic clk, rst_n;
 logic valid_in, ready_in;
 logic valid_out, ready_out;
 logic enable;
+logic stall;
 
 //////////////////////////////////////////////////////////////////////////////////7
 // Initial State
@@ -54,14 +55,14 @@ endtask
 
 task  input_handshake_end();
     // Perform Handshake
-    valid_in = 1'b1;  
+    valid_in = 1'b1;
 
     # (AQUISITION_DELAY - APPLICATION_DELAY);
     while (!ready_in) begin
         @(posedge clk);
         # AQUISITION_DELAY;
     end
-    @(posedge clk);                 
+    @(posedge clk);
     # APPLICATION_DELAY;
     valid_in = 1'b0; // This might get overwritten by next handshake
 
@@ -71,13 +72,13 @@ endtask
 task output_handshake_start();
     // Wait random time (with no valid data)
     repeat ($urandom_range(0, out_hs_max_starvation)) begin
-        @(posedge clk); 
+        @(posedge clk);
         # APPLICATION_DELAY;
     end
 
     // Wait for reset to pass
     while (!rst_n) begin
-        @(posedge clk); 
+        @(posedge clk);
         # APPLICATION_DELAY;
     end
 
@@ -85,8 +86,8 @@ task output_handshake_start();
 
     // Wait for correct amount of time in cycle
     # (AQUISITION_DELAY - APPLICATION_DELAY);
-    while (!valid_out) begin
-        @(posedge clk); 
+    while (!valid_out | !rst_n) begin
+        @(posedge clk);
         #AQUISITION_DELAY;
     end
 endtask
@@ -98,3 +99,24 @@ task output_handshake_end();
 
     out_hs_count  = out_hs_count + 1;
 endtask
+
+//////////////////////////////////////////////////////////////////////////////////7
+// Internal Stall
+//////////////////////////////////////////////////////////////////////////////////7
+
+longint unsigned internal_hs_max_starvation = 12;
+
+initial begin
+    forever begin
+        // Wait random time (with pipeline stalled)
+        repeat ($urandom_range(0, internal_hs_max_starvation)) begin
+            @(posedge clk);
+            #APPLICATION_DELAY;
+            stall = 0;
+        end
+
+        @(posedge clk) ;
+        #APPLICATION_DELAY;
+        stall = 1;
+    end
+end

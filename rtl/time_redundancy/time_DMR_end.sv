@@ -358,7 +358,7 @@ module time_DMR_end # (
     logic fault_detected_d[REP], fault_detected_q[REP];
 
     for (genvar r = 0; r < REP; r++) begin: gen_flag_next_state
-        assign fault_detected_d[r] = ~|full_same[1:0];
+        assign fault_detected_d[r] = ~|full_same[1:0] & valid_i;;
     end
 
     // Default state

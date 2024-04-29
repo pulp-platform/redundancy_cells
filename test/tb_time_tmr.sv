@@ -1,7 +1,7 @@
 module tb_time_tmr #(
     // DUT Parameters
     parameter IDSize = 4,
-    parameter int LockTimeout = 4,
+    parameter int LockTimeout = 4 * 12,
     parameter bit EarlyValidEnable = 0,
     parameter bit InternalRedundancy = 0,
 
@@ -135,15 +135,15 @@ module tb_time_tmr #(
     // Fault Injection
     //////////////////////////////////////////////////////////////////////////////////7
 
-    longint unsigned min_fault_delay = 15;
-    longint unsigned max_fault_delay = 20;
+    longint unsigned min_fault_delay = 12 * 3;
+    longint unsigned max_fault_delay = 12 * 3 + 20;
 
     // Signals to show what faults are going on
     enum {NONE, DATA_FAULT, VALID_FAULT, READY_FAULT, ID_FAULT} fault_type, fault_current;
 
     assign data_redundant_faulty =  data_redundant ^  data_fault;
-    assign valid_redundant_faulty = valid_redundant ^ valid_fault;
-    assign ready_redundant_faulty = ready_redundant ^ ready_fault;
+    assign valid_redundant_faulty = (valid_redundant & stall) ^ valid_fault;
+    assign ready_redundant_faulty = (ready_redundant & stall) ^ ready_fault;
     assign id_redundant_faulty = id_redundant ^ id_fault;
 
     initial data_fault  = '0;
@@ -236,15 +236,22 @@ module tb_time_tmr #(
         enable = 0;
         in_hs_max_starvation = 0;
         out_hs_max_starvation = 0;
+        internal_hs_max_starvation = 0;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
         $display("Ending Test with ecc disabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        if (TESTS - out_hs_count > TESTS / 20) begin
+            $error("Stall detected with ecc disabled!");
+        end
         reset_metrics();
 
         enable = 1;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
-        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS/3, error_cnt);
+        if (TESTS / 3 - out_hs_count > TESTS / 20) begin
+            $error("Stall detected with ecc enabled!");
+        end
         reset_metrics();
         $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, total_error_cnt);
         $finish(error_cnt);
