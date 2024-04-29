@@ -2,10 +2,10 @@
 
 module tb_time_tmr_lock #(
     // DUT Parameters
-    parameter int LockTimeout = 5,
+    parameter int LockTimeout = 5 * 12,
     parameter int NumOpgroups = 3,
     parameter int OpgroupWidth = $clog2(NumOpgroups),
-    parameter int IDSize = 5,
+    parameter int IDSize = 5 + $clog2(12),
     parameter [NumOpgroups-1:0][7:0] OpgroupNumRegs = {8'd4, 8'd3, 8'd3},
     parameter bit EarlyValidEnable = 0,
     parameter bit InternalRedundancy = 0,
@@ -98,10 +98,10 @@ module tb_time_tmr_lock #(
 
         // Upstream Connection
         // Error Injection
-        assign pipe_valid[0]  = (in_valid_redundant ^ valid_fault) && (opgrp == in_tmr_stack_redundant.operation);
+        assign pipe_valid[0]  = ((in_valid_redundant & stall) ^ valid_fault) && (opgrp == in_tmr_stack_redundant.operation);
         assign pipe_data[0]   = in_tmr_stack_redundant.data ^ data_fault;
         assign pipe_id[0]      = in_id_redundant ^ id_fault;
-        assign in_opgrp_ready[opgrp] = pipe_ready[0] ^ ready_fault;
+        assign in_opgrp_ready[opgrp] = (pipe_ready[0] & stall) ^ ready_fault;
 
         // Generate the register stages
         for (genvar i = 0; i < NUM_REGS; i++) begin : gen_pipeline
@@ -261,8 +261,8 @@ module tb_time_tmr_lock #(
     // Fault Injection
     //////////////////////////////////////////////////////////////////////////////////7
 
-    longint unsigned min_fault_delay = 45;
-    longint unsigned max_fault_delay = 55;
+    longint unsigned min_fault_delay = (12 + 5) * 5;
+    longint unsigned max_fault_delay = (12 + 5) * 5 + 20;
 
     // Signals to show what faults are going on
     enum {NONE, DATA_FAULT, VALID_FAULT, READY_FAULT, ID_FAULT} fault_type, fault_current;
@@ -357,15 +357,22 @@ module tb_time_tmr_lock #(
         enable = 0;
         in_hs_max_starvation = 0;
         out_hs_max_starvation = 0;
+        internal_hs_max_starvation = 0;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
         $display("Ending Test with ecc disabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        if (TESTS - out_hs_count > TESTS / 20) begin
+            $error("Stall detected with ecc disabled!");
+        end
         reset_metrics();
 
         enable = 1;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
-        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS, error_cnt);
+        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS/3, error_cnt);
+        if (TESTS / 3 - out_hs_count > TESTS / 20) begin
+            $error("Stall detected with ecc enabled!");
+        end
         reset_metrics();
         $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, total_error_cnt);
         $finish(error_cnt);

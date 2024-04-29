@@ -351,15 +351,17 @@ module time_TMR_end # (
 
                 case (state_q[r])
                     BASE:
-                        if (new_id_arrived[r]) begin
-                            if (ready_i) begin
-                                if (id_all_cover[r]) begin
-                                    state_v[r] = WAIT_FOR_VALID_X2;
+                        if (valid_i) begin
+                            if (new_id_arrived[r]) begin
+                                if (ready_i) begin
+                                    if (id_all_cover[r]) begin
+                                        state_v[r] = WAIT_FOR_VALID_X2;
+                                    end else begin
+                                        state_v[r] = WAIT_FOR_VALID;
+                                    end
                                 end else begin
-                                    state_v[r] = WAIT_FOR_VALID;
+                                    state_v[r] = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
                                 end
-                            end else begin
-                                state_v[r] = WAIT_FOR_READY;  // We keep the data until downstream is ready, only shifting as far as our registers go
                             end
                         end
                     WAIT_FOR_READY:
@@ -405,14 +407,14 @@ module time_TMR_end # (
             always_comb begin: gen_output_comb
                 if (enable_i) begin
                     case (state_q[r])
-                        BASE:              valid_ov[r] = new_id_arrived[r] & data_usable[r];
+                        BASE:              valid_ov[r] = valid_i & new_id_arrived[r] & data_usable[r];
                         WAIT_FOR_READY:    valid_ov[r] = new_id_arrived[r] & data_usable[r];
                         WAIT_FOR_VALID:    valid_ov[r] = 0;
                         WAIT_FOR_VALID_X2: valid_ov[r] = 0;
                     endcase
 
                     case (state_q[r])
-                        BASE:              lock_internal[r] = !ready_i | !new_id_arrived[r];
+                        BASE:              lock_internal[r] = !(ready_i & valid_i) | !new_id_arrived[r] ;
                         WAIT_FOR_READY:    lock_internal[r] = !ready_i;
                         WAIT_FOR_VALID:    lock_internal[r] = 1;
                         WAIT_FOR_VALID_X2: lock_internal[r] = 1;
