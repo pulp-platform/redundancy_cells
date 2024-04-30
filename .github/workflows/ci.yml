@@ -53,6 +53,6 @@ jobs:
             ./rtl/ODRG_unit/odrg_manager_reg_top.sv
             ./rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
             ./rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
-          extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files util/waiver.verible"
+          extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files .github/waiver.verible"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reviewdog_reporter: github-check

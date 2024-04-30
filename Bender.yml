@@ -69,7 +69,10 @@ sources:
     # Level 2
   - rtl/bitwise_TMR_voter.sv
   - rtl/ecc_wrap/ecc_manager.sv
-  - rtl/ecc_wrap/ecc_sram_wrap.sv
+  - target: deprecated
+    files:
+      - rtl/ecc_wrap/ecc_sram_wrap.sv
+  - rtl/ecc_wrap/ecc_sram.sv
     # Level 3
   - include_dirs:
       - rtl/ODRG_unit
