@@ -31,21 +31,18 @@ TARGET_DIR_ECC = rtl/ecc_wrap
 .PHONY: gen_ODRG gen_TCLS gen_ecc_registers gen_ECC
 gen_ODRG:
 	python $(REG_TOOL) $(HJSON_ODRG) -t $(TARGET_DIR_ODRG) -r
-	python $(REG_TOOL) $(HJSON_ODRG) -d > $(TARGET_DIR_ODRG)/doc.html
+	python $(REG_TOOL) $(HJSON_ODRG) -d > $(TARGET_DIR_ODRG)/doc.md
 	python $(REG_TOOL) $(HJSON_ODRG) -D > $(TARGET_DIR_ODRG)/ODRG.h
-	python $(REG_TOOL) $(HJSON_ODRG) --doc > $(TARGET_DIR_ODRG)/doc.md
 
 gen_TCLS:
 	python $(REG_TOOL) $(HJSON_TCLS) -t $(TARGET_DIR_TCLS) -r
-	python $(REG_TOOL) $(HJSON_TCLS) -d > $(TARGET_DIR_TCLS)/doc.html
+	python $(REG_TOOL) $(HJSON_TCLS) -d > $(TARGET_DIR_TCLS)/doc.md
 	python $(REG_TOOL) $(HJSON_TCLS) -D > $(TARGET_DIR_TCLS)/TCLS.h
-	python $(REG_TOOL) $(HJSON_TCLS) --doc > $(TARGET_DIR_TCLS)/doc.md
 
 gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) -t $(TARGET_DIR_ECC) -r
-	python $(REG_TOOL) $(HJSON_ECC) -d > $(TARGET_DIR_ECC)/doc.html
+	python $(REG_TOOL) $(HJSON_ECC) -d > $(TARGET_DIR_ECC)/doc.md
 	python $(REG_TOOL) $(HJSON_ECC) -D > $(TARGET_DIR_ECC)/ECC.h
-	python $(REG_TOOL) $(HJSON_ECC) --doc > $(TARGET_DIR_ECC)/doc.md
 
 gen_ECC:
 	$(BENDER) vendor init
