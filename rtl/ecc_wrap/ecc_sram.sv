@@ -81,7 +81,9 @@ module ecc_sram #(
 
   typedef enum logic { NORMAL, READ_MODIFY_WRITE } store_state_e;
   store_state_e store_state_d, store_state_q;
-  logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0] rmw_count_d, rmw_count_q;
+
+  typedef logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0] rmw_count_t;
+  rmw_count_t rmw_count_d, rmw_count_q;
 
   logic [  DataInWidth-1:0] input_buffer_d, input_buffer_q;
   logic [BankAddrWidth-1:0] addr_buffer_d,  addr_buffer_q;
@@ -194,7 +196,7 @@ module ecc_sram #(
       if (req_i & (be_i != {ByteEnWidth{1'b1}}) & we_i) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
-        rmw_count_d   = NumRMWCuts;
+        rmw_count_d   = rmw_count_t'(NumRMWCuts);
       end
     end else begin
       gnt_o           = 1'b0;
