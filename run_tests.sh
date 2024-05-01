@@ -31,7 +31,7 @@ call_vsim() {
     echo "run -all" | $VSIM "$@" >> $VSIM_LOGFILE 2>&1
   fi
   echo "  --> $@"
-  tail -3 $VSIM_LOGFILE
+  tail -7 $VSIM_LOGFILE
   echo ""
   # grep "Errors: 0," vsim.log
 }
@@ -40,8 +40,7 @@ call_vsim tb_tmr_voter
 call_vsim tb_tmr_voter_detect
 call_vsim tb_tmr_word_voter
 call_vsim tb_bitwise_tmr_voter
-call_vsim tb_ecc_sram -voptargs="+acc=nr" -GEnableTestMask=0
-call_vsim tb_ecc_sram -voptargs="+acc=nr" -GEnableTestMask=1
+call_vsim tb_ecc_sram -voptargs="+acc=nr"
 call_vsim -GDataWidth=8 tb_ecc_secded
 call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded

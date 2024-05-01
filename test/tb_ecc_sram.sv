@@ -11,10 +11,7 @@
 // Description: Testbench for ecc_sram_wrap
 // based on tb_tc_sram.sv in tech_cells_generic
 
-module tb_ecc_sram #(
-  parameter int unsigned InputECC = 0,
-  parameter int unsigned EnableTestMask = 0
-);
+module tb_ecc_sram;
 
   localparam BankSize       = 256;
   localparam AddrWidth      = $clog2(BankSize);
@@ -114,7 +111,7 @@ module tb_ecc_sram #(
   endfunction : generate_stimuli
 
   logic                 req, wen, gnt;
-  logic [         31:0] addr;
+  logic [AddrWidth-1:0] addr;
   logic [DataWidth-1:0] wdata, rdata;
   logic [  BEWidth-1:0] be;
 
@@ -127,7 +124,7 @@ module tb_ecc_sram #(
     stimuli = stimuli_queue.pop_front();
     req     = 1'b1;
     wen     = stimuli.wen;
-    addr    = 32'h0000_0000 | {stimuli.addr, 2'b00};
+    addr    = stimuli.addr;
     wdata   = stimuli.wdata;
     be      = stimuli.be;
 
@@ -146,34 +143,31 @@ module tb_ecc_sram #(
     *  Device Under Test  *
     ***********************/
 
-  ecc_sram_wrap #(
-    .BankSize         ( BankSize       ),
-    .InputECC         ( 0              ),
-    .EnableTestMask   ( EnableTestMask ),
-    .NumRMWCuts       ( 1              ),
+  ecc_sram #(
+    .NumWords         ( BankSize       ),
     .UnprotectedWidth ( DataWidth      ),
-    .ProtectedWidth   ( ProtectedWidth )
+    .ProtectedWidth   ( ProtectedWidth ),
+    .InputECC         ( 0              ),
+    .NumRMWCuts       ( 1              ),
+    .SimInit          ( "zeros"        )
   ) i_dut (
     .clk_i        ( clk ),
     .rst_ni       ( rst_n ),
-    .test_enable_i        ('0),
 
     .scrub_trigger_i      ('0),
     .scrubber_fix_o       (),
     .scrub_uncorrectable_o(),
 
-    .tcdm_wdata_i ( wdata ),
-    .tcdm_add_i   ( addr  ),
-    .tcdm_req_i   ( req   ),
-    .tcdm_wen_i   ( wen   ),
-    .tcdm_be_i    ( be    ),
-    .tcdm_rdata_o ( rdata ),
-    .tcdm_gnt_o   ( gnt   ),
+    .wdata_i ( wdata ),
+    .addr_i  ( addr  ),
+    .req_i   ( req   ),
+    .we_i    ( ~wen  ),
+    .be_i    ( be    ),
+    .rdata_o ( rdata ),
+    .gnt_o   ( gnt   ),
 
     .single_error_o       (),
-    .multi_error_o        (),
-
-    .test_write_mask_ni ('0)
+    .multi_error_o        ()
   );
 
   /***********************
@@ -248,6 +242,10 @@ module tb_ecc_sram #(
     end
 
     req = 1'b0;
+    wdata = '0;
+    wen = '0;
+    addr = '0;
+    be = '0;
     @(posedge rst_n)
     repeat(10) @(posedge clk);
 
@@ -261,7 +259,8 @@ module tb_ecc_sram #(
     join_any
 
     $display("Checked %0d tests, found %0d mismatches.", test_cnt, error_cnt);
-    $finish(error_cnt);
+    if (error_cnt) $fatal(1, "Found %0d mismatches.", error_cnt);
+    $finish();
   end : tb
 
 endmodule
