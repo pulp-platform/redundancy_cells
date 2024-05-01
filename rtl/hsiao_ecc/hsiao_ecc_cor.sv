@@ -27,10 +27,10 @@ module hsiao_ecc_cor #(
 
   if (ProtWidth < $clog2(DataWidth)+2) $error("ProtWidth must be greater than $clog2(DataWidth)+2");
 
-  localparam bit HsiaoMatrix [MaxParityWidth][MaxTotalWidth] = hsiao_matrix(DataWidth, ProtWidth);
-  localparam bit [MaxParityWidth-1:0][ MaxTotalWidth-1:0] HsiaoCodes = { << { HsiaoMatrix }};
+  localparam bit [MaxParityWidth-1:0][ MaxTotalWidth-1:0] HsiaoCodes =
+                                                          hsiao_matrix(DataWidth, ProtWidth);
   localparam bit [ MaxTotalWidth-1:0][MaxParityWidth-1:0] CorrCodes  =
-                                          { << { transpose(HsiaoMatrix, ProtWidth, TotalWidth) }};
+                                          transpose(HsiaoCodes, ProtWidth, TotalWidth);
 
   logic single_error;
 

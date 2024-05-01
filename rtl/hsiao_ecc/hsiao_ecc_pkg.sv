@@ -67,13 +67,13 @@ package hsiao_ecc_pkg;
         fanin += (needed*select+(m-1))/m; // ceil(needed*select/m)
         needed = 0;
       end
-      if (!needed) break;
+      if (needed == 0) break;
     end
     return fanin;
   endfunction
 
-  typedef bit parity_vec_t[MaxParityWidth][MaxTotalWidth];
-  typedef bit parity_vec_trans_t[MaxTotalWidth][MaxParityWidth];
+  typedef bit [MaxParityWidth-1:0][MaxTotalWidth-1:0] parity_vec_t;
+  typedef bit [MaxTotalWidth-1:0][MaxParityWidth-1:0] parity_vec_trans_t;
 
   /// Function to generate the Hsiao Code Matrix
   /// k: data bits
@@ -87,7 +87,7 @@ package hsiao_ecc_pkg;
   /// Then message times matrix => original message with parity
   function automatic parity_vec_t hsiao_matrix(int unsigned k, int unsigned m);
     parity_vec_t existing;
-    int unsigned combs[MaxChoose][MaxParityWidth];
+    int unsigned combs[MaxChoose*MaxParityWidth];
     int unsigned total_combinations;
 
     int unsigned needed = k;
@@ -120,18 +120,18 @@ package hsiao_ecc_pkg;
         $fatal(1, "Too many combinations, please adjust ECC package MaxChoose");
 
       for (int unsigned i = 0; i < step; i++) begin
-        combs[0][i] = i;
+        combs[(0*MaxParityWidth)+i] = i;
       end
       total_combinations = n_choose_k(m, step);
       for (int unsigned i = 1; i < total_combinations; i++) begin
-        for (int unsigned j = step-1; j >= 0; j--) begin
-          if (combs[i-1][j] + step-j < m) begin
-            combs[i][j] = combs[i-1][j] + 1;
+        for (int j = step-1; j >= 0; j--) begin
+          if (combs[((i-1)*MaxParityWidth)+j] + step-j < m) begin
+            combs[(i*MaxParityWidth)+j] = combs[((i-1)*MaxParityWidth)+j] + 1;
             for (int unsigned k = 0; k < step; k++) begin
               if (k >= j) begin
-                combs[i][k] = combs[i][j] + k-j;
+                combs[(i*MaxParityWidth)+k] = combs[(i*MaxParityWidth)+j] + k-j;
               end else begin
-                combs[i][k] = combs[i-1][k];
+                combs[(i*MaxParityWidth)+k] = combs[((i-1)*MaxParityWidth)+k];
               end
             end
             break;
@@ -143,7 +143,7 @@ package hsiao_ecc_pkg;
         // Add all these combinations
         for (int unsigned j = 0; j < n_choose_k(m, step); j++) begin
           for (int unsigned l = 0; l < step; l++) begin
-            existing[combs[j][l]][count_index] = 1'b1;
+            existing[combs[(j*MaxParityWidth)+l]][count_index] = 1'b1;
           end
           needed--;
           count_index++;
@@ -177,13 +177,13 @@ package hsiao_ecc_pkg;
             end
 
             for (int unsigned l = 0; l < step; l++) begin
-              tmp_fanins[combs[i][l]]++;
+              tmp_fanins[combs[(i*MaxParityWidth)+l]]++;
             end
 
             if (min_vec(tmp_fanins, m) > min_fanin && max_vec(tmp_fanins, m) <= work_fanin) begin
               comb_added = 1;
               for (int unsigned l = 0; l < step; l++) begin
-                existing[combs[i][l]][count_index] = 1'b1;
+                existing[combs[(i*MaxParityWidth)+l]][count_index] = 1'b1;
               end
               comb_used[i] = 1;
               needed--;
@@ -203,13 +203,13 @@ package hsiao_ecc_pkg;
             end
 
             for (int unsigned l = 0; l < step; l++) begin
-              tmp_fanins[combs[i][l]]++;
+              tmp_fanins[combs[(i*MaxParityWidth)+l]]++;
             end
 
             if (max_vec(tmp_fanins, m) <= work_fanin) begin
               comb_added = 1;
               for (int unsigned l = 0; l < step; l++) begin
-                existing[combs[i][l]][count_index] = 1'b1;
+                existing[combs[(i*MaxParityWidth)+l]][count_index] = 1'b1;
               end
               comb_used[i] = 1;
               needed--;
