@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update `ecc_manager` for configurability
 - Update secded testbench to use correctors and fix error injection
 - Deprecate `ODRG`, superceeded by HMR
+- Deprecate `pulpissimo_tcls`, superceeded by HMR
 
 ## 0.5.1 - 2023-04-12
 ### Added
