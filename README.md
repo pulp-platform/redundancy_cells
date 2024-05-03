@@ -2,11 +2,35 @@
 
 This repository contains various modules used to add redundancy.
 
+## Hybrid-Modular Redundancy (HMR)
+The `hmr_unit` is designed as a configurable bridge between multiple cores and the system, allowing for independent or lock-step operation, either in DMR or TMR mode. Further recovery mechanisms are implemented, including a SW-based recovery mechanism when in TMR mode with an interrupt being triggered on an error, a rapid recovery mechanism to automatically backup and refill the state with correct values, and in the future a checkpoint-based recovery mechanism.
+
+### Testing
+The HMR unit has been integrated in the [PULP cluster](https://github.com/pulp-platform/pulp_cluster/tree/michaero/hmr_merge) and the [Safety Island](https://github.com/pulp-platform/safety_island) in different configurations.
+
+### Citing
+If you are using HMR in your academic work you can cite us:
+```BibTeX
+@article{10.1145/3635161,
+author = {Rogenmoser, Michael and Tortorella, Yvan and Rossi, Davide and Conti, Francesco and Benini, Luca},
+title = {Hybrid Modular Redundancy: Exploring Modular Redundancy Approaches in RISC-V Multi-Core Computing Clusters for Reliable Processing in Space},
+year = {2023},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {2378-962X},
+url = {https://doi.org/10.1145/3635161},
+doi = {10.1145/3635161},
+abstract = {Space Cyber-Physical Systems (S-CPS) such as spacecraft and satellites strongly rely on the reliability of onboard computers to guarantee the success of their missions. Relying solely on radiation-hardened technologies is extremely expensive, and developing inflexible architectural and microarchitectural modifications to introduce modular redundancy within a system leads to significant area increase and performance degradation. To mitigate the overheads of traditional radiation hardening and modular redundancy approaches, we present a novel Hybrid Modular Redundancy (HMR) approach, a redundancy scheme that features a cluster of RISC-V processors with a flexible on-demand dual-core and triple-core lockstep grouping of computing cores with runtime split-lock capabilities. Further, we propose two recovery approaches, software-based and hardware-based, trading off performance and area overhead. Running at 430MHz, our fault-tolerant cluster achieves up to 1160MOPS on a matrix multiplication benchmark when configured in non-redundant mode and 617 and 414 MOPS in dual and triple mode, respectively. A software-based recovery in triple mode requires 363 clock cycles and occupies 0.612 mm2, representing a 1.3\% area overhead over a non-redundant 12-core RISC-V cluster. As a high-performance alternative, a new hardware-based method provides rapid fault recovery in just 24 clock cycles and occupies 0.660 mm2, namely ∼ 9.4\% area overhead over the baseline non-redundant RISC-V cluster. The cluster is also enhanced with split-lock capabilities to enter one of the available redundant modes with minimum performance loss, allowing execution of a mission-critical portion of code when in independent mode, or a performance section when in a reliability mode, with <400 clock cycles overhead for entry and exit. The proposed system is the first to integrate these functionalities on an open-source RISC-V-based compute device, enabling finely tunable reliability vs. performance trade-offs.},
+note = {Just Accepted},
+journal = {ACM Trans. Cyber-Phys. Syst.},
+month = {nov}
+}
+```
+
 ## On-Demand Redundancy Grouping (ODRG_unit)
 The `ODRG_unit` is designed as a configurable bridge between three ibex cores, allowing for independent operation or lock-step operation with majority voting, triggering an interrupt in case a mismatch is detected. It uses lowrisc's reggen tool to generate the required configuration registers.
 
-### Testing
-ODRG is integrated in the [PULP cluster](https://github.com/pulp-platform/pulp_cluster/tree/space_pulp) and the [PULP](https://github.com/pulp-platform/pulp/tree/space_pulp) system. To test, please use the `space_pulp` branch.
+ODRG has been superceeded by HMR, as HMR integrates all ODRG features. To simplify maintenance, only one is included. If you would like to inspect the code, please check out the tag `v0.5.1`.
 
 ### Citing
 If you are using ODRG in your academic work you can cite us:
@@ -27,7 +51,7 @@ If you are using ODRG in your academic work you can cite us:
 
 To re-generate regfile, run following command in the root directory of this repo.
 ```bash
-make gen_ODRG
+make gen_HMR
 ```
 This will generate the register file SV-code, its corresponding C-code and documentation using lowrisc's reggen tool via the pulp register-interface repository.
 
@@ -59,4 +83,4 @@ To run tests, execute the following command:
 ./run_tests.sh
 ```
 
-A bender installation >=v0.27 is required.
+A [bender](https://github.com/pulp-platform/bender) installation >=v0.27 is required.

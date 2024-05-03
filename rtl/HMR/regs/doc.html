@@ -1,0 +1,125 @@
+## Summary
+
+| Name                                          | Offset   |   Length | Description                                                          |
+|:----------------------------------------------|:---------|---------:|:---------------------------------------------------------------------|
+| HMR_registers.[`avail_config`](#avail_config) | 0x0      |        4 | Available Configurations from implemented hardware.                  |
+| HMR_registers.[`cores_en`](#cores_en)         | 0x4      |        4 | Enabled cores, based on the configuration. Can be used for barriers. |
+| HMR_registers.[`DMR_enable`](#dmr_enable)     | 0x8      |        4 | DMR configuration enable, on bit per DMR group.                      |
+| HMR_registers.[`TMR_enable`](#tmr_enable)     | 0xc      |        4 | TMR configuration enable, one bit per TMR group.                     |
+| HMR_registers.[`DMR_config`](#dmr_config)     | 0x10     |        4 | DMR configuration bits.                                              |
+| HMR_registers.[`TMR_config`](#tmr_config)     | 0x14     |        4 | TMR configuration bits.                                              |
+
+## avail_config
+Available Configurations from implemented hardware.
+- Offset: `0x0`
+- Reset default: `0x0`
+- Reset mask: `0x107`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "independent", "bits": 1, "attr": ["ro"], "rotate": -90}, {"name": "dual", "bits": 1, "attr": ["ro"], "rotate": -90}, {"name": "triple", "bits": 1, "attr": ["ro"], "rotate": -90}, {"bits": 5}, {"name": "rapid_recovery", "bits": 1, "attr": ["ro"], "rotate": -90}, {"bits": 23}], "config": {"lanes": 1, "fontsize": 10, "vspace": 160}}
+```
+
+|  Bits  |  Type  |  Reset  | Name           | Description                                   |
+|:------:|:------:|:-------:|:---------------|:----------------------------------------------|
+|  31:9  |        |         |                | Reserved                                      |
+|   8    |   ro   |    x    | rapid_recovery | Rapid Recovery is available.                  |
+|  7:3   |        |         |                | Reserved                                      |
+|   2    |   ro   |    x    | triple         | Triple Modular Redundancy (TMR) is available. |
+|   1    |   ro   |    x    | dual           | Dual Modular Redundancy (DMR) is available.   |
+|   0    |   ro   |    x    | independent    | Independent mode is available.                |
+
+## cores_en
+Enabled cores, based on the configuration. Can be used for barriers.
+- Offset: `0x4`
+- Reset default: `0x0`
+- Reset mask: `0xfff`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "cores_en", "bits": 12, "attr": ["ro"], "rotate": 0}, {"bits": 20}], "config": {"lanes": 1, "fontsize": 10, "vspace": 80}}
+```
+
+|  Bits  |  Type  |  Reset  | Name     | Description    |
+|:------:|:------:|:-------:|:---------|:---------------|
+| 31:12  |        |         |          | Reserved       |
+|  11:0  |   ro   |    x    | cores_en | Enabled cores. |
+
+## DMR_enable
+DMR configuration enable, on bit per DMR group.
+- Offset: `0x8`
+- Reset default: `0x0`
+- Reset mask: `0x3f`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "DMR_enable", "bits": 6, "attr": ["rw"], "rotate": 0}, {"bits": 26}], "config": {"lanes": 1, "fontsize": 10, "vspace": 80}}
+```
+
+|  Bits  |  Type  |  Reset  | Name       | Description               |
+|:------:|:------:|:-------:|:-----------|:--------------------------|
+|  31:6  |        |         |            | Reserved                  |
+|  5:0   |   rw   |   0x0   | DMR_enable | DMR configuration enable. |
+
+## TMR_enable
+TMR configuration enable, one bit per TMR group.
+- Offset: `0xc`
+- Reset default: `0x0`
+- Reset mask: `0xf`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "TMR_enable", "bits": 4, "attr": ["rw"], "rotate": -90}, {"bits": 28}], "config": {"lanes": 1, "fontsize": 10, "vspace": 120}}
+```
+
+|  Bits  |  Type  |  Reset  | Name       | Description               |
+|:------:|:------:|:-------:|:-----------|:--------------------------|
+|  31:4  |        |         |            | Reserved                  |
+|  3:0   |   rw   |   0x0   | TMR_enable | TMR configuration enable. |
+
+## DMR_config
+DMR configuration bits.
+- Offset: `0x10`
+- Reset default: `0xc`
+- Reset mask: `0xf`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "rapid_recovery", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "force_recovery", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "setback", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "synch_req", "bits": 1, "attr": ["rw"], "rotate": -90}, {"bits": 28}], "config": {"lanes": 1, "fontsize": 10, "vspace": 160}}
+```
+
+|  Bits  |  Type  |  Reset  | Name           | Description                                                     |
+|:------:|:------:|:-------:|:---------------|:----------------------------------------------------------------|
+|  31:4  |        |         |                | Reserved                                                        |
+|   3    |   rw   |   0x1   | synch_req      | Sends synchronization IRQ if core is requesting synch           |
+|   2    |   rw   |   0x1   | setback        | Enable setback (synchronous reset) during re-synch. REQUIRED 1! |
+|   1    |   rw   |    x    | force_recovery | Forces recovery routine (if rapid_recovery is available).       |
+|   0    |   rw   |    x    | rapid_recovery | Enable rapid recovery using an additional register file.        |
+
+## TMR_config
+TMR configuration bits.
+- Offset: `0x14`
+- Reset default: `0x26`
+- Reset mask: `0x3f`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "delay_resynch", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "setback", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "reload_setback", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "rapid_recovery", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "force_resynch", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "synch_req", "bits": 1, "attr": ["rw"], "rotate": -90}, {"bits": 26}], "config": {"lanes": 1, "fontsize": 10, "vspace": 160}}
+```
+
+|  Bits  |  Type  |  Reset  | Name           | Description                                                                                 |
+|:------:|:------:|:-------:|:---------------|:--------------------------------------------------------------------------------------------|
+|  31:6  |        |         |                | Reserved                                                                                    |
+|   5    |   rw   |   0x1   | synch_req      | Sends synchronization IRQ if core is requesting synch                                       |
+|   4    |   rw   |   0x0   | force_resynch  | Forces a resynchronization routine                                                          |
+|   3    |   rw   |    x    | rapid_recovery | Enable rapid recovery using additional register file.                                       |
+|   2    |   rw   |   0x1   | reload_setback | Enable setback on mismatch during reload section of re-synch (only possible with `setback`) |
+|   1    |   rw   |   0x1   | setback        | Enable setback (synchronous reset) during re-synch.                                         |
+|   0    |   rw   |   0x0   | delay_resynch  | Enable wait-for-restoration                                                                 |
+
