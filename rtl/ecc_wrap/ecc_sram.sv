@@ -18,9 +18,10 @@ module ecc_sram #(
                                                 // 1: SECDED on input
   parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
+  parameter  int unsigned ByteWidth        = 8,
   // Set params
   localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
-  localparam int unsigned ByteEnWidth      = UnprotectedWidth/8,
+  localparam int unsigned ByteEnWidth      = UnprotectedWidth/ByteWidth,
   localparam int unsigned BankAddrWidth    = $clog2(NumWords)
 ) (
   input  logic                     clk_i,
@@ -90,8 +91,9 @@ module ecc_sram #(
   logic [  ByteEnWidth-1:0] be_buffer_d,    be_buffer_q;
 
   logic [UnprotectedWidth-1:0] be_selector;
-  assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
-                           {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+  for (genvar i = 0; i < ByteEnWidth; i++) begin : gen_be_sel
+    assign be_selector [i*ByteWidth +: ByteWidth] = {ByteWidth{be_buffer_q[i]}};
+  end
 
   logic [ProtectedWidth-1:0] rmw_buffer_end;
   logic [ProtectedWidth-1:0] rmw_buffer_0;
