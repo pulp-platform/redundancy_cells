@@ -24,60 +24,12 @@ sources:
     # Level 1
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
-
-  - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
-    files:
-      - rtl/ecc_concat_32_64.sv
-      - rtl/lowrisc_ecc/prim_secded_pkg.sv
-      - rtl/lowrisc_ecc/prim_secded_13_8_cor.sv
-      - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
-      - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
-      - rtl/lowrisc_ecc/prim_secded_22_16_cor.sv
-      - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
-      - rtl/lowrisc_ecc/prim_secded_22_16_enc.sv
-      - rtl/lowrisc_ecc/prim_secded_39_32_cor.sv
-      - rtl/lowrisc_ecc/prim_secded_39_32_dec.sv
-      - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
-      - rtl/lowrisc_ecc/prim_secded_72_64_cor.sv
-      - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
-      - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
-
-  - target: axi_ecc # custom ECC for PULP AXI IPs, make sure to include interface IPs when adding this target
-    files:
-      - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
-      - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
-  - target: hci_ecc # custom ECC for PULP HCI IPs, make sure to include interface IPs when adding this target
-    files:
-      - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
-      - rtl/BUS_enc_dec/hci_core_intf_ecc_enc.sv
-      - rtl/BUS_enc_dec/hci_mem_intf_ecc_dec.sv
-      - rtl/BUS_enc_dec/hci_mem_intf_ecc_enc.sv
-  - target: pulp_ecc # custom ECC for PULP (pulp_soc) interface IPs, make sure to include interface IPs when adding this target
-    files:
-      - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_dec.sv
-      - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_enc.sv
-      - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_dec.sv
-      - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
-      - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
-      - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
   - rtl/ecc_wrap/ecc_manager.sv
-  - target: deprecated
-    files:
-      - rtl/ecc_wrap/ecc_sram_wrap.sv
   - rtl/ecc_wrap/ecc_sram.sv
     # Level 3
-  - target: test
-    files:
-      - test/tb_ecc_scrubber.sv
-      - test/tb_ecc_secded.sv
-      - test/tb_ecc_sram.sv
-      - test/tb_tmr_voter.sv
-      - test/tb_tmr_voter_detect.sv
-      - test/tb_tmr_word_voter.sv
-      - test/tb_bitwise_tmr_voter.sv
 
   - files:
       - rtl/HMR/hmr_pkg.sv
@@ -105,6 +57,50 @@ sources:
       - rtl/HMR/hmr_unit.sv
       - rtl/HMR/hmr_rr_wrapper.sv
 
+  - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
+    files:
+      - rtl/deprecated/ecc_concat_32_64.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_pkg.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_13_8_cor.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_13_8_dec.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_13_8_enc.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_22_16_cor.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_22_16_dec.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_22_16_enc.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_39_32_cor.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_39_32_dec.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_39_32_enc.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_72_64_cor.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_72_64_dec.sv
+      - rtl/deprecated/lowrisc_ecc/prim_secded_72_64_enc.sv
+
+  # custom ECC for PULP AXI IPs, make sure to include interface IPs when adding this target
+  - target: axi_ecc
+    files:
+      - rtl/BUS_enc_dec/AXI_bus_ecc_dec.sv
+      - rtl/BUS_enc_dec/AXI_bus_ecc_enc.sv
+  # custom ECC for PULP HCI IPs, make sure to include interface IPs when adding this target
+  - target: hci_ecc
+    files:
+      - rtl/BUS_enc_dec/hci_core_intf_ecc_dec.sv
+      - rtl/BUS_enc_dec/hci_core_intf_ecc_enc.sv
+      - rtl/BUS_enc_dec/hci_mem_intf_ecc_dec.sv
+      - rtl/BUS_enc_dec/hci_mem_intf_ecc_enc.sv
+
+  # custom ECC for PULP (pulp_soc) interface IPs, make sure to include interface IPs when adding this target
+  - target: pulp_ecc
+    files:
+      - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_dec.sv
+      - rtl/BUS_enc_dec/PE_XBAR_bus_ecc_enc.sv
+      - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_dec.sv
+      - rtl/BUS_enc_dec/TCDM_XBAR_bus_ecc_enc.sv
+      - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv
+      - rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv
+
+  - target: deprecated
+    files:
+      - rtl/deprecated/ecc_sram_wrap.sv
+
   - target: any(deprecated, ODRG)
     include_dirs:
       - rtl/deprecated/ODRG_unit
@@ -127,11 +123,21 @@ sources:
       - rtl/HMR/rapid_recovery/DMR_address_generator.sv
       - rtl/deprecated/HMR_wrap.sv
 
+  - target: test
+    files:
+      - test/tb_ecc_scrubber.sv
+      - test/tb_ecc_secded.sv
+      - test/tb_ecc_sram.sv
+      - test/tb_tmr_voter.sv
+      - test/tb_tmr_voter_detect.sv
+      - test/tb_tmr_word_voter.sv
+      - test/tb_bitwise_tmr_voter.sv
+
 vendor_package:
   - name: lowrisc_opentitan
-    target_dir: "util/lowrisc_opentitan"
+    target_dir: "rtl/deprecated/util/lowrisc_opentitan"
     upstream: { git: "https://github.com/lowRISC/opentitan.git", rev: "cfcfbce85e182c127b8c4be5cd8bf531e0a4d927" }
-    patch_dir: "util/patches"
+    patch_dir: "rtl/deprecated/util/patches"
     mapping:
       - {from: 'util/design/secded_gen.py', to: 'util/design/secded_gen.py', patch_dir: 'lowrisc_secded_gen'}
       - {from: 'util/design/data/', to: 'util/design/data/', patch_dir: 'lowrisc_data_dir'}

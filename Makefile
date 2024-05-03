@@ -97,10 +97,6 @@ gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) -d > $(TARGET_DIR_ECC)/doc.md
 	python $(REG_TOOL) $(HJSON_ECC) -D > $(TARGET_DIR_ECC)/ECC.h
 
-gen_ECC:
-	$(BENDER) vendor init
-	cd util/lowrisc_opentitan && ./util/design/secded_gen.py --no_fpv --outdir ../../rtl/lowrisc_ecc
-
 bender:
 ifeq (,$(wildcard ./bender))
 	curl --proto '=https' --tlsv1.2 -sSf https://pulp-platform.github.io/bender/init \
@@ -128,3 +124,7 @@ gen_TCLS:
 	python $(REG_TOOL) $(HJSON_TCLS) -t $(TARGET_DIR_TCLS) -r
 	python $(REG_TOOL) $(HJSON_TCLS) -d > $(TARGET_DIR_TCLS)/doc.md
 	python $(REG_TOOL) $(HJSON_TCLS) -D > $(TARGET_DIR_TCLS)/TCLS.h
+
+gen_ECC:
+	$(BENDER) vendor init
+	cd rtl/deprecated/util/lowrisc_opentitan && ./util/design/secded_gen.py --no_fpv --outdir ../../lowrisc_ecc
