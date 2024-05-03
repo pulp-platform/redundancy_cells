@@ -85,6 +85,7 @@ module tb_ecc_secded #(
     repeat(1)
       for (int i = 0; i < RunCycles; i++) begin
         automatic stimuli_t stimuli = new;
+        automatic result_t result;
 
         // Activate constraints
         stimuli.no_error.constraint_mode(1);
@@ -94,10 +95,11 @@ module tb_ecc_secded #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in,
+          result = '{out: stimuli.in,
                                    syndrome: {ProtectBits{1'b0}}, error: 2'b00,
                                    syndrome_corrector: {ProtectBits{1'b0}}, error_corrector: 2'b00,
-                                   syndrome_corrector_decoder: {ProtectBits{1'b0}}, error_correcter_decoder: 2'b00});
+                                   syndrome_corrector_decoder: {ProtectBits{1'b0}}, error_correcter_decoder: 2'b00};
+          golden_queue.push_back(result);
         end else begin
           $error("Could not randomize.");
         end
@@ -107,6 +109,7 @@ module tb_ecc_secded #(
     repeat(1)
       for (int i = 0; i < RunCycles; i++) begin
         automatic stimuli_t stimuli = new;
+        automatic result_t result;
 
         // Activate constraints
         stimuli.no_error.constraint_mode(0);
@@ -116,10 +119,11 @@ module tb_ecc_secded #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: stimuli.in,
+          result = '{out: stimuli.in,
                                    syndrome: {ProtectBits{1'b?}}, error: 2'b01,
                                    syndrome_corrector: {ProtectBits{1'b?}}, error_corrector: 2'b01,
-                                   syndrome_corrector_decoder: {ProtectBits{1'b0}}, error_correcter_decoder: 2'b00});
+                                   syndrome_corrector_decoder: {ProtectBits{1'b0}}, error_correcter_decoder: 2'b00};
+          golden_queue.push_back(result);
         end else begin
           $error("Could not randomize.");
         end
@@ -129,6 +133,7 @@ module tb_ecc_secded #(
     repeat(1)
       for (int i = 0; i < RunCycles; i++) begin
         automatic stimuli_t stimuli = new;
+        automatic result_t result;
 
         // Activate constraints
         stimuli.no_error.constraint_mode(0);
@@ -138,10 +143,11 @@ module tb_ecc_secded #(
         // Randomize
         if (stimuli.randomize()) begin
           stimuli_queue.push_back(stimuli);
-          golden_queue.push_back('{out: {DataWidth{1'b?}},
+          result = '{out: {DataWidth{1'b?}},
                                    syndrome: {ProtectBits{1'b?}}, error: 2'b10,
                                    syndrome_corrector: {ProtectBits{1'b?}}, error_corrector: 2'b10,
-                                   syndrome_corrector_decoder: {ProtectBits{1'b?}}, error_correcter_decoder: 2'b??});
+                                   syndrome_corrector_decoder: {ProtectBits{1'b?}}, error_correcter_decoder: 2'b??};
+          golden_queue.push_back(result);
         end else begin
           $error("Could not randomize.");
         end
@@ -238,13 +244,15 @@ module tb_ecc_secded #(
   result_t result_queue [$];
 
   function automatic void collect_result;
-    result_queue.push_back('{out: out,
+    automatic result_t result;
+    result = '{out: out,
                              syndrome: syndrome,
                              error: error,
                              syndrome_corrector: syndrome_corrector,
                              error_corrector: error_corrector,
                              syndrome_corrector_decoder: syndrome_corrector_decoder,
-                             error_correcter_decoder: error_correcter_decoder});
+                             error_correcter_decoder: error_correcter_decoder};
+    result_queue.push_back(result);
   endfunction: collect_result
 
   task automatic check_result;

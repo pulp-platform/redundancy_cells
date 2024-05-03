@@ -10,6 +10,8 @@
 //
 // Adapts bus to sram adding ecc bits
 
+// DEPRECATED!
+
 module ecc_sram_wrap #(
   parameter  int unsigned BankSize         = 256,
   parameter  bit          InputECC         = 0, // 0: no ECC on input
@@ -44,6 +46,8 @@ module ecc_sram_wrap #(
 
   input  logic [ProtectedWidth-1:0] test_write_mask_ni // Tie to '0 if unused!!!
 );
+
+  $warning("The `ecc_sram_wrap` module has been deprecated, please use the `ecc_sram` instead.");
 
   logic [1:0]                    ecc_error;
   logic                          valid_read_d, valid_read_q;
