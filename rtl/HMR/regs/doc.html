@@ -1,102 +1,125 @@
-<table class="regdef" id="Reg_avail_config">
- <tr>
-  <th class="regdef" colspan=5>
-   <div>HMR_registers.avail_config @ 0x0</div>
-   <div><p>Available Configurations from implemented hardware.</p></div>
-   <div>Reset default = 0x0, mask 0x107</div>
-  </th>
- </tr>
-<tr><td colspan=5><table class="regpic"><tr><td class="bitnum">31</td><td class="bitnum">30</td><td class="bitnum">29</td><td class="bitnum">28</td><td class="bitnum">27</td><td class="bitnum">26</td><td class="bitnum">25</td><td class="bitnum">24</td><td class="bitnum">23</td><td class="bitnum">22</td><td class="bitnum">21</td><td class="bitnum">20</td><td class="bitnum">19</td><td class="bitnum">18</td><td class="bitnum">17</td><td class="bitnum">16</td></tr><tr><td class="unused" colspan=16>&nbsp;</td>
-</tr>
-<tr><td class="bitnum">15</td><td class="bitnum">14</td><td class="bitnum">13</td><td class="bitnum">12</td><td class="bitnum">11</td><td class="bitnum">10</td><td class="bitnum">9</td><td class="bitnum">8</td><td class="bitnum">7</td><td class="bitnum">6</td><td class="bitnum">5</td><td class="bitnum">4</td><td class="bitnum">3</td><td class="bitnum">2</td><td class="bitnum">1</td><td class="bitnum">0</td></tr><tr><td class="unused" colspan=7>&nbsp;</td>
-<td class="fname" colspan=1 style="font-size:21.428571428571427%">rapid_recovery</td>
-<td class="unused" colspan=5>&nbsp;</td>
-<td class="fname" colspan=1 style="font-size:50.0%">triple</td>
-<td class="fname" colspan=1 style="font-size:75.0%">dual</td>
-<td class="fname" colspan=1 style="font-size:27.272727272727273%">independent</td>
-</tr></table></td></tr>
-<tr><th width=5%>Bits</th><th width=5%>Type</th><th width=5%>Reset</th><th>Name</th><th>Description</th></tr><tr><td class="regbits">0</td><td class="regperm">ro</td><td class="regrv">x</td><td class="regfn">independent</td><td class="regde"><p>Independent mode is available.</p></td><tr><td class="regbits">1</td><td class="regperm">ro</td><td class="regrv">x</td><td class="regfn">dual</td><td class="regde"><p>Dual Modular Redundancy (DMR) is available.</p></td><tr><td class="regbits">2</td><td class="regperm">ro</td><td class="regrv">x</td><td class="regfn">triple</td><td class="regde"><p>Triple Modular Redundancy (TMR) is available.</p></td><tr><td class="regbits">7:3</td><td></td><td></td><td></td><td>Reserved</td></tr><tr><td class="regbits">8</td><td class="regperm">ro</td><td class="regrv">x</td><td class="regfn">rapid_recovery</td><td class="regde"><p>Rapid Recovery is available.</p></td></table>
-<br>
-<table class="regdef" id="Reg_cores_en">
- <tr>
-  <th class="regdef" colspan=5>
-   <div>HMR_registers.cores_en @ 0x4</div>
-   <div><p>Enabled cores, based on the configuration. Can be used for barriers.</p></div>
-   <div>Reset default = 0x0, mask 0xfff</div>
-  </th>
- </tr>
-<tr><td colspan=5><table class="regpic"><tr><td class="bitnum">31</td><td class="bitnum">30</td><td class="bitnum">29</td><td class="bitnum">28</td><td class="bitnum">27</td><td class="bitnum">26</td><td class="bitnum">25</td><td class="bitnum">24</td><td class="bitnum">23</td><td class="bitnum">22</td><td class="bitnum">21</td><td class="bitnum">20</td><td class="bitnum">19</td><td class="bitnum">18</td><td class="bitnum">17</td><td class="bitnum">16</td></tr><tr><td class="unused" colspan=16>&nbsp;</td>
-</tr>
-<tr><td class="bitnum">15</td><td class="bitnum">14</td><td class="bitnum">13</td><td class="bitnum">12</td><td class="bitnum">11</td><td class="bitnum">10</td><td class="bitnum">9</td><td class="bitnum">8</td><td class="bitnum">7</td><td class="bitnum">6</td><td class="bitnum">5</td><td class="bitnum">4</td><td class="bitnum">3</td><td class="bitnum">2</td><td class="bitnum">1</td><td class="bitnum">0</td></tr><tr><td class="unused" colspan=4>&nbsp;</td>
-<td class="fname" colspan=12>cores_en</td>
-</tr></table></td></tr>
-<tr><th width=5%>Bits</th><th width=5%>Type</th><th width=5%>Reset</th><th>Name</th><th>Description</th></tr><tr><td class="regbits">11:0</td><td class="regperm">ro</td><td class="regrv">x</td><td class="regfn">cores_en</td><td class="regde"><p>Enabled cores.</p></td></table>
-<br>
-<table class="regdef" id="Reg_dmr_enable">
- <tr>
-  <th class="regdef" colspan=5>
-   <div>HMR_registers.DMR_enable @ 0x8</div>
-   <div><p>DMR configuration enable, on bit per DMR group.</p></div>
-   <div>Reset default = 0x0, mask 0x3f</div>
-  </th>
- </tr>
-<tr><td colspan=5><table class="regpic"><tr><td class="bitnum">31</td><td class="bitnum">30</td><td class="bitnum">29</td><td class="bitnum">28</td><td class="bitnum">27</td><td class="bitnum">26</td><td class="bitnum">25</td><td class="bitnum">24</td><td class="bitnum">23</td><td class="bitnum">22</td><td class="bitnum">21</td><td class="bitnum">20</td><td class="bitnum">19</td><td class="bitnum">18</td><td class="bitnum">17</td><td class="bitnum">16</td></tr><tr><td class="unused" colspan=16>&nbsp;</td>
-</tr>
-<tr><td class="bitnum">15</td><td class="bitnum">14</td><td class="bitnum">13</td><td class="bitnum">12</td><td class="bitnum">11</td><td class="bitnum">10</td><td class="bitnum">9</td><td class="bitnum">8</td><td class="bitnum">7</td><td class="bitnum">6</td><td class="bitnum">5</td><td class="bitnum">4</td><td class="bitnum">3</td><td class="bitnum">2</td><td class="bitnum">1</td><td class="bitnum">0</td></tr><tr><td class="unused" colspan=10>&nbsp;</td>
-<td class="fname" colspan=6>DMR_enable</td>
-</tr></table></td></tr>
-<tr><th width=5%>Bits</th><th width=5%>Type</th><th width=5%>Reset</th><th>Name</th><th>Description</th></tr><tr><td class="regbits">5:0</td><td class="regperm">rw</td><td class="regrv">0x0</td><td class="regfn">DMR_enable</td><td class="regde"><p>DMR configuration enable.</p></td></table>
-<br>
-<table class="regdef" id="Reg_tmr_enable">
- <tr>
-  <th class="regdef" colspan=5>
-   <div>HMR_registers.TMR_enable @ 0xc</div>
-   <div><p>TMR configuration enable, one bit per TMR group.</p></div>
-   <div>Reset default = 0x0, mask 0xf</div>
-  </th>
- </tr>
-<tr><td colspan=5><table class="regpic"><tr><td class="bitnum">31</td><td class="bitnum">30</td><td class="bitnum">29</td><td class="bitnum">28</td><td class="bitnum">27</td><td class="bitnum">26</td><td class="bitnum">25</td><td class="bitnum">24</td><td class="bitnum">23</td><td class="bitnum">22</td><td class="bitnum">21</td><td class="bitnum">20</td><td class="bitnum">19</td><td class="bitnum">18</td><td class="bitnum">17</td><td class="bitnum">16</td></tr><tr><td class="unused" colspan=16>&nbsp;</td>
-</tr>
-<tr><td class="bitnum">15</td><td class="bitnum">14</td><td class="bitnum">13</td><td class="bitnum">12</td><td class="bitnum">11</td><td class="bitnum">10</td><td class="bitnum">9</td><td class="bitnum">8</td><td class="bitnum">7</td><td class="bitnum">6</td><td class="bitnum">5</td><td class="bitnum">4</td><td class="bitnum">3</td><td class="bitnum">2</td><td class="bitnum">1</td><td class="bitnum">0</td></tr><tr><td class="unused" colspan=12>&nbsp;</td>
-<td class="fname" colspan=4>TMR_enable</td>
-</tr></table></td></tr>
-<tr><th width=5%>Bits</th><th width=5%>Type</th><th width=5%>Reset</th><th>Name</th><th>Description</th></tr><tr><td class="regbits">3:0</td><td class="regperm">rw</td><td class="regrv">0x0</td><td class="regfn">TMR_enable</td><td class="regde"><p>TMR configuration enable.</p></td></table>
-<br>
-<table class="regdef" id="Reg_dmr_config">
- <tr>
-  <th class="regdef" colspan=5>
-   <div>HMR_registers.DMR_config @ 0x10</div>
-   <div><p>DMR configuration bits.</p></div>
-   <div>Reset default = 0xc, mask 0xf</div>
-  </th>
- </tr>
-<tr><td colspan=5><table class="regpic"><tr><td class="bitnum">31</td><td class="bitnum">30</td><td class="bitnum">29</td><td class="bitnum">28</td><td class="bitnum">27</td><td class="bitnum">26</td><td class="bitnum">25</td><td class="bitnum">24</td><td class="bitnum">23</td><td class="bitnum">22</td><td class="bitnum">21</td><td class="bitnum">20</td><td class="bitnum">19</td><td class="bitnum">18</td><td class="bitnum">17</td><td class="bitnum">16</td></tr><tr><td class="unused" colspan=16>&nbsp;</td>
-</tr>
-<tr><td class="bitnum">15</td><td class="bitnum">14</td><td class="bitnum">13</td><td class="bitnum">12</td><td class="bitnum">11</td><td class="bitnum">10</td><td class="bitnum">9</td><td class="bitnum">8</td><td class="bitnum">7</td><td class="bitnum">6</td><td class="bitnum">5</td><td class="bitnum">4</td><td class="bitnum">3</td><td class="bitnum">2</td><td class="bitnum">1</td><td class="bitnum">0</td></tr><tr><td class="unused" colspan=12>&nbsp;</td>
-<td class="fname" colspan=1 style="font-size:33.333333333333336%">synch_req</td>
-<td class="fname" colspan=1 style="font-size:42.857142857142854%">setback</td>
-<td class="fname" colspan=1 style="font-size:21.428571428571427%">force_recovery</td>
-<td class="fname" colspan=1 style="font-size:21.428571428571427%">rapid_recovery</td>
-</tr></table></td></tr>
-<tr><th width=5%>Bits</th><th width=5%>Type</th><th width=5%>Reset</th><th>Name</th><th>Description</th></tr><tr><td class="regbits">0</td><td class="regperm">rw</td><td class="regrv">x</td><td class="regfn">rapid_recovery</td><td class="regde"><p>Enable rapid recovery using an additional register file.</p></td><tr><td class="regbits">1</td><td class="regperm">rw</td><td class="regrv">x</td><td class="regfn">force_recovery</td><td class="regde"><p>Forces recovery routine (if rapid_recovery is available).</p></td><tr><td class="regbits">2</td><td class="regperm">rw</td><td class="regrv">0x1</td><td class="regfn">setback</td><td class="regde"><p>Enable setback (synchronous reset) during re-synch. REQUIRED 1!</p></td><tr><td class="regbits">3</td><td class="regperm">rw</td><td class="regrv">0x1</td><td class="regfn">synch_req</td><td class="regde"><p>Sends synchronization IRQ if core is requesting synch</p></td></table>
-<br>
-<table class="regdef" id="Reg_tmr_config">
- <tr>
-  <th class="regdef" colspan=5>
-   <div>HMR_registers.TMR_config @ 0x14</div>
-   <div><p>TMR configuration bits.</p></div>
-   <div>Reset default = 0x26, mask 0x3f</div>
-  </th>
- </tr>
-<tr><td colspan=5><table class="regpic"><tr><td class="bitnum">31</td><td class="bitnum">30</td><td class="bitnum">29</td><td class="bitnum">28</td><td class="bitnum">27</td><td class="bitnum">26</td><td class="bitnum">25</td><td class="bitnum">24</td><td class="bitnum">23</td><td class="bitnum">22</td><td class="bitnum">21</td><td class="bitnum">20</td><td class="bitnum">19</td><td class="bitnum">18</td><td class="bitnum">17</td><td class="bitnum">16</td></tr><tr><td class="unused" colspan=16>&nbsp;</td>
-</tr>
-<tr><td class="bitnum">15</td><td class="bitnum">14</td><td class="bitnum">13</td><td class="bitnum">12</td><td class="bitnum">11</td><td class="bitnum">10</td><td class="bitnum">9</td><td class="bitnum">8</td><td class="bitnum">7</td><td class="bitnum">6</td><td class="bitnum">5</td><td class="bitnum">4</td><td class="bitnum">3</td><td class="bitnum">2</td><td class="bitnum">1</td><td class="bitnum">0</td></tr><tr><td class="unused" colspan=10>&nbsp;</td>
-<td class="fname" colspan=1 style="font-size:33.333333333333336%">synch_req</td>
-<td class="fname" colspan=1 style="font-size:23.076923076923077%">force_resynch</td>
-<td class="fname" colspan=1 style="font-size:21.428571428571427%">rapid_recovery</td>
-<td class="fname" colspan=1 style="font-size:21.428571428571427%">reload_setback</td>
-<td class="fname" colspan=1 style="font-size:42.857142857142854%">setback</td>
-<td class="fname" colspan=1 style="font-size:23.076923076923077%">delay_resynch</td>
-</tr></table></td></tr>
-<tr><th width=5%>Bits</th><th width=5%>Type</th><th width=5%>Reset</th><th>Name</th><th>Description</th></tr><tr><td class="regbits">0</td><td class="regperm">rw</td><td class="regrv">0x0</td><td class="regfn">delay_resynch</td><td class="regde"><p>Enable wait-for-restoration</p></td><tr><td class="regbits">1</td><td class="regperm">rw</td><td class="regrv">0x1</td><td class="regfn">setback</td><td class="regde"><p>Enable setback (synchronous reset) during re-synch.</p></td><tr><td class="regbits">2</td><td class="regperm">rw</td><td class="regrv">0x1</td><td class="regfn">reload_setback</td><td class="regde"><p>Enable setback on mismatch during reload section of re-synch (only possible with <code>setback</code>)</p></td><tr><td class="regbits">3</td><td class="regperm">rw</td><td class="regrv">x</td><td class="regfn">rapid_recovery</td><td class="regde"><p>Enable rapid recovery using additional register file.</p></td><tr><td class="regbits">4</td><td class="regperm">rw</td><td class="regrv">0x0</td><td class="regfn">force_resynch</td><td class="regde"><p>Forces a resynchronization routine</p></td><tr><td class="regbits">5</td><td class="regperm">rw</td><td class="regrv">0x1</td><td class="regfn">synch_req</td><td class="regde"><p>Sends synchronization IRQ if core is requesting synch</p></td></table>
-<br>
+## Summary
+
+| Name                                          | Offset   |   Length | Description                                                          |
+|:----------------------------------------------|:---------|---------:|:---------------------------------------------------------------------|
+| HMR_registers.[`avail_config`](#avail_config) | 0x0      |        4 | Available Configurations from implemented hardware.                  |
+| HMR_registers.[`cores_en`](#cores_en)         | 0x4      |        4 | Enabled cores, based on the configuration. Can be used for barriers. |
+| HMR_registers.[`DMR_enable`](#dmr_enable)     | 0x8      |        4 | DMR configuration enable, on bit per DMR group.                      |
+| HMR_registers.[`TMR_enable`](#tmr_enable)     | 0xc      |        4 | TMR configuration enable, one bit per TMR group.                     |
+| HMR_registers.[`DMR_config`](#dmr_config)     | 0x10     |        4 | DMR configuration bits.                                              |
+| HMR_registers.[`TMR_config`](#tmr_config)     | 0x14     |        4 | TMR configuration bits.                                              |
+
+## avail_config
+Available Configurations from implemented hardware.
+- Offset: `0x0`
+- Reset default: `0x0`
+- Reset mask: `0x107`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "independent", "bits": 1, "attr": ["ro"], "rotate": -90}, {"name": "dual", "bits": 1, "attr": ["ro"], "rotate": -90}, {"name": "triple", "bits": 1, "attr": ["ro"], "rotate": -90}, {"bits": 5}, {"name": "rapid_recovery", "bits": 1, "attr": ["ro"], "rotate": -90}, {"bits": 23}], "config": {"lanes": 1, "fontsize": 10, "vspace": 160}}
+```
+
+|  Bits  |  Type  |  Reset  | Name           | Description                                   |
+|:------:|:------:|:-------:|:---------------|:----------------------------------------------|
+|  31:9  |        |         |                | Reserved                                      |
+|   8    |   ro   |    x    | rapid_recovery | Rapid Recovery is available.                  |
+|  7:3   |        |         |                | Reserved                                      |
+|   2    |   ro   |    x    | triple         | Triple Modular Redundancy (TMR) is available. |
+|   1    |   ro   |    x    | dual           | Dual Modular Redundancy (DMR) is available.   |
+|   0    |   ro   |    x    | independent    | Independent mode is available.                |
+
+## cores_en
+Enabled cores, based on the configuration. Can be used for barriers.
+- Offset: `0x4`
+- Reset default: `0x0`
+- Reset mask: `0xfff`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "cores_en", "bits": 12, "attr": ["ro"], "rotate": 0}, {"bits": 20}], "config": {"lanes": 1, "fontsize": 10, "vspace": 80}}
+```
+
+|  Bits  |  Type  |  Reset  | Name     | Description    |
+|:------:|:------:|:-------:|:---------|:---------------|
+| 31:12  |        |         |          | Reserved       |
+|  11:0  |   ro   |    x    | cores_en | Enabled cores. |
+
+## DMR_enable
+DMR configuration enable, on bit per DMR group.
+- Offset: `0x8`
+- Reset default: `0x0`
+- Reset mask: `0x3f`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "DMR_enable", "bits": 6, "attr": ["rw"], "rotate": 0}, {"bits": 26}], "config": {"lanes": 1, "fontsize": 10, "vspace": 80}}
+```
+
+|  Bits  |  Type  |  Reset  | Name       | Description               |
+|:------:|:------:|:-------:|:-----------|:--------------------------|
+|  31:6  |        |         |            | Reserved                  |
+|  5:0   |   rw   |   0x0   | DMR_enable | DMR configuration enable. |
+
+## TMR_enable
+TMR configuration enable, one bit per TMR group.
+- Offset: `0xc`
+- Reset default: `0x0`
+- Reset mask: `0xf`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "TMR_enable", "bits": 4, "attr": ["rw"], "rotate": -90}, {"bits": 28}], "config": {"lanes": 1, "fontsize": 10, "vspace": 120}}
+```
+
+|  Bits  |  Type  |  Reset  | Name       | Description               |
+|:------:|:------:|:-------:|:-----------|:--------------------------|
+|  31:4  |        |         |            | Reserved                  |
+|  3:0   |   rw   |   0x0   | TMR_enable | TMR configuration enable. |
+
+## DMR_config
+DMR configuration bits.
+- Offset: `0x10`
+- Reset default: `0xc`
+- Reset mask: `0xf`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "rapid_recovery", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "force_recovery", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "setback", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "synch_req", "bits": 1, "attr": ["rw"], "rotate": -90}, {"bits": 28}], "config": {"lanes": 1, "fontsize": 10, "vspace": 160}}
+```
+
+|  Bits  |  Type  |  Reset  | Name           | Description                                                     |
+|:------:|:------:|:-------:|:---------------|:----------------------------------------------------------------|
+|  31:4  |        |         |                | Reserved                                                        |
+|   3    |   rw   |   0x1   | synch_req      | Sends synchronization IRQ if core is requesting synch           |
+|   2    |   rw   |   0x1   | setback        | Enable setback (synchronous reset) during re-synch. REQUIRED 1! |
+|   1    |   rw   |    x    | force_recovery | Forces recovery routine (if rapid_recovery is available).       |
+|   0    |   rw   |    x    | rapid_recovery | Enable rapid recovery using an additional register file.        |
+
+## TMR_config
+TMR configuration bits.
+- Offset: `0x14`
+- Reset default: `0x26`
+- Reset mask: `0x3f`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "delay_resynch", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "setback", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "reload_setback", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "rapid_recovery", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "force_resynch", "bits": 1, "attr": ["rw"], "rotate": -90}, {"name": "synch_req", "bits": 1, "attr": ["rw"], "rotate": -90}, {"bits": 26}], "config": {"lanes": 1, "fontsize": 10, "vspace": 160}}
+```
+
+|  Bits  |  Type  |  Reset  | Name           | Description                                                                                 |
+|:------:|:------:|:-------:|:---------------|:--------------------------------------------------------------------------------------------|
+|  31:6  |        |         |                | Reserved                                                                                    |
+|   5    |   rw   |   0x1   | synch_req      | Sends synchronization IRQ if core is requesting synch                                       |
+|   4    |   rw   |   0x0   | force_resynch  | Forces a resynchronization routine                                                          |
+|   3    |   rw   |    x    | rapid_recovery | Enable rapid recovery using additional register file.                                       |
+|   2    |   rw   |   0x1   | reload_setback | Enable setback on mismatch during reload section of re-synch (only possible with `setback`) |
+|   1    |   rw   |   0x1   | setback        | Enable setback (synchronous reset) during re-synch.                                         |
+|   0    |   rw   |   0x0   | delay_resynch  | Enable wait-for-restoration                                                                 |
+
