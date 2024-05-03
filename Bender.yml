@@ -14,10 +14,8 @@ sources:
     # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
     # levels 1 and 0, etc. Files within a level are ordered alphabetically.
     # Level 0
-  - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
-  - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/hsiao_ecc/hsiao_ecc_pkg.sv
   - rtl/hsiao_ecc/hsiao_ecc_enc.sv
   - rtl/hsiao_ecc/hsiao_ecc_dec.sv
@@ -26,7 +24,6 @@ sources:
   - rtl/TMR_word_voter.sv
   - rtl/HMR/resp_suppress.sv
     # Level 1
-  - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
@@ -76,10 +73,6 @@ sources:
   - rtl/ecc_wrap/ecc_sram.sv
     # Level 3
   - include_dirs:
-      - rtl/ODRG_unit
-    files:
-      - rtl/ODRG_unit/ODRG_unit.sv
-  - include_dirs:
       - rtl/pulpissimo_tcls
     files:
       - rtl/pulpissimo_tcls/TCLS_unit.sv
@@ -116,6 +109,15 @@ sources:
       - rtl/HMR/hmr_tmr_ctrl.sv
       - rtl/HMR/HMR_wrap.sv
       - rtl/HMR/hmr_unit.sv
+
+  - target: any(deprecated, ODRG)
+    include_dirs:
+      - rtl/deprecated/ODRG_unit
+    files:
+      - rtl/deprecated/ODRG_unit/odrg_manager_reg_pkg.sv
+      - rtl/deprecated/ODRG_unit/triple_core_barrier.sv
+      - rtl/deprecated/ODRG_unit/odrg_manager_reg_top.sv
+      - rtl/deprecated/ODRG_unit/ODRG_unit.sv
 
 vendor_package:
   - name: lowrisc_opentitan
