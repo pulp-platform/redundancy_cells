@@ -57,9 +57,9 @@ module rapid_recovery_unit
   /* enable_rf_recovery_o: allows the register file to be reloaded
                            into the core */
   output logic           enable_rf_recovery_o,
-  /* regfile_recovery_wdata_o: used by the address generator in the 
+  /* regfile_recovery_wdata_o: used by the address generator in the
                                rapid_recovery_ctrl to propagate the RF
-                               addresses to the core during the recovery 
+                               addresses to the core during the recovery
                                routine */
   output regfile_write_t regfile_recovery_wdata_o, // To cores RF interface
   /* regfile_recovery_rdata_o: propagates the content from the backup RF to

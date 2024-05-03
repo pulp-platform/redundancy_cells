@@ -28,7 +28,7 @@ logic error;
 logic [DataWidth-1:0] compare;
 logic [DataWidth-1:0] inp_q;
 
-if (Pipeline) begin
+if (Pipeline) begin : gen_pipeline_reg
   always_ff @(posedge clk_i, negedge rst_ni) begin
     if (~rst_ni) begin
       compare <= '0;
@@ -38,7 +38,7 @@ if (Pipeline) begin
       inp_q   <= inp_a_i;
     end
   end
-end else begin
+end else begin : gen_no_pipeline
   assign compare = inp_a_i ^ inp_b_i;
   assign inp_q = inp_a_i;
 end

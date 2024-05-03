@@ -28,7 +28,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Check clean make targets
         run: |
-          make -B gen_ODRG gen_TCLS gen_ecc_registers gen_ECC
+          make -B gen_HMR gen_ecc_registers gen_ECC
           git status && test -z "$(git status --porcelain)"
   lint-verilog:
     runs-on: ubuntu-latest
@@ -41,18 +41,11 @@ jobs:
             ./rtl
           exclude_paths: |
             ./test
-            ./rtl/*/*_reg_pkg.sv
-            ./rtl/*/*_reg_top.sv
-            ./rtl/ecc_wrap/ecc_manager_2_reg_pkg.sv
-            ./rtl/ecc_wrap/ecc_manager_2_reg_top.sv
-            ./rtl/ecc_wrap/ecc_manager_8_reg_pkg.sv
-            ./rtl/ecc_wrap/ecc_manager_8_reg_top.sv
+            ./rtl/HMR/regs
+            ./rtl/HMR/regs
             ./rtl/ecc_wrap/ecc_manager_reg_pkg.sv
             ./rtl/ecc_wrap/ecc_manager_reg_top.sv
-            ./rtl/ODRG_unit/odrg_manager_reg_pkg.sv
-            ./rtl/ODRG_unit/odrg_manager_reg_top.sv
-            ./rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
-            ./rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
+            ./rtl/deprecated
           extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files .github/waiver.verible"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reviewdog_reporter: github-check

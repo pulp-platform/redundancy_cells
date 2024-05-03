@@ -41,7 +41,7 @@ module hmr_tmr_ctrl #(
   input  logic       force_resynch_qe_i,
   input  logic       synch_req_q_i,
   input  logic       synch_req_qe_i,
-  
+
   // TMR control signals
   output logic [2:0] setback_o,
   output logic       sw_resynch_req_o,
@@ -187,7 +187,7 @@ module hmr_tmr_ctrl #(
         end
       end
 
-      // Default: do nothing
+      default: begin end // Nothing
 
     endcase
 

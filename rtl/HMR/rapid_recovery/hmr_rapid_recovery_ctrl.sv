@@ -125,6 +125,7 @@ module hmr_rapid_recovery_ctrl
           recovery_finished_o = 1'b1;
         end
       end
+      default: begin end // Nothing
     endcase
   end
 
