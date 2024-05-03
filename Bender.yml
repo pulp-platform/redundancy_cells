@@ -80,6 +80,7 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
 
   - files:
+      - rtl/HMR/hmr_pkg.sv
       - rtl/HMR/resp_suppress.sv
       - rtl/HMR/rapid_recovery/rapid_recovery_pkg.sv
       - rtl/HMR/rapid_recovery/recovery_csr.sv
@@ -88,7 +89,7 @@ sources:
       - rtl/HMR/rapid_recovery/rapid_recovery_unit.sv
       - rtl/HMR/DMR_checker.sv
       - rtl/HMR/DMR_CSR_checker.sv
-      - rtl/HMR/DMR_address_generator.sv
+      # - rtl/HMR/DMR_address_generator.sv
       # - rtl/HMR/DMR_controller.sv
       - rtl/HMR/rapid_recovery/hmr_rapid_recovery_ctrl.sv
       - rtl/HMR/regs/hmr_registers_reg_pkg.sv
@@ -101,8 +102,8 @@ sources:
       - rtl/HMR/hmr_dmr_ctrl.sv
       - rtl/HMR/regs/hmr_tmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_ctrl.sv
-      - rtl/HMR/HMR_wrap.sv
       - rtl/HMR/hmr_unit.sv
+      - rtl/HMR/hmr_rr_wrapper.sv
 
   - target: any(deprecated, ODRG)
     include_dirs:
@@ -120,6 +121,11 @@ sources:
       - rtl/deprecated/pulpissimo_tcls/tcls_manager_reg_pkg.sv
       - rtl/deprecated/pulpissimo_tcls/tcls_manager_reg_top.sv
       - rtl/deprecated/pulpissimo_tcls/TCLS_unit.sv
+
+  - target: any(deprecated, HMR_wrap)
+    files:
+      - rtl/HMR/rapid_recovery/DMR_address_generator.sv
+      - rtl/deprecated/HMR_wrap.sv
 
 vendor_package:
   - name: lowrisc_opentitan
