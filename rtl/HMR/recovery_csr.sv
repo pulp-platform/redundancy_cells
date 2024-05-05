@@ -27,12 +27,12 @@ module recovery_csr
   input  logic rst_ni,
   input  logic read_enable_i,
   input  logic write_enable_i,
-  input  csrs_intf_t backup_csr_i,
-  output csrs_intf_t recovery_csr_o
+  input  csr_intf_t backup_csr_i,
+  output csr_intf_t recovery_csr_o
 );
 
-csrs_intf_t csr_inp,
-            csr_out;
+csr_intf_t csr_inp,
+           csr_out;
 
 logic [31:0] csr_dec_mstatus,
              csr_dec_mie,
@@ -42,12 +42,22 @@ logic [31:0] csr_dec_mstatus,
              csr_dec_mepc,
              csr_dec_mcause;
 
+typedef struct packed {
+  logic [ProtectedWidth-1:0] csr_mstatus;
+  logic [ProtectedWidth-1:0] csr_mie;
+  logic [ProtectedWidth-1:0] csr_mtvec;
+  logic [ProtectedWidth-1:0] csr_mscratch;
+  logic [ProtectedWidth-1:0] csr_mip;
+  logic [ProtectedWidth-1:0] csr_mepc;
+  logic [ProtectedWidth-1:0] csr_mcause;
+} ecc_csr_intf_t;
+
 assign csr_inp = backup_csr_i;
 assign recovery_csr_o = (read_enable_i) ? csr_out : '0;
 
 if (ECCEnabled) begin : gen_ecc_csrs
 
-  ecc_csrs_intf_t csr_d, csr_q;
+  ecc_csr_intf_t csr_d, csr_q;
 
   prim_secded_39_32_enc csr_mstatus_ecc_encoder (
     .in  ( {25'd0,csr_inp.csr_mstatus} ), // mtvec is a 7-bit value
@@ -135,7 +145,7 @@ if (ECCEnabled) begin : gen_ecc_csrs
   assign csr_out.csr_mepc = csr_dec_mepc;
   assign csr_out.csr_mcause = csr_dec_mcause[5:0];
 end else begin : gen_no_ecc_csrs
-  csrs_intf_t csr_d, csr_q;
+  csr_intf_t csr_d, csr_q;
 
   assign csr_d = csr_inp;
 

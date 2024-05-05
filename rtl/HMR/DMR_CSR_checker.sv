@@ -12,12 +12,12 @@
  * 
  */
 
-module DMR_CSR_checker
-  import rapid_recovery_pkg::*;
-(
-  input  csrs_intf_t csr_a_i,
-  input  csrs_intf_t csr_b_i,
-  output csrs_intf_t check_o,
+module DMR_CSR_checker #(
+  parameter type csr_intf_t = logic
+)(
+  input  csr_intf_t csr_a_i,
+  input  csr_intf_t csr_b_i,
+  output csr_intf_t check_o,
   output logic       error_o
 );
 

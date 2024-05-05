@@ -106,11 +106,12 @@ sources:
   - files:
       - rtl/HMR/rapid_recovery_pkg.sv
       - rtl/HMR/recovery_csr.sv
+      - rtl/HMR/recovery_full_csr.sv
       - rtl/HMR/recovery_pc.sv
       - rtl/HMR/recovery_rf.sv
       - rtl/HMR/rapid_recovery_unit.sv
       - rtl/HMR/DMR_checker.sv
-      - rtl/HMR/DMR_CSR_checker.sv
+      # - rtl/HMR/DMR_CSR_checker.sv
       - rtl/HMR/DMR_address_generator.sv
       # - rtl/HMR/DMR_controller.sv
       - rtl/HMR/hmr_rapid_recovery_ctrl.sv
@@ -124,7 +125,7 @@ sources:
       - rtl/HMR/hmr_dmr_ctrl.sv
       - rtl/HMR/hmr_tmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_ctrl.sv
-      - rtl/HMR/HMR_wrap.sv
+      # - rtl/HMR/HMR_wrap.sv
       - rtl/HMR/hmr_unit.sv
 
 vendor_package:

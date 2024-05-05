@@ -16,17 +16,25 @@ module rapid_recovery_unit
   parameter rapid_recovery_cfg_t RrCfg = rapid_recovery_pkg::RrDefaultCfg,
   parameter int unsigned RfAddrWidth     = 5,
   parameter int unsigned DataWidth       = 32,
+  parameter int unsigned CsrAddrWidth    = 12,
+  parameter int unsigned NumCsr          = 4,
+  parameter bit [NumCsr][CsrAddrWidth-1:0] CsrList = '{'h000},
   parameter int unsigned EccEnabled      = 1,
   parameter int unsigned NumIntRfRdPorts = 1,
   parameter int unsigned NumIntRfWrPorts = 2,
   parameter int unsigned NumFpRfRdPorts  = 1,
   parameter int unsigned NumFpRfWrPorts  = 2,
-  parameter bit          RecoveryFullCsr = 1'b0,
+  parameter int unsigned NumCsrRdPorts   = 1,
+  parameter int unsigned NumCsrWrPorts   = 1,
   parameter     type     rapid_recovery_t = logic,
   parameter     type     regfile_write_t = logic,
   parameter     type     csr_intf_t      = logic,
+  parameter     type     exception_t     = logic,
+  parameter     type     scoreboard_entry_t = logic,
+  parameter     type     csr_reg_t       = logic,
   parameter     type     pc_intf_t       = logic,
-  localparam int unsigned NumRfWords = 2 ** RfAddrWidth
+  localparam int unsigned NumRfWords = 2 ** RfAddrWidth,
+  localparam int unsigned CsrIdWidth = $clog2(NumCsr)
 )(
   input  logic           clk_i,
   input  logic           rst_ni,
@@ -36,8 +44,8 @@ module rapid_recovery_unit
   input  regfile_write_t [NumIntRfWrPorts-1:0] int_regfile_write_i,
   input  regfile_write_t [NumFpRfWrPorts-1:0] fp_regfile_write_i,
   /* Recovery Control and Status Registers interface */
-  input  csr_intf_t      backup_csr_i,
-  output csr_intf_t      recovery_csr_o,
+  input  csr_intf_t [NumCsrWrPorts-1:0] backup_csr_i,
+  output csr_intf_t [NumCsrRdPorts-1:0] recovery_csr_o,
   /* Recovery Program Counter interface */
   input  pc_intf_t       backup_pc_i,
   output pc_intf_t       recovery_pc_o,
@@ -95,15 +103,18 @@ module rapid_recovery_unit
 );
 
 logic csr_renable;
+logic [CsrIdWidth-1:0] csr_recovery_id;
 regfile_write_t [NumIntRfRdPorts-1:0] int_regfile_recovery;
 regfile_write_t [NumFpRfRdPorts-1:0] fp_regfile_recovery;
 
 hmr_rapid_recovery_ctrl #(
-  .RFAddrWidth  ( RfAddrWidth  ),
+  .RFAddrWidth  ( RfAddrWidth ),
   .NumIntRfWrPorts ( NumIntRfWrPorts ),
   .NumIntRfRdPorts ( NumIntRfRdPorts ),
   .NumFpRfWrPorts ( NumFpRfWrPorts ),
   .NumFpRfRdPorts ( NumFpRfRdPorts ),
+  .NumCsr ( NumCsr ),
+  .NumCsrRdPorts ( NumCsrRdPorts ),
   .regfile_write_t ( regfile_write_t )
 ) i_rapid_recovery_ctrl  (
   .clk_i,
@@ -117,25 +128,35 @@ hmr_rapid_recovery_ctrl #(
   .debug_resume_o,
   .int_recovery_regfile_waddr_o ( int_regfile_recovery ),
   .fp_recovery_regfile_waddr_o ( fp_regfile_recovery ),
+  .csr_id_o ( csr_recovery_id ),
   .backup_enable_o          ( backup_enable_o ),
   .recover_csr_enable_o     ( csr_renable ),
   .recover_pc_enable_o      ( enable_pc_recovery_o ),
   .recover_rf_enable_o      ( enable_rf_recovery_o )
 );
 
-if (RrCfg.FullCsrsBackupEnable) begin: gen_reduced_csr
+if (RrCfg.FullCsrsBackupEnable) begin: gen_full_csr
   recovery_full_csr #(
-    .ECCEnabled    ( EccEnabled ),
-    .csr_intf_t    ( csr_intf_t )
+    .ECCEnabled ( EccEnabled ),
+    .NonProtectedWidth ( DataWidth ),
+    .AddrWidth ( CsrAddrWidth ),
+    .NumCsr ( NumCsr ),
+    .CsrList ( CsrList ),
+    .NumWrPorts ( NumCsrWrPorts ),
+    .NumRdPorts ( NumCsrRdPorts ),
+    .csr_intf_t ( csr_intf_t ),
+    .scoreboard_entry_t ( scoreboard_entry_t ),
+    .exception_t ( exception_t )
   ) i_recovery_csr (
     .clk_i,
     .rst_ni,
-    .read_enable_i  ( csr_renable     ),
+    .read_enable_i ( csr_renable ),
     .write_enable_i ( backup_enable_i ),
-    .backup_csr_i   ( backup_csr_i    ),
-    .recovery_csr_o ( recovery_csr_o  )
+    .csr_id_i ( csr_recovery_id ),
+    .backup_csr_i ( backup_csr_i ),
+    .recovery_csr_o ( recovery_csr_o )
   );
-end else if (RrCfg.ReducedCsrsBackupEnable) begin: gen_full_csr
+end else if (RrCfg.ReducedCsrsBackupEnable) begin: gen_reduced_csr
   recovery_csr #(
     .ECCEnabled    ( EccEnabled ),
     .csr_intf_t    ( csr_intf_t )
