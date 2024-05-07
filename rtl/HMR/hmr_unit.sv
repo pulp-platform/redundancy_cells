@@ -28,6 +28,8 @@ module hmr_unit #(
   parameter  bit          RapidRecovery  = 1'b0,
   /// Separates voters and checkers for data, which are then only checked if data request is valid
   parameter  bit          SeparateData   = 1'b1,
+  /// Separates voters and checkers for AXI buses
+  parameter  bit          SeparateAxiBus = 1'b0,
   /// Number of separate voters/checkers for individual buses
   parameter  int unsigned NumBusVoters   = 1,
   /// Address width of the core register file (in RISC-V it should be always 6)
@@ -41,6 +43,8 @@ module hmr_unit #(
   parameter  type         core_backup_t  = logic,
   /// Bus outputs wrapping struct
   parameter  type         bus_outputs_t  = logic,
+  /// AXI output wrapping struct
+  parameter  type         axi_req_t      = logic,
   parameter  type         reg_req_t      = logic,
   parameter  type         reg_rsp_t      = logic,
   /// Rapid recovery structure
@@ -91,6 +95,7 @@ module hmr_unit #(
   input  all_inputs_t      [NumSysCores-1:0]                   sys_inputs_i,
   output nominal_outputs_t [NumSysCores-1:0]                   sys_nominal_outputs_o,
   output bus_outputs_t     [NumSysCores-1:0][NumBusVoters-1:0] sys_bus_outputs_o,
+  output axi_req_t         [NumSysCores-1:0]                   sys_axi_outputs_o,
   input  logic             [NumSysCores-1:0]                   sys_fetch_en_i,
   input  logic             [NumSysCores-1:0][NumBusVoters-1:0] enable_bus_vote_i,
 
@@ -99,7 +104,8 @@ module hmr_unit #(
   output logic             [NumCores-1:0]                   core_setback_o,
   output all_inputs_t      [NumCores-1:0]                   core_inputs_o,
   input  nominal_outputs_t [NumCores-1:0]                   core_nominal_outputs_i,
-  input  bus_outputs_t     [NumCores-1:0][NumBusVoters-1:0] core_bus_outputs_i
+  input  bus_outputs_t     [NumCores-1:0][NumBusVoters-1:0] core_bus_outputs_i,
+  input  axi_req_t         [NumCores-1:0]                   core_axi_outputs_i
 );
   function int max(int a, int b);
     return (a > b) ? a : b;
@@ -153,6 +159,7 @@ module hmr_unit #(
 
   nominal_outputs_t [NumDMRGroups-1:0] dmr_nominal_outputs;
   bus_outputs_t     [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_bus_outputs;
+  axi_req_t         [NumDMRGroups-1:0] dmr_axi_outputs;
   core_backup_t     [NumDMRGroups-1:0] dmr_backup_outputs;
 
   logic [NumTMRGroups-1:0] tmr_failure, tmr_failure_main;
@@ -161,7 +168,7 @@ module hmr_unit #(
   logic [NumTMRGroups-1:0][NumBusVoters-1:0][2:0] tmr_error_data;
   logic [NumTMRGroups-1:0] tmr_single_mismatch;
 
-  logic [NumDMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_backup;
+  logic [NumDMRGroups-1:0] dmr_failure, dmr_failure_main, dmr_failure_axi, dmr_failure_backup;
   logic [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_failure_data;
   logic [NumDMRGroups-1:0][SysDataWidth-1:0] checkpoint_reg_q;
 
@@ -562,7 +569,7 @@ module hmr_unit #(
        * DMR Core Checkers *
        *********************/
       DMR_checker #(
-        .DataWidth ( $bits(nominal_outputs_t) )
+        .check_bus_t ( nominal_outputs_t )
       ) dmr_core_checker_main (
         .clk_i   (                                           ),
         .rst_ni  (                                           ),
@@ -571,13 +578,28 @@ module hmr_unit #(
         .check_o ( dmr_nominal_outputs   [            i    ] ),
         .error_o ( dmr_failure_main      [            i    ] )
       );
+      if (SeparateAxiBus) begin: gen_axi_checker
+        DMR_axi_checker #(
+          .check_bus_t ( axi_req_t )
+        ) dmr_core_checker_axi (
+          .clk_i   (                                       ),
+          .rst_ni  (                                       ),
+          .inp_a_i ( core_axi_outputs_i[dmr_core_id(i, 0)] ),
+          .inp_b_i ( core_axi_outputs_i[dmr_core_id(i, 1)] ),
+          .check_o ( dmr_axi_outputs   [            i    ] ),
+          .error_o ( dmr_failure_axi   [            i    ] )
+        );
+      end else begin: gen_no_axi_checker
+        assign dmr_axi_outputs = '0;
+        assign dmr_failure_axi = '0;
+      end
       if (SeparateData) begin : gen_data_checker
         for (genvar j = 0; j < NumBusVoters; j++) begin
           DMR_checker # (
-            .DataWidth ( $bits(bus_outputs_t) )
+            .check_bus_t ( bus_outputs_t )
           ) dmr_core_checker_data (
-            .clk_i   (                                           ),
-            .rst_ni  (                                           ),
+            .clk_i   (                                          ),
+            .rst_ni  (                                          ),
             .inp_a_i ( core_bus_outputs_i[dmr_core_id(i, 0)][j] ),
             .inp_b_i ( core_bus_outputs_i[dmr_core_id(i, 1)][j] ),
             .check_o ( dmr_bus_outputs   [            i    ][j] ),
@@ -589,7 +611,7 @@ module hmr_unit #(
       if (RapidRecovery) begin : gen_rapid_recovery_unit
 
         DMR_checker #(
-          .DataWidth ( $bits(core_backup_t) ),
+          .check_bus_t ( core_backup_t ),
           .Pipeline  ( 1                       )
         ) dmr_core_checker_backup (
           .clk_i   ( clk_i                             ),
@@ -636,7 +658,7 @@ module hmr_unit #(
         );
 
       always_comb begin
-        dmr_failure[i] = dmr_failure_main[i] | dmr_failure_backup[i];
+        dmr_failure[i] = dmr_failure_main[i] | dmr_failure_backup[i] | dmr_failure_axi[i];
         for (int j = 0; j < NumBusVoters; j++) begin
           if (enable_bus_vote_i[dmr_core_id(i, 0)][j]) begin
             dmr_failure[i] = dmr_failure[i] | dmr_failure_backup[i] | dmr_failure_data[i][j];
@@ -645,7 +667,7 @@ module hmr_unit #(
       end
       end else begin : gen_standard_failure
         always_comb begin
-          dmr_failure[i] = dmr_failure_main[i];
+          dmr_failure[i] = dmr_failure_main[i] | dmr_failure_axi[i];
           for (int j = 0; j < NumBusVoters; j++) begin
             if (enable_bus_vote_i[dmr_core_id(i, 0)][j]) begin
               dmr_failure[i] = dmr_failure[i] | dmr_failure_data[i][j];
@@ -657,10 +679,12 @@ module hmr_unit #(
   end else begin: no_dmr_checkers
     assign dmr_failure_main = '0;
     assign dmr_failure_data = '0;
+    assign dmr_failure_axi  = '0;
     assign dmr_failure      = '0;
     assign dmr_incr_mismatches = '0;
     assign dmr_nominal_outputs = '0;
     assign dmr_bus_outputs     = '0;
+    assign dmr_axi_outputs     = '0;
     assign top_register_resps[2].rdata = '0;
     assign top_register_resps[2].error = 1'b1;
     assign top_register_resps[2].ready = 1'b1;
@@ -760,24 +784,29 @@ module hmr_unit #(
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
             sys_nominal_outputs_o[i] = tmr_nominal_outputs[TMRCoreIndex];
-              sys_bus_outputs_o[i] = tmr_bus_outputs[TMRCoreIndex];
+            sys_bus_outputs_o[i] = tmr_bus_outputs[TMRCoreIndex];
+            sys_axi_outputs_o[i] = '0;
           end else begin : disable_core // Assign disable
             sys_nominal_outputs_o[i] = '0;
             sys_bus_outputs_o[i]     = '0;
+            sys_axi_outputs_o[i]     = '0;
           end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
             sys_nominal_outputs_o[i] = dmr_nominal_outputs[DMRCoreIndex];
+            sys_axi_outputs_o[i]     = dmr_axi_outputs[DMRCoreIndex];
             for (int j = 0; j < NumBusVoters; j++) begin
               sys_bus_outputs_o[i][j] = dmr_bus_outputs[DMRCoreIndex][j];
             end
           end else begin : disable_core // Assign disable
             sys_nominal_outputs_o[i] = '0;
             sys_bus_outputs_o[i]     = '0;
+            sys_axi_outputs_o[i]     = '0;
           end
         end else begin : independent_mode
             sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
             sys_bus_outputs_o[i]     = core_bus_outputs_i[i];
+            sys_axi_outputs_o[i]     = core_axi_outputs_i[i];
         end
       end
     end
@@ -818,12 +847,15 @@ module hmr_unit #(
       if (TMRFixed && i < NumTMRGroups) begin : fixed_tmr
         assign sys_nominal_outputs_o[i] = tmr_nominal_outputs[CoreCoreIndex];
         assign sys_bus_outputs_o    [i] = tmr_bus_outputs    [CoreCoreIndex];
+        assign sys_axi_outputs_o    [i] = '0;
       end else begin
         if (i >= NumTMRCores) begin : independent_stragglers
           assign sys_nominal_outputs_o[i] = core_nominal_outputs_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
           assign sys_bus_outputs_o    [i] = core_bus_outputs_i    [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_axi_outputs_o    [i] = '0;
         end else begin
           always_comb begin
+            sys_axi_outputs_o    [i] = '0;
             if (core_in_tmr[i]) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
                 sys_nominal_outputs_o[i] = tmr_nominal_outputs[CoreCoreIndex];
@@ -882,23 +914,28 @@ module hmr_unit #(
       if (DMRFixed && i < NumDMRGroups) begin : fixed_dmr
         assign sys_nominal_outputs_o[i] = dmr_nominal_outputs[CoreCoreIndex];
         assign sys_bus_outputs_o    [i] = dmr_bus_outputs    [CoreCoreIndex];
+        assign sys_axi_outputs_o    [i] = dmr_axi_outputs    [CoreCoreIndex];
       end else begin
         if (i >= NumDMRCores) begin : independent_stragglers
           assign sys_nominal_outputs_o[i] = core_nominal_outputs_i[DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
           assign sys_bus_outputs_o    [i] = core_bus_outputs_i    [DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
+          assign sys_axi_outputs_o    [i] = core_axi_outputs_i    [DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
         end else begin
           always_comb begin
             if (core_in_dmr[i]) begin : dmr_mode
               if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
                 sys_nominal_outputs_o[i] = dmr_nominal_outputs[CoreCoreIndex];
                 sys_bus_outputs_o    [i] = dmr_bus_outputs    [CoreCoreIndex];
+                sys_axi_outputs_o    [i] = dmr_axi_outputs    [CoreCoreIndex];
               end else begin : disable_core // Assign disable
                 sys_nominal_outputs_o[i] = '0;
                 sys_bus_outputs_o    [i] = '0;
+                sys_axi_outputs_o    [i] = '0;
               end
             end else begin : independent_mode
               sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
               sys_bus_outputs_o    [i] = core_bus_outputs_i    [i];
+              sys_axi_outputs_o    [i] = core_axi_outputs_i    [i];
             end
           end
         end
@@ -915,6 +952,7 @@ module hmr_unit #(
     assign core_inputs_o        = sys_inputs_i;
     assign sys_nominal_outputs_o = core_nominal_outputs_i;
     assign sys_bus_outputs_o     = core_bus_outputs_i;
+    assign sys_axi_outputs_o     = core_axi_outputs_i;
   end
 
 endmodule
