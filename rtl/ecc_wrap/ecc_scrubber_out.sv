@@ -39,15 +39,17 @@ module ecc_scrubber_out #(
   input  logic [$clog2(TagDepth)-1:0] tag_intc_add_i,
   input  logic [       TagWidth-1:0]  tag_intc_wdata_i,
   output logic [       TagWidth-1:0]  tag_intc_rdata_o,
+  output logic                        tag_intc_multi_err_o,
 
   // Input signals from others accessing data memory bank
   input  logic                        data_intc_req_i,
   output logic                        data_intc_gnt_o,
   input  logic                        data_intc_we_i,
-  input  logic [(Cfg.BlockSize + 8 - 32'd1) / 8] data_intc_be_i,
+  input  logic [(Cfg.BlockSize + 8 - 32'd1) / 8-1:0] data_intc_be_i,
   input  logic [$clog2(DataDepth)-1:0] data_intc_add_i,
   input  logic [       DataWidth-1:0] data_intc_wdata_i,
   output logic [       DataWidth-1:0] data_intc_rdata_o,
+  output logic                        data_intc_multi_err_o,
 
   // Output directly to tag bank
   output logic                        tag_bank_req_o,
@@ -62,7 +64,7 @@ module ecc_scrubber_out #(
   output logic                        data_bank_req_o,
   input  logic                        data_bank_gnt_i,
   output logic                        data_bank_we_o,
-  output logic [(Cfg.BlockSize + 8 - 32'd1) / 8] data_bank_be_o,
+  output logic [(Cfg.BlockSize + 8 - 32'd1) / 8-1:0] data_bank_be_o,
   output logic [$clog2(DataDepth)-1:0] data_bank_add_o,
   output logic [       DataWidth-1:0] data_bank_wdata_o,
   input  logic [       DataWidth-1:0] data_bank_rdata_i,
@@ -90,17 +92,25 @@ module ecc_scrubber_out #(
   
   logic tag_rdata_en, tag_rdata_en_q;
   logic data_rdata_en, data_rdata_en_q;
+  logic data_wdata_en, data_wdata_en_q;
+  logic data_en_q;
   logic [TagWidth-1:0]  tag_rdata_q;
   logic [DataWidth-1:0] data_rdata_q;
+  logic                 tag_intc_multi_err_q;
+  logic                 data_intc_multi_err_q;
 
   assign tag_rdata_en   = tag_intc_req_i  & tag_bank_gnt_i  & ~tag_intc_we_i;
   assign data_rdata_en  = data_intc_req_i & data_bank_gnt_i & ~data_intc_we_i;
+  assign data_wdata_en  = data_intc_req_i & data_bank_gnt_i &  data_intc_we_i;
+  assign data_en_q      = data_rdata_en_q | data_wdata_en_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if(~rst_ni) begin
       tag_rdata_q <= '0;
+      tag_intc_multi_err_q <= '0;
     end else if (tag_rdata_en_q) begin
       tag_rdata_q <= tag_bank_rdata_i;
+      tag_intc_multi_err_q <= ecc_err_i.tag_sram_multi_error;
     end
   end
 
@@ -114,11 +124,22 @@ module ecc_scrubber_out #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if(~rst_ni) begin
+      data_intc_multi_err_q <= '0;
+    end else if (data_en_q) begin
+      data_intc_multi_err_q <= ecc_err_i.data_sram_multi_error;
+    end
+  end
+
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
       tag_rdata_en_q  <= 1'b0;
       data_rdata_en_q <= 1'b0;
+      data_wdata_en_q <= 1'b0;
     end else begin
       tag_rdata_en_q  <= tag_rdata_en;
       data_rdata_en_q <= data_rdata_en;
+      data_wdata_en_q <= data_wdata_en;
     end
   end
 
@@ -126,12 +147,15 @@ module ecc_scrubber_out #(
   assign scrub_add = working_add_q;
 
   assign tag_bank_req_o     = tag_intc_req_i  || scrub_req;
-  assign tag_intc_rdata_o   = tag_rdata_en_q ? tag_bank_rdata_i : tag_rdata_q;
   assign tag_intc_gnt_o     = tag_bank_gnt_i;
+  assign tag_intc_rdata_o      = tag_rdata_en_q  ? tag_bank_rdata_i : tag_rdata_q;
+  assign tag_intc_multi_err_o  = tag_rdata_en_q  ? ecc_err_i.tag_sram_multi_error : tag_intc_multi_err_q;
 
   assign data_bank_req_o    = data_intc_req_i || scrub_req;
-  assign data_intc_rdata_o  = data_rdata_en_q ? data_bank_rdata_i : data_rdata_q;
   assign data_intc_gnt_o    = data_bank_gnt_i;
+  assign data_intc_rdata_o     = data_rdata_en_q ? data_bank_rdata_i : data_rdata_q;
+  // for data sram write, because the read modify wrtie for partial block write exist, may have error respones the next cycle of the write gnt
+  assign data_intc_multi_err_o = data_en_q ? ecc_err_i.data_sram_multi_error : data_intc_multi_err_q;
 
   assign scrub_tag_rdata  = tag_bank_rdata_i;
   assign scrub_data_rdata = data_bank_rdata_i;
