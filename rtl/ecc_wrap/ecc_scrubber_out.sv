@@ -13,7 +13,7 @@
 //   - the out scrubber itself does't correct data, the ecc_sram_wrap itself will write the corrected read data back to sram
 
 module ecc_scrubber_out #(
-  parameter axi_llc_pkg::llc_cfg_t Cfg = axi_llc_pkg::llc_cfg_t'{default: '0},
+  parameter type         data_be_t = logic,
   parameter int unsigned TagWidth       = 32,
   parameter int unsigned DataWidth      = 128,
   parameter int unsigned TagDepth       = 256,
@@ -45,7 +45,7 @@ module ecc_scrubber_out #(
   input  logic                        data_intc_req_i,
   output logic                        data_intc_gnt_o,
   input  logic                        data_intc_we_i,
-  input  logic [(Cfg.BlockSize + 8 - 32'd1) / 8-1:0] data_intc_be_i,
+  input  data_be_t                    data_intc_be_i,
   input  logic [$clog2(DataDepth)-1:0] data_intc_add_i,
   input  logic [       DataWidth-1:0] data_intc_wdata_i,
   output logic [       DataWidth-1:0] data_intc_rdata_o,
@@ -64,7 +64,7 @@ module ecc_scrubber_out #(
   output logic                        data_bank_req_o,
   input  logic                        data_bank_gnt_i,
   output logic                        data_bank_we_o,
-  output logic [(Cfg.BlockSize + 8 - 32'd1) / 8-1:0] data_bank_be_o,
+  output data_be_t                    data_bank_be_o,
   output logic [$clog2(DataDepth)-1:0] data_bank_add_o,
   output logic [       DataWidth-1:0] data_bank_wdata_o,
   input  logic [       DataWidth-1:0] data_bank_rdata_i,
