@@ -10,7 +10,7 @@
 module ecc_manager_reg_top #(
   parameter type reg_req_t = logic,
   parameter type reg_rsp_t = logic,
-  parameter int AW = 5
+  parameter int AW = 9
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -344,7 +344,7 @@ endmodule
 
 module ecc_manager_reg_top_intf
 #(
-  parameter int AW = 5,
+  parameter int AW = 9,
   localparam int DW = 32
 ) (
   input logic clk_i,
