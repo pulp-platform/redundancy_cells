@@ -22,10 +22,12 @@ module tb_retry;
     logic rst_n;
 
     data_t data_in,  data_middle, data_out;
-    logic valid_in, valid_middle, valid_retry, valid_out;
-    logic ready_in, ready_middle, ready_retry, ready_out;
-    logic [IDSize-1:0] id_middle, id_retry;
+    logic valid_in, valid_middle, valid_out;
+    logic ready_in, ready_middle, ready_out;
+    logic [IDSize-1:0] id_middle;
     logic needs_retry_middle;
+
+    retry_interface #(.IDSize(IDSize)) retry_connection ();
 
     // Clock Generation
     initial begin
@@ -57,9 +59,7 @@ module tb_retry;
         .ready_i(ready_middle),
 
         // Retry Connection
-        .retry_id_i(id_retry),
-        .retry_valid_i(valid_retry),
-        .retry_ready_o(ready_retry)
+        .retry  (retry_connection)
     );
 
 
@@ -83,9 +83,7 @@ module tb_retry;
         .ready_i(ready_out),
 
         // Retry Connection
-        .retry_id_o(id_retry),
-        .retry_valid_o(valid_retry),
-        .retry_ready_i(ready_retry)
+        .retry  (retry_connection)
     );
 
     // Data Application

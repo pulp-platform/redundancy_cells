@@ -35,9 +35,7 @@ module tb_time_dmr_retry #(
     logic needs_retry_detected;
 
     // Feedback connection
-    logic [IDSize-1:0] id_retry;
-    logic valid_retry;
-    logic ready_retry;
+    retry_interface #(.IDSize(IDSize)) retry_connection ();
 
     // DUT Instances
     retry_start #(
@@ -59,9 +57,7 @@ module tb_time_dmr_retry #(
         .ready_i(ready_detectable),
 
         // Retry Connection
-        .retry_id_i(id_retry),
-        .retry_valid_i(valid_retry),
-        .retry_ready_o(ready_retry)
+        .retry(retry_connection)
     );
 
 
@@ -142,9 +138,7 @@ module tb_time_dmr_retry #(
         .ready_i(ready_out),
 
         // Retry Connection
-        .retry_id_o(id_retry),
-        .retry_valid_o(valid_retry),
-        .retry_ready_i(ready_retry)
+        .retry(retry_connection)
     );
 
     //////////////////////////////////////////////////////////////////////////////////7
