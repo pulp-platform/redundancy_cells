@@ -25,8 +25,7 @@ sources:
   - rtl/hsiao_ecc/hsiao_ecc_enc.sv
   - rtl/hsiao_ecc/hsiao_ecc_dec.sv
   - rtl/hsiao_ecc/hsiao_ecc_cor.sv
-  - rtl/time_redundancy/retry_end.sv
-  - rtl/time_redundancy/retry_inorder_end.sv
+  - rtl/time_redundancy/retry_interface.sv
   - rtl/time_redundancy/rr_arb_tree_lock.sv
   - rtl/time_redundancy/voters.svh
   - rtl/TMR_voter.sv
@@ -38,7 +37,9 @@ sources:
   - rtl/ecc_wrap/ecc_scrubber.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/time_redundancy/redundancy_controller.sv
+  - rtl/time_redundancy/retry_end.sv
   - rtl/time_redundancy/retry_inorder_start.sv
+  - rtl/time_redundancy/retry_inorder_end.sv
   - rtl/time_redundancy/retry_start.sv
   - rtl/time_redundancy/time_TMR_end.sv
   - rtl/time_redundancy/time_TMR_start.sv

@@ -6,9 +6,8 @@
 // In order to propperly function:
 // - id_o of retry_start needs to be passed paralelly along the combinatorial logic,
 //   using the same handshake and arrive at id_i of retry_end
-// - retry_id_i of retry_start needs to be directly connected to retry_id_o of retry_end
-// - retry_valid_i of retry_start needs to be directly connected to retry_valid_o of retry_end
-// - retry_ready_o of retry_start needs to be directly connected to retry_ready_i of retry_end
+// - interface retry of retry_start needs to be directly connected to retry of retry_end
+
 // - All elements in processing have a unique ID
 //
 // This modules might cause operations to reach the output of retry_end in a different
@@ -38,24 +37,22 @@ module retry_end # (
     input logic ready_i,
 
     // Retry Connection
-    output logic [IDSize-1:0] retry_id_o,
-    output logic retry_valid_o,
-    input logic retry_ready_i
+    retry_interface.ende retry
 );
 
     // Assign signals
-    assign retry_id_o = id_i;
+    assign retry.id = id_i;
     assign data_o = data_i;
 
     always_comb begin: gen_output
         if (needs_retry_i) begin
-            retry_valid_o = valid_i;
-            ready_o = retry_ready_i;
+            retry.valid = valid_i;
+            ready_o = retry.ready;
             valid_o = 0;
         end else begin
             valid_o = valid_i;
             ready_o = ready_i;
-            retry_valid_o = 0;
+            retry.valid = 0;
         end
     end
 

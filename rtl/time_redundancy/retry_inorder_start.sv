@@ -6,11 +6,7 @@
 // In order to propperly function:
 // - id_o of retry_start needs to be passed paralelly along the combinatorial logic,
 //   using the same handshake and arrive at id_i of retry_end
-// - retry_id_i of retry_start needs to be directly connected to retry_id_o of retry_end
-// - retry_id_o of retry_start needs to be directly connected to retry_id_i of retry_end
-// - retry_valid_i of retry_start needs to be directly connected to retry_valid_o of retry_end
-// - retry_lock_i of retry_start needs to be directly connected to retry_lock_o of retry_end
-// - retry_ready_o of retry_start needs to be directly connected to retry_ready_i of retry_end
+// - interface retry of retry_start needs to be directly connected to retry of retry_end
 // - All elements in processing have a unique ID
 //
 // This module always keeps results in order by also retrying results that have been correct
@@ -38,11 +34,7 @@ module retry_inorder_start # (
     input logic ready_i,
 
     // Retry Connection
-    input logic [IDSize-1:0] retry_id_i,
-    output logic [IDSize-1:0] retry_id_o,
-    input logic retry_valid_i,
-    input logic retry_lock_i,
-    output logic retry_ready_o
+    retry_interface.start retry
 );
 
     //////////////////////////////////////////////////////////////////////
@@ -52,25 +44,25 @@ module retry_inorder_start # (
     logic retry_lock_d, retry_lock_q;
 
     always_comb begin: gen_next_cycle_decision
-        if (ready_i | retry_valid_i) begin
-            failed_valid_d = retry_valid_i;
+        if (ready_i | retry.valid) begin
+            failed_valid_d = retry.valid;
         end else begin
             failed_valid_d = failed_valid_q;
         end
 
-        if (retry_valid_i & retry_ready_o) begin
-            failed_id_d = retry_id_i;
+        if (retry.valid & retry.ready) begin
+            failed_id_d = retry.id;
         end else begin
             failed_id_d = failed_id_q;
         end
     end
 
-    assign retry_lock_d = retry_lock_i;
+    assign retry_lock_d = retry.lock;
     `FF(failed_id_q, failed_id_d, '0);
     `FF(failed_valid_q, failed_valid_d, '0);
     `FF(retry_lock_q, retry_lock_d, '0);
 
-    assign retry_ready_o = ready_i | ~failed_valid_q;
+    assign retry.ready = ready_i | ~failed_valid_q;
 
     //////////////////////////////////////////////////////////////////////
     // ID Counter with parity bit
@@ -110,7 +102,7 @@ module retry_inorder_start # (
             data_o = data_i;
         end
         id_o = counter_id_q;
-        retry_id_o = counter_id_d;
+        retry.id_feedback = counter_id_d;
     end
 
     //////////////////////////////////////////////////////////////////////

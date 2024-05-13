@@ -6,11 +6,7 @@
 // In order to propperly function:
 // - id_o of retry_start needs to be passed paralelly along the combinatorial logic,
 //   using the same handshake and arrive at id_i of retry_end
-// - retry_id_i of retry_start needs to be directly connected to retry_id_o of retry_end
-// - retry_id_o of retry_start needs to be directly connected to retry_id_i of retry_end
-// - retry_valid_i of retry_start needs to be directly connected to retry_valid_o of retry_end
-// - retry_lock_i of retry_start needs to be directly connected to retry_lock_o of retry_end
-// - retry_ready_o of retry_start needs to be directly connected to retry_ready_i of retry_end
+// - interface retry of retry_start needs to be directly connected to retry of retry_end
 // - All elements in processing have a unique ID
 //
 // This module always keeps results in order by also retrying results that have been correct
@@ -38,15 +34,11 @@ module retry_inorder_end # (
     input logic ready_i,
 
     // Retry Connection
-    output logic [IDSize-1:0] retry_id_o,
-    input logic [IDSize-1:0] retry_id_i,
-    output logic retry_valid_o,
-    output logic retry_lock_o,
-    input logic retry_ready_i
+    retry_interface.ende retry
 );
 
     // Signals do not change, only validity changes
-    assign retry_id_o = id_i;
+    assign retry.id = id_i;
     assign data_o = data_i;
 
     logic [IDSize-1:0] failed_id_d, failed_id_q;
@@ -57,7 +49,7 @@ module retry_inorder_end # (
             failed_id_d = failed_id_q;
             retry_d = ~(failed_id_q == id_i);
         end else if (valid_i & needs_retry_i) begin
-            failed_id_d = retry_id_i;
+            failed_id_d = retry.id_feedback;
             retry_d = 1;
         end else begin
             failed_id_d = failed_id_q;
@@ -65,20 +57,20 @@ module retry_inorder_end # (
         end
     end
 
-    assign retry_lock_o = retry_d;
+    assign retry.lock = retry_d;
 
     `FF(retry_q, retry_d, '0);
     `FF(failed_id_q, failed_id_d, '0);
 
     always_comb begin: gen_output
         if (retry_d) begin
-            retry_valid_o = valid_i;
-            ready_o = retry_ready_i;
+            retry.valid = valid_i;
+            ready_o = retry.ready;
             valid_o = 0;
         end else begin
             valid_o = valid_i;
             ready_o = ready_i;
-            retry_valid_o = 0;
+            retry.valid = 0;
         end
     end
 

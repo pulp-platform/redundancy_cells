@@ -25,11 +25,11 @@ module tb_retry_inorder;
     logic rst_n;
 
     data_t data_in, data_out;
-    logic valid_in, valid_retry, valid_out;
-    logic ready_in, ready_retry, ready_out;
-    logic [IDSize-1:0] id_retry, id_retry_reverse;
+    logic valid_in, valid_out;
+    logic ready_in, ready_out;
     logic needs_retry_middle;
-    logic lock_retry;
+
+    retry_interface #(.IDSize(IDSize)) retry_connection ();
 
     data_t [0:NUM_REGS] data_middle;
     logic [0:NUM_REGS] valid_middle;
@@ -66,11 +66,7 @@ module tb_retry_inorder;
         .ready_i(ready_middle[0]),
 
         // Retry Connection
-        .retry_id_i(id_retry),
-        .retry_id_o(id_retry_reverse),
-        .retry_valid_i(valid_retry),
-        .retry_lock_i(lock_retry),
-        .retry_ready_o(ready_retry)
+        .retry(retry_connection)
     );
 
     // Generate the register stages
@@ -112,11 +108,7 @@ module tb_retry_inorder;
         .ready_i(ready_out),
 
         // Retry Connection
-        .retry_id_o(id_retry),
-        .retry_id_i(id_retry_reverse),
-        .retry_valid_o(valid_retry),
-        .retry_lock_o(lock_retry),
-        .retry_ready_i(ready_retry)
+        .retry(retry_connection)
     );
 
     // Data Application

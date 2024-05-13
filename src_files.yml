@@ -9,8 +9,7 @@ redundancy_cells:
     lowrisc_ecc/prim_secded_39_32_enc.sv,
     lowrisc_ecc/prim_secded_72_64_dec.sv,
     lowrisc_ecc/prim_secded_72_64_enc.sv,
-    rtl/time_redundancy/retry_end.sv
-    rtl/time_redundancy/retry_inorder_end.sv
+    rtl/time_redundancy/retry_interface.sv
     rtl/time_redundancy/rr_arb_tree_lock.sv
     rtl/time_redundancy/voters.svh
     rtl/TMR_voter.sv,
@@ -33,7 +32,9 @@ redundancy_cells:
     rlt/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_dec.sv,
     rtl/BUS_enc_dec/XBAR_DEMUX_BUS_ecc_enc.sv,
     rtl/time_redundancy/redundancy_controller.sv
+    rtl/time_redundancy/retry_end.sv
     rtl/time_redundancy/retry_inorder_start.sv
+    rtl/time_redundancy/retry_inorder_end.sv
     rtl/time_redundancy/retry_start.sv
     rtl/time_redundancy/time_TMR_end.sv
     rtl/time_redundancy/time_TMR_start.sv

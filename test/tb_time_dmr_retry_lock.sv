@@ -60,10 +60,9 @@ module tb_time_dmr_retry_lock #(
     id_t in_id_redundant;
 
     // Feedback connection
-    id_t id_retry, next_id;
-    logic valid_retry;
-    logic ready_retry;
-    
+    id_t next_id;
+    retry_interface #(.IDSize(IDSize)) retry_connection ();
+
     // Connection between retry and DMR
     tmr_stacked_t data_retry2dmr;
     id_t id_retry2dmr;
@@ -95,9 +94,7 @@ module tb_time_dmr_retry_lock #(
         .ready_i(ready_retry2dmr),
 
         // Retry Connection
-        .retry_id_i(id_retry),
-        .retry_valid_i(valid_retry),
-        .retry_ready_o(ready_retry)
+        .retry(retry_connection)
     );
 
 
@@ -274,9 +271,7 @@ module tb_time_dmr_retry_lock #(
         .ready_i(ready_out),
 
         // Retry Connection
-        .retry_id_o(id_retry),
-        .retry_valid_o(valid_retry),
-        .retry_ready_i(ready_retry)
+        .retry(retry_connection)
     );
 
     assign data_out = out_stacked.data;
