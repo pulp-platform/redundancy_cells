@@ -2,11 +2,11 @@
 // Date: 25.04.2024
 // Module that can correctly enable / disable time_TMR or time_DMR modules
 // when they do not hold valid data. It does so by stalling the handshake
-// upstream of the redundancy modules until they are empty, 
+// upstream of the redundancy modules until they are empty,
 // then enables / disables them.
-// 
+//
 // Caveat: In case a fault occurs while this module is trying to switch to a non-redundant mode
-// the module might currently stall since not all data in the combinatorial process can propperly 
+// the module might currently stall since not all data in the combinatorial process can propperly
 // be consumed and the condition for switching can not be reached.
 // Switching back to the redundant mode will unstall the setup.
 
@@ -14,6 +14,10 @@
 `include "common_cells/registers.svh"
 
 module redundancy_controller # (
+    // How long the redundancy controller should keep trying to
+    // Resolve unfinished transactions before switching modes
+    // Needs to be equal or bigger than timeout in underlying TMR / DMR modules
+    parameter int unsigned LockTimeout = 4,
     // Determines if the internal state machines should
     // be parallely redundant, meaning errors inside this module
     // can also not cause errors in the output
@@ -47,15 +51,32 @@ module redundancy_controller # (
     logic ready_ov[REP];
     logic busy_ov[REP];
     logic enable_ov[REP];
+    logic flush_ov[REP];
 
     logic enable_v[REP], enable_d[REP], enable_q[REP];
+    logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
+
+    logic timout[REP];
 
     for (genvar r = 0; r < REP; r++) begin: gen_next_state
       always_comb begin
+        // As long as the unit is busy, do not change the enable state
         if (busy_i) begin
           enable_v[r] = enable_q[r];
         end else begin
           enable_v[r] = enable_i;
+        end
+
+        // If the unit is stalled e.g. nothing gets out during for the timeout, then trickle new operations in to unstall it
+        if (counter_q[r] > LockTimeout) begin
+            counter_v[r] = 0;
+            timout[r] = 1;
+        end else if (valid_i && enable_q[r] && !enable_i) begin
+            counter_v[r] = counter_q[r] + 1;
+            timout[r] = 0;
+        end else begin
+            counter_v[r] = 0;
+            timout[r] = 0;
         end
       end
     end
@@ -63,24 +84,29 @@ module redundancy_controller # (
     // State Voting Logic
     if (InternalRedundancy) begin : gen_state_voters
         `VOTE3to3(enable_v, enable_d);
+        `VOTE3to3(counter_v, counter_d);
     end else begin
         assign enable_d = enable_v;
+        assign counter_d = counter_v;
     end
 
     // Generate default case
     logic enable_base[REP];
+    logic [$clog2(LockTimeout)-1:0] counter_base[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
         assign enable_base[r] = '0;
+        assign counter_base[r] = '0;
     end
 
     `FFARN(enable_q, enable_d, enable_base, clk_i, rst_ni);
+    `FFARN(counter_q, counter_d, counter_base, clk_i, rst_ni);
 
     // Output combinatorial logic
     for (genvar r = 0; r < REP; r++) begin: gen_output
         always_comb begin
             enable_ov[r] = enable_q[r];
 
-            if (enable_q[r] == enable_i) begin
+            if ((enable_q[r] == enable_i) || timout[r]) begin
                 valid_ov[r] = valid_i;
                 ready_ov[r] = ready_i;
                 busy_ov[r] = busy_i;
