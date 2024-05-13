@@ -20,8 +20,8 @@ module ecc_sram_wrap #(
                                                 // Requries bitwise byte enable in SRAM
   parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
   // Set params
-  parameter  int unsigned UnprotectedWidth = 32, // This currently only works for 32bit
-  parameter  int unsigned ProtectedWidth   = 39, // This currently only works for 39bit
+  parameter  int unsigned UnprotectedWidth = 32,
+  parameter  int unsigned ProtectedWidth   = 39,
   localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
   localparam int unsigned BEInWidth        = UnprotectedWidth/8,
   localparam int unsigned BankAddWidth     = $clog2(BankSize)
@@ -114,8 +114,11 @@ module ecc_sram_wrap #(
   logic [   BEInWidth-1:0] be_buffer_d, be_buffer_q;
 
   logic [UnprotectedWidth-1:0] be_selector;
-  assign be_selector    = {{8{be_buffer_q[3]}},{8{be_buffer_q[2]}},
-                           {8{be_buffer_q[1]}},{8{be_buffer_q[0]}}};
+  generate
+    for(genvar i = 0; i < UnprotectedWidth / 8; i++) begin: gen_be_selector
+      assign be_selector[i*8 +: 8]    = {8{be_buffer_q[i]}};
+    end
+  endgenerate
 
   logic [ProtectedWidth-1:0] rmw_buffer_end;
   logic [ProtectedWidth-1:0] rmw_buffer_0;
@@ -219,7 +222,7 @@ module ecc_sram_wrap #(
     in_update_corrected_data_mode = 1'b0;
     case (store_state_q)
       NORMAL: begin
-        if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
+        if (tcdm_req_i & (&tcdm_be_i != 1'b1) & ~tcdm_wen_i) begin
           store_state_d = LOAD_AND_STORE;
           bank_we       = 1'b0;
           rmw_count_d   = NumRMWCuts;
@@ -277,7 +280,8 @@ module ecc_sram_wrap #(
   ecc_scrubber #(
     .BankSize       ( BankSize       ),
     .UseExternalECC ( 0              ),
-    .DataWidth      ( ProtectedWidth )
+    .DataWidth      ( ProtectedWidth ),
+    .ProtWidth      (ProtectedWidth - UnprotectedWidth)
   ) i_scrubber (
     .clk_i,
     .rst_ni,
