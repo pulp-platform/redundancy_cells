@@ -27,6 +27,7 @@ sources:
   - rtl/time_TMR.sv
   - rtl/time_DMR.sv
   - rtl/retry.sv
+  - rtl/rr_arb_tree_lock.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
@@ -98,6 +99,12 @@ sources:
       - test/tb_time_dmr.sv
       - test/tb_retry.sv
       - test/tb_time_dmr_retry.sv
+      - test/tb_time_tmr_lock_dut.sv
+      - test/tb_time_tmr_lock.sv
+      - test/tb_time_dmr_retry_lock_dut.sv
+      - test/tb_time_dmr_retry_lock.sv
+      - test/tb_rr_arb_tree_lock.sv
+
 
 vendor_package:
   - name: lowrisc_opentitan
