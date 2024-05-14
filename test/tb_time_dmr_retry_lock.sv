@@ -15,7 +15,7 @@ module tb_time_dmr_retry_lock #(
     parameter time APPLICATION_DELAY = 2ns,
     parameter time AQUISITION_DELAY = 8ns
 ) ( /* no ports on TB */ );
-    
+
     `include "tb_time.svh"
 
     //////////////////////////////////////////////////////////////////////////////////7
@@ -58,7 +58,7 @@ module tb_time_dmr_retry_lock #(
     tmr_stacked_t in_tmr_stack_redundant;
     logic in_valid_redundant, in_ready_redundant;
     id_t in_id_redundant;
-    
+
     // Feedback connection
     id_t next_id;
     retry_interface #(.IDSize(IDSize)) retry_connection ();
@@ -195,7 +195,7 @@ module tb_time_dmr_retry_lock #(
         // Upstream connection
         .req_i(out_opgrp_valid),
         .gnt_o(out_opgrp_ready),
-        .data_i(out_opgrp_rr_stack), 
+        .data_i(out_opgrp_rr_stack),
 
         // Downstream connection
         .gnt_i(out_tmr_ready),
@@ -351,7 +351,7 @@ module tb_time_dmr_retry_lock #(
                     $display("[T=%t] Tag %h Data %h Output but was not in golden queue ", $time, data_actual.tag, data_actual.data);
                     error = 1;
                     error_cnt += 1;
-                end 
+                end
             end else begin
                 $display("[T=%t] Operation %h -> Data %h Output when nothing was in golden queue", $time, operation_actual, data_actual);
                 error = 1;
@@ -364,7 +364,7 @@ module tb_time_dmr_retry_lock #(
                 if (golden_queue[operation].size() > 2 ** IDSize) begin
                     $display("[T=%t] Data does not get output in a timely manner for operation %d! (Q %d)", $time, operation, golden_queue[operation].size());
                     error = 1;
-                    error_cnt += 1;   
+                    error_cnt += 1;
                 end
             end
             output_handshake_end();
@@ -381,7 +381,7 @@ module tb_time_dmr_retry_lock #(
     // Signals to show what faults are going on
     enum {NONE, DATA_FAULT, VALID_FAULT, READY_FAULT, ID_FAULT} fault_type, fault_current;
 
-    initial data_fault  = '0; 
+    initial data_fault  = '0;
     initial valid_fault = '0;
     initial ready_fault = '0;
     initial id_fault    = '0;
@@ -390,13 +390,13 @@ module tb_time_dmr_retry_lock #(
         // Send correct data for some cycles to space errors
         repeat ($urandom_range(min_fault_delay, max_fault_delay)) begin
             @(posedge clk);
-            fault_current = NONE;          
-            data_fault = '0; 
+            fault_current = NONE;
+            data_fault = '0;
             valid_fault = '0;
             ready_fault = '0;
             id_fault = '0;
         end
-        
+
         // Send wrong data
         fault_current = fault_type;
         case (fault_type)
@@ -404,12 +404,12 @@ module tb_time_dmr_retry_lock #(
             VALID_FAULT: valid_fault = 1;
             READY_FAULT: ready_fault = 1;
             ID_FAULT: id_fault = (1 << $urandom_range(0,IDSize-1));
-        endcase 
+        endcase
 
         // Send correct data again
         @(posedge clk);
-        fault_current = NONE;          
-        data_fault = '0; 
+        fault_current = NONE;
+        data_fault = '0;
         valid_fault = '0;
         ready_fault = '0;
         id_fault = '0;

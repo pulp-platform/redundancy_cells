@@ -1,23 +1,23 @@
 // Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
 // Date: 25.04.2024
 // Description: time_DMR is a pair of modules that can be used to
-// detect faults in any (pipelined) combinatorial process. This is 
+// detect faults in any (pipelined) combinatorial process. This is
 // done by repeating each input twice and comparing the outputs.
-// 
+//
 // Faults that can be handled:
 // - Any number of fault in the datapath during one cycle e.g. wrong result.
 // - A single fault in the handshake (valid or ready) e.g. dropped or injected results.
 // - A single fault in the accompanying ID.
 //
-// In case a fault occurs and the result needs to be recalculated, the needs_retry_o signal 
+// In case a fault occurs and the result needs to be recalculated, the needs_retry_o signal
 // is asserted for one cycle and the ID that needs to be tried again is given.
-// Not all faults nessesarily need a retry, in case you just want to know if 
+// Not all faults nessesarily need a retry, in case you just want to know if
 // faults are happening you can use fault_detected_o for it.
 //
 // This needs_retry_o signal should be used to trigger some kind of mitigating action:
 // For example, one could use the "retry" modules or "retry_inorder" modules
 // to recalculate in hardware, or invoke some recalculation or error on the software side.
-// 
+//
 // In order to propperly function:
 // - next_id_o of time_DMR_start needs to be directly connected to next_id_i of time_DMR_end.
 // - id_o of time_DMR_start needs to be passed paralelly to the combinatorial logic, using the same handshake
@@ -27,7 +27,7 @@
 //
 // This module can deal with out-of-order combinatorial processes under the conditions that
 // the two operations belonging together are not separated.
-// To facilitate this on the output side the module has the lock_o signal which is asserted if 
+// To facilitate this on the output side the module has the lock_o signal which is asserted if
 // the module wants another element of the same kind in the next cycle.
 // This can for example be used with the rr_arb_tree_lock module, but other implementations are
 // permissible.

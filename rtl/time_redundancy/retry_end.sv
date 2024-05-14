@@ -2,9 +2,9 @@
 // Date: 25.04.2024
 // Description: retry is a pair of modules that can be used to run an operation
 // passing through a (pipelined) combinatorial process.
-//  
+//
 // In order to propperly function:
-// - id_o of retry_start needs to be passed paralelly along the combinatorial logic, 
+// - id_o of retry_start needs to be passed paralelly along the combinatorial logic,
 //   using the same handshake and arrive at id_i of retry_end
 // - interface retry of retry_start needs to be directly connected to retry of retry_end
 

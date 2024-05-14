@@ -3,14 +3,14 @@
 // Description: time_TMR is a pair of modules that can be used to error correct
 // any transient fault in a (pipelined) combinatorial process. This is done by
 // repeating the element three times and comparing the results
-// 
+//
 // Faults that can be handled:
 // - Any number of fault in the datapath during one cycle e.g. wrong result.
 // - A single fault in the handshake (valid or ready) e.g. dropped or injected results.
 // - A single fault in the accompanying ID.
-// 
+//
 // In order to propperly function:
-// - id_o of time_TMR_start needs to be passed paralelly to the combinatorial logic, 
+// - id_o of time_TMR_start needs to be passed paralelly to the combinatorial logic,
 //   using the same handshake and arrive at id_i of time_TMR_end.
 // - All operation tripplets in contact which each other have a unique ID.
 // - The module can only be enabled / disabled when the combinatorially process holds no valid data.

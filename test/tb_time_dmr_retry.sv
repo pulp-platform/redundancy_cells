@@ -122,8 +122,8 @@ module tb_time_dmr_retry #(
         .DataType(tagged_data_t),
         .IDSize(IDSize)
     ) dut_retry_end (
-        .clk_i(clk),                
-        .rst_ni(rst_n),       
+        .clk_i(clk),
+        .rst_ni(rst_n),
 
         // Upstream connection
         .data_i(data_detected),
@@ -214,7 +214,7 @@ module tb_time_dmr_retry #(
             end else if (golden_queue.size() > 2 ** IDSize) begin
                 $display("[T=%t] Data does not get output in a timely manner!", $time);
                 error = 1;
-                error_cnt += 1;     
+                error_cnt += 1;
             end else begin
                 $display("[T=%t] Tag %h Data %h Output when nothing was in golden queue", $time, data_actual.tag, data_actual.data);
                 error = 1;
@@ -239,7 +239,7 @@ module tb_time_dmr_retry #(
     assign ready_redundant_faulty = (ready_redundant & stall) ^ ready_fault;
     assign id_redundant_faulty = id_redundant ^ id_fault;
 
-    initial data_fault  = '0; 
+    initial data_fault  = '0;
     initial valid_fault = '0;
     initial ready_fault = '0;
     initial id_fault    = '0;
@@ -248,13 +248,13 @@ module tb_time_dmr_retry #(
         // Send correct data for some cycles to space errors
         repeat ($urandom_range(min_fault_delay, max_fault_delay)) begin
             @(posedge clk);
-            fault_current = NONE;          
-            data_fault = '0; 
+            fault_current = NONE;
+            data_fault = '0;
             valid_fault = '0;
             ready_fault = '0;
             id_fault = '0;
         end
-        
+
         // Send wrong data
         fault_current = fault_type;
         case (fault_type)
@@ -266,8 +266,8 @@ module tb_time_dmr_retry #(
 
         // Send correct data again
         @(posedge clk);
-        fault_current = NONE;          
-        data_fault = '0; 
+        fault_current = NONE;
+        data_fault = '0;
         valid_fault = '0;
         ready_fault = '0;
         id_fault = '0;

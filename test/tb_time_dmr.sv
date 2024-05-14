@@ -129,7 +129,7 @@ module tb_time_dmr #(
                         $error("[T=%t] More faults detected than injected!", $time);
                         error = 1;
                         error_cnt += 1;
-                    end 
+                    end
                 end else begin
                     if (data_actual != data_golden) begin
                         $error("[T=%t] Mismatch: Golden: %h, Actual: %h", $time, data_golden, data_actual);
@@ -165,7 +165,7 @@ module tb_time_dmr #(
     assign ready_redundant_faulty = (ready_redundant & stall) ^ ready_fault;
     assign id_redundant_faulty = id_redundant ^ id_fault;
 
-    initial data_fault  = '0; 
+    initial data_fault  = '0;
     initial valid_fault = '0;
     initial ready_fault = '0;
     initial id_fault    = '0;
@@ -174,13 +174,13 @@ module tb_time_dmr #(
         // Send correct data for some cycles to space errors
         repeat ($urandom_range(min_fault_delay, max_fault_delay)) begin
             @(posedge clk);
-            fault_current = NONE;          
-            data_fault = '0; 
+            fault_current = NONE;
+            data_fault = '0;
             valid_fault = '0;
             ready_fault = '0;
             id_fault = '0;
         end
-        
+
         // Send wrong data
         fault_current = fault_type;
         case (fault_type)
@@ -194,8 +194,8 @@ module tb_time_dmr #(
 
         // Send correct data again
         @(posedge clk);
-        fault_current = NONE;          
-        data_fault = '0; 
+        fault_current = NONE;
+        data_fault = '0;
         valid_fault = '0;
         ready_fault = '0;
         id_fault = '0;

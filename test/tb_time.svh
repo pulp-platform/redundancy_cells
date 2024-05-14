@@ -55,14 +55,14 @@ endtask
 
 task  input_handshake_end();
     // Perform Handshake
-    valid_in = 1'b1;  
+    valid_in = 1'b1;
 
     # (AQUISITION_DELAY - APPLICATION_DELAY);
     while (!ready_in) begin
         @(posedge clk);
         # AQUISITION_DELAY;
     end
-    @(posedge clk);                 
+    @(posedge clk);
     # APPLICATION_DELAY;
     valid_in = 1'b0; // This might get overwritten by next handshake
 
@@ -72,13 +72,13 @@ endtask
 task output_handshake_start();
     // Wait random time (with no valid data)
     repeat ($urandom_range(0, out_hs_max_starvation)) begin
-        @(posedge clk); 
+        @(posedge clk);
         # APPLICATION_DELAY;
     end
 
     // Wait for reset to pass
     while (!rst_n) begin
-        @(posedge clk); 
+        @(posedge clk);
         # APPLICATION_DELAY;
     end
 
@@ -87,7 +87,7 @@ task output_handshake_start();
     // Wait for correct amount of time in cycle
     # (AQUISITION_DELAY - APPLICATION_DELAY);
     while (!valid_out | !rst_n) begin
-        @(posedge clk); 
+        @(posedge clk);
         #AQUISITION_DELAY;
     end
 endtask
