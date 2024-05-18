@@ -11,9 +11,9 @@
 // Hsiao ECC decoder
 // Based in part on work by lowRISC
 
-module hsiao_ecc_dec #(
+module hsiao_ecc_dec import hsiao_ecc_pkg::*; #(
   parameter int unsigned DataWidth = 32,
-  parameter int unsigned ProtWidth = $clog2(DataWidth)+2,
+  parameter int unsigned ProtWidth = min_ecc(DataWidth),
   parameter int unsigned TotalWidth = DataWidth + ProtWidth,
   parameter bit          PrintHsiao = 1'b0
 ) (
@@ -23,9 +23,7 @@ module hsiao_ecc_dec #(
   output logic [           1:0] err_o
 );
 
-  import hsiao_ecc_pkg::*;
-
-  if (ProtWidth < $clog2(DataWidth)+2) $error("ProtWidth must be greater than $clog2(DataWidth)+2");
+  if (ProtWidth < min_ecc(DataWidth)) $error("ProtWidth must be greater than $clog2(DataWidth)+2");
 
   localparam bit [MaxParityWidth-1:0][ MaxTotalWidth-1:0] HsiaoCodes =
                                                           hsiao_matrix(DataWidth, ProtWidth);
