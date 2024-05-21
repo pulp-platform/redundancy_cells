@@ -147,20 +147,20 @@ module time_DMR_start # (
     end
 
     // Generate default cases
-    state_t state_base[REP];
-    DataType data_base[REP];
-    logic [IDSize-1:0] id_base[REP];
+    state_t state_b[REP];
+    DataType data_b[REP];
+    logic [IDSize-1:0] id_b[REP];
 
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
-        assign state_base[r] = STORE_AND_SEND;
-        assign data_base[r] = 0;
-        assign id_base[r] = 0;
+        assign state_b[r] = STORE_AND_SEND;
+        assign data_b[r] = 0;
+        assign id_b[r] = 0;
     end
 
     // State Storage
-    `FF(state_q, state_d, state_base);
-    `FF(data_q, data_d, data_base);
-    `FF(id_q, id_d, id_base);
+    `FF(state_q, state_d, state_b);
+    `FF(data_q, data_d, data_b);
+    `FF(id_q, id_d, id_b);
 
     // Output Combinatorial Logic
     for (genvar r = 0; r < REP; r++) begin: gen_output

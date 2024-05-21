@@ -148,17 +148,17 @@ module time_DMR_end # (
     /////////////////////////////////////////////////////////////////////////////////
     // Logic to find out what we should do with our data based on same / not same
 
-    logic new_element_arrived[REP];
-    logic data_usable[REP];
+    logic new_element_arrived_v[REP];
+    logic data_usable_v[REP];
 
     // Flag Combinatorial Logic
     for (genvar r = 0; r < REP; r++) begin: gen_data_flags
         always_comb begin: gen_data_flags_comb
             // Some new element just showed up and we need to send data outwards again.
-            new_element_arrived[r] = (id_same == 2'b01) || (id_same == 2'b00);
+            new_element_arrived_v[r] = (id_same == 2'b01) || (id_same == 2'b00);
 
             // Data has at least two new things that are the same
-            data_usable[r] = data_same[0];
+            data_usable_v[r] = data_same[0];
         end
     end
 
@@ -167,7 +167,7 @@ module time_DMR_end # (
 
     typedef enum logic [0:0] {BASE, WAIT_FOR_READY} state_t;
     state_t state_v[REP], state_d[REP], state_q[REP];
-    logic valid_internal[REP], lock_internal[REP];
+    logic valid_internal_v[REP], lock_internal_v[REP];
 
     // Special State Description:
     // Wait for Ready: We got some data that is usable, but downstream can't use it yet
@@ -185,7 +185,7 @@ module time_DMR_end # (
             case (state_q[r])
                 BASE:
                     if (valid_i) begin
-                        if (new_element_arrived[r]) begin
+                        if (new_element_arrived_v[r]) begin
                             if (!ready_i) begin
                                 state_v[r] = WAIT_FOR_READY;
                             end
@@ -200,9 +200,9 @@ module time_DMR_end # (
     end
 
     // Generate default cases
-    state_t state_base[REP];
+    state_t state_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
-        assign state_base[r] = BASE;
+        assign state_b[r] = BASE;
     end
 
     // State Voting Logic
@@ -213,29 +213,29 @@ module time_DMR_end # (
     end
 
     // State Storage
-    `FF(state_q, state_d, state_base);
+    `FF(state_q, state_d, state_b);
 
     // Output Combinatorial Logic
     for (genvar r = 0; r < REP; r++) begin: gen_output
         always_comb begin: gen_output_comb
             if (enable_i) begin
                 case (state_q[r])
-                    BASE:           valid_internal[r] = valid_i & new_element_arrived[r];
-                    WAIT_FOR_READY: valid_internal[r] = valid_i;
+                    BASE:           valid_internal_v[r] = valid_i & new_element_arrived_v[r];
+                    WAIT_FOR_READY: valid_internal_v[r] = valid_i;
                 endcase
 
                 case (state_q[r])
-                    BASE:           lock_internal[r] = !ready_i | !full_same[0];
-                    WAIT_FOR_READY: lock_internal[r] = !ready_i;
+                    BASE:           lock_internal_v[r] = !ready_i | !full_same[0];
+                    WAIT_FOR_READY: lock_internal_v[r] = !ready_i;
                 endcase
 
                 case (state_q[r])
-                    BASE:           ready_ov[r] = ready_i | !new_element_arrived[r];
+                    BASE:           ready_ov[r] = ready_i | !new_element_arrived_v[r];
                     WAIT_FOR_READY: ready_ov[r] = ready_i;
                 endcase
             end else begin
-                valid_internal[r] = valid_i;
-                lock_internal[r] = 0;
+                valid_internal_v[r] = valid_i;
+                lock_internal_v[r] = 0;
                 ready_ov[r] = ready_i;
             end
         end
@@ -263,7 +263,7 @@ module time_DMR_end # (
 
                 // To set Lock -> 1 require previous imput to be valid, to set Lock -> 0 lock don't require anything
                 if (valid_i | lock_q[r]) begin
-                    lock_v[r] = lock_internal[r];
+                    lock_v[r] = lock_internal_v[r];
                 end else begin
                     lock_v[r] = lock_q[r];
                 end
@@ -283,16 +283,16 @@ module time_DMR_end # (
     assign lock_o = lock_d[0];
 
     // Default state
-    logic lock_base[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_base[REP];
+    logic lock_b[REP];
+    logic [$clog2(LockTimeout)-1:0] counter_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state
-        assign lock_base[r] = '0;
-        assign counter_base[r] = '0;
+        assign lock_b[r] = '0;
+        assign counter_b[r] = '0;
     end
 
     // State Storage
-    `FF(lock_q, lock_d, lock_base);
-    `FF(counter_q, counter_d, counter_base);
+    `FF(lock_q, lock_d, lock_b);
+    `FF(counter_q, counter_d, counter_b);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Output deduplication based on ID and ID Faults
@@ -308,7 +308,7 @@ module time_DMR_end # (
 
             recently_seen_v[r][next_id_i[IDSize-2:0]] = 0;
 
-            if (valid_internal[r] & ready_i & !id_fault_q) begin
+            if (valid_internal_v[r] & ready_i & !id_fault_q) begin
                 recently_seen_v[r][id_q[IDSize-2:0]] = 1;
             end
         end
@@ -322,25 +322,25 @@ module time_DMR_end # (
     end
 
     // Default state
-    logic [2 ** (IDSize-1)-1:0] recently_seen_base[REP];
+    logic [2 ** (IDSize-1)-1:0] recently_seen_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_deduplication_default_state
-        assign recently_seen_base[r] = ~'0; // All 1s!
+        assign recently_seen_b[r] = ~'0; // All 1s!
     end
 
     // State Storage
-    `FF(recently_seen_q, recently_seen_d, recently_seen_base);
+    `FF(recently_seen_q, recently_seen_d, recently_seen_b);
 
     for (genvar r = 0; r < REP; r++) begin: gen_deduplication_output
         always_comb begin: gen_deduplication_output_comb
             if (enable_i) begin
-                if (id_fault_q | recently_seen_q[r][id_q[IDSize-2:0]] & valid_internal[r]) begin
+                if (id_fault_q | recently_seen_q[r][id_q[IDSize-2:0]] & valid_internal_v[r]) begin
                     valid_ov[r] = 0;
                 end else begin
-                    valid_ov[r] = valid_internal[r];
+                    valid_ov[r] = valid_internal_v[r];
                 end
-                needs_retry_ov[r] = id_same[0] & !data_usable[r];
+                needs_retry_ov[r] = id_same[0] & !data_usable_v[r];
             end else begin
-                valid_ov[r] = valid_internal[r];
+                valid_ov[r] = valid_internal_v[r];
                 needs_retry_ov[r] = 0;
             end
         end
@@ -362,12 +362,12 @@ module time_DMR_end # (
     end
 
     // Default state
-    logic fault_detected_base[REP];
+    logic fault_detected_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_flag_default_state
-        assign fault_detected_base[r] = '0;
+        assign fault_detected_b[r] = '0;
     end
 
-    `FF(fault_detected_q, fault_detected_d, fault_detected_base);
+    `FF(fault_detected_q, fault_detected_d, fault_detected_b);
 
     for (genvar r = 0; r < REP; r++) begin: gen_flag_output
         assign fault_detected_ov[r] = fault_detected_d[r] & !fault_detected_q[r];
