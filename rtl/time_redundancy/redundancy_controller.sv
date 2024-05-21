@@ -56,7 +56,7 @@ module redundancy_controller # (
     logic enable_v[REP], enable_d[REP], enable_q[REP];
     logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
 
-    logic timout[REP];
+    logic timout_v[REP];
 
     for (genvar r = 0; r < REP; r++) begin: gen_next_state
       always_comb begin
@@ -70,13 +70,13 @@ module redundancy_controller # (
         // If the unit is stalled e.g. nothing gets out during for the timeout, then trickle new operations in to unstall it
         if (counter_q[r] > LockTimeout) begin
             counter_v[r] = 0;
-            timout[r] = 1;
+            timout_v[r] = 1;
         end else if (valid_i && enable_q[r] && !enable_i) begin
             counter_v[r] = counter_q[r] + 1;
-            timout[r] = 0;
+            timout_v[r] = 0;
         end else begin
             counter_v[r] = 0;
-            timout[r] = 0;
+            timout_v[r] = 0;
         end
       end
     end
@@ -91,22 +91,22 @@ module redundancy_controller # (
     end
 
     // Generate default case
-    logic enable_base[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_base[REP];
+    logic enable_b[REP];
+    logic [$clog2(LockTimeout)-1:0] counter_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
-        assign enable_base[r] = '0;
-        assign counter_base[r] = '0;
+        assign enable_b[r] = '0;
+        assign counter_b[r] = '0;
     end
 
-    `FFARN(enable_q, enable_d, enable_base, clk_i, rst_ni);
-    `FFARN(counter_q, counter_d, counter_base, clk_i, rst_ni);
+    `FFARN(enable_q, enable_d, enable_b, clk_i, rst_ni);
+    `FFARN(counter_q, counter_d, counter_b, clk_i, rst_ni);
 
     // Output combinatorial logic
     for (genvar r = 0; r < REP; r++) begin: gen_output
         always_comb begin
             enable_ov[r] = enable_q[r];
 
-            if ((enable_q[r] == enable_i) || timout[r]) begin
+            if ((enable_q[r] == enable_i) || timout_v[r]) begin
                 valid_ov[r] = valid_i;
                 ready_ov[r] = ready_i;
                 busy_ov[r] = busy_i;
