@@ -10,7 +10,7 @@ package ecc_manager_reg_pkg;
   parameter  OffsetStart = 'h100;
 
   // Address widths within the block
-  parameter int BlockAw = 9;
+  parameter int BlockAw = 5;
 
   ////////////////////////////
   // Typedefs for registers //
@@ -73,12 +73,12 @@ package ecc_manager_reg_pkg;
   } ecc_manager_hw2reg_t;
 
   // Register offsets
-  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_OFFSET = 9'h 100;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_SCRUB_INTERVAL_OFFSET = 9'h 104;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_SCRUB_FIX_COUNT_OFFSET = 9'h 108;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_OFFSET = 9'h 10c;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_OFFSET = 9'h 110;
-  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_ECC_N_OFFSET = 9'h 114;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_MISMATCH_COUNT_OFFSET = 5'h 0;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_SCRUB_INTERVAL_OFFSET = 5'h 4;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_SCRUB_FIX_COUNT_OFFSET = 5'h 8;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_SCRUB_UNCORRECTABLE_COUNT_OFFSET = 5'h c;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_DATA_N_OFFSET = 5'h 10;
+  parameter logic [BlockAw-1:0] ECC_MANAGER_WRITE_MASK_ECC_N_OFFSET = 5'h 14;
 
   // Register index
   typedef enum int {

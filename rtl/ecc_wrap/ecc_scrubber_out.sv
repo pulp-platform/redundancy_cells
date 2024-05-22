@@ -28,8 +28,15 @@ module ecc_scrubber_out #(
   input  logic                        rst_ni,
 
   input  logic                        scrub_trigger_i, // Set to 1'b0 to disable
-  output logic                        bit_corrected_o,
-  output logic                        uncorrectable_o,
+  output logic                        scrub_tag_bit_corrected_o,
+  output logic                        scrub_tag_uncorrectable_o,
+  output logic                        scrub_data_bit_corrected_o,
+  output logic                        scrub_data_uncorrectable_o,
+
+  output logic                        tag_single_error_o,
+  output logic                        tag_multi_error_o,
+  output logic                        data_single_error_o,
+  output logic                        data_multi_error_o,
 
   // Input signals from others accessing tag memory bank
   input  logic                        tag_intc_req_i,
@@ -46,7 +53,7 @@ module ecc_scrubber_out #(
   output logic                        data_intc_gnt_o,
   input  logic                        data_intc_we_i,
   input  data_be_t                    data_intc_be_i,
-  input  logic [$clog2(DataDepth)-1:0] data_intc_add_i,
+  input  logic [$clog2(DataDepth)-1:0]data_intc_add_i,
   input  logic [       DataWidth-1:0] data_intc_wdata_i,
   output logic [       DataWidth-1:0] data_intc_rdata_o,
   output logic                        data_intc_multi_err_o,
@@ -72,10 +79,6 @@ module ecc_scrubber_out #(
   // Input external ECC result
   input  error_info_per_way_t  ecc_err_i
 );
-
-  logic single_error;
-  logic multi_error;
-
 
   logic                        scrub_req;
   logic                        scrub_we;
@@ -194,8 +197,10 @@ module ecc_scrubber_out #(
     state_d       = state_q;
     scrub_req     = 1'b0;
     working_add_d = working_add_q;
-    bit_corrected_o = 1'b0;
-    uncorrectable_o = 1'b0;
+    scrub_tag_bit_corrected_o  = 1'b0;
+    scrub_tag_uncorrectable_o  = 1'b0;
+    scrub_data_bit_corrected_o = 1'b0;
+    scrub_data_uncorrectable_o = 1'b0;
 
     if (state_q == Idle) begin
       // Switch to read state if triggered to scrub
@@ -219,8 +224,11 @@ module ecc_scrubber_out #(
       // Return to idle state
       state_d         = Idle;
       working_add_d   = (working_add_q + 1) % DataDepth; // increment address
-      bit_corrected_o = single_error;
-      uncorrectable_o = multi_error;
+
+      scrub_tag_bit_corrected_o  = tag_single_error_o;
+      scrub_tag_uncorrectable_o  = tag_multi_error_o;
+      scrub_data_bit_corrected_o = data_single_error_o;
+      scrub_data_uncorrectable_o = data_multi_error_o;
     end
   end
   
@@ -228,8 +236,10 @@ module ecc_scrubber_out #(
   // TODO: data sram has uncorrectable error, interrupt, has addr info
 
 
-  assign single_error = ecc_err_i.tag_sram_single_error | ecc_err_i.data_sram_single_error;
-  assign multi_error  = ecc_err_i.tag_sram_multi_error  | ecc_err_i.data_sram_multi_error;
+  assign tag_single_error_o  = ecc_err_i.tag_sram_single_error;
+  assign tag_multi_error_o   = ecc_err_i.tag_sram_multi_error;
+  assign data_single_error_o = ecc_err_i.data_sram_single_error;
+  assign data_multi_error_o  = ecc_err_i.data_sram_multi_error;
 
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_bank_add
@@ -247,5 +257,19 @@ module ecc_scrubber_out #(
       state_q <= state_d;
     end
   end
+
+
+`ifndef TARGET_SYNTHESIS
+  always @(posedge clk_i) begin
+    if ((scrub_tag_bit_corrected_o) == 1)
+      $display("[ECC SCRUB] %t - tag single error detected", $realtime);
+    if ((scrub_data_bit_corrected_o) == 1)
+      $display("[ECC SCRUB] %t - data single error detected", $realtime);
+    if ((scrub_tag_uncorrectable_o) == 1)
+      $display("[ECC SCRUB] %t - tag multi error detected", $realtime);
+    if ((scrub_data_uncorrectable_o) == 1)
+      $display("[ECC SCRUB] %t - data multi error detected", $realtime);
+  end
+`endif
 
 endmodule
