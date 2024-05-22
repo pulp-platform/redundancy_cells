@@ -19,7 +19,6 @@
   ],
 
   registers: [
-    { skipto: "0x100" }
     { name: "mismatch_count",
       desc: "Correctable mismatches caught by ecc on access",
       swaccess: "rw0c",
