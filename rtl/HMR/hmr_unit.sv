@@ -579,7 +579,8 @@ module hmr_unit #(
         .error_o ( dmr_failure_main      [            i    ] )
       );
       if (SeparateAxiBus) begin: gen_axi_checker
-        DMR_axi_checker #(
+        DMR_checker #(
+          .AxiBus ( SeparateAxiBus ),
           .check_bus_t ( axi_req_t )
         ) dmr_core_checker_axi (
           .clk_i   (                                       ),
@@ -590,8 +591,8 @@ module hmr_unit #(
           .error_o ( dmr_failure_axi   [            i    ] )
         );
       end else begin: gen_no_axi_checker
-        assign dmr_axi_outputs = '0;
-        assign dmr_failure_axi = '0;
+        assign dmr_axi_outputs[i] = '0;
+        assign dmr_failure_axi[i] = '0;
       end
       if (SeparateData) begin : gen_data_checker
         for (genvar j = 0; j < NumBusVoters; j++) begin
