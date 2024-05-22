@@ -29,39 +29,45 @@ module DMR_checker #(
 
 check_bus_t compare;
 check_bus_t inp_q;
+logic error;
 
 if (AxiBus == 1) begin: gen_axi_checker
-  logic error, error_aw, error_w, error_ar, error_r, error_b;
+  logic error_aw, error_w, error_ar, error_r, error_b;
   if (Pipeline) begin
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (~rst_ni) begin
         compare <= '0;
         inp_q   <= '0;
       end else begin
-        compare.aw <= inp_a_i.aw ^ inp_b_i.aw;
-        compare.w  <= inp_a_i.w ^ inp_b_i.w;
-        compare.ar <= inp_a_i.ar ^ inp_b_i.ar;
-        compare.r  <= inp_a_i.r ^ inp_b_i.r;
-        compare.b  <= inp_a_i.b ^ inp_b_i.b;
-        inp_q   <= inp_a_i;
+        compare.aw       <= inp_a_i.aw ^ inp_b_i.aw;
+        compare.aw_valid <= inp_a_i.aw_valid ^ inp_b_i.aw_valid;
+        compare.w        <= inp_a_i.w ^ inp_b_i.w;
+        compare.w_valid  <= inp_a_i.w_valid ^ inp_b_i.w_valid;
+        compare.ar       <= inp_a_i.ar ^ inp_b_i.ar;
+        compare.ar_valid <= inp_a_i.ar_valid ^ inp_b_i.ar_valid;
+        compare.r_ready  <= inp_a_i.r_ready ^ inp_b_i.r_ready;
+        compare.b_ready  <= inp_a_i.b_ready ^ inp_b_i.b_ready;
+        inp_q            <= inp_a_i;
       end
     end
   end else begin
-    assign compare.aw = inp_a_i.aw ^ inp_b_i.aw;
-    assign compare.w  = inp_a_i.w ^ inp_b_i.w;
-    assign compare.ar = inp_a_i.ar ^ inp_b_i.ar;
-    assign compare.r  = inp_a_i.r ^ inp_b_i.r;
-    assign compare.b  = inp_a_i.b ^ inp_b_i.b;
+    assign compare.aw       = inp_a_i.aw ^ inp_b_i.aw;
+    assign compare.aw_valid = inp_a_i.aw_valid ^ inp_b_i.aw_valid;
+    assign compare.w        = inp_a_i.w ^ inp_b_i.w;
+    assign compare.w_valid  = inp_a_i.w_valid ^ inp_b_i.w_valid;
+    assign compare.ar       = inp_a_i.ar ^ inp_b_i.ar;
+    assign compare.ar_valid = inp_a_i.ar_valid ^ inp_b_i.ar_valid;
+    assign compare.r_ready  = inp_a_i.r_ready ^ inp_b_i.r_ready;
+    assign compare.b_ready  = inp_a_i.b_ready ^ inp_b_i.b_ready;
     assign inp_q = inp_a_i;
   end
-  assign error_aw = |compare.aw;
-  assign error_w = |compare.w;
-  assign error_ar = |compare.ar;
-  assign error_r = |compare.r;
-  assign error_b = |compare.b;
+  assign error_aw = (|compare.aw) | compare.aw_valid;
+  assign error_w  = (|compare.w) | compare.w_valid;
+  assign error_ar = (|compare.ar) | compare.ar_valid;
+  assign error_r = compare.r_ready;
+  assign error_b = compare.b_ready;
   assign error = error_aw | error_w | error_ar | error_r | error_b;
 end else begin: gen_generic_checker
-  logic error;
   if (Pipeline) begin
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (~rst_ni) begin
