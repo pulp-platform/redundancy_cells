@@ -14,7 +14,8 @@
 
 module ecc_scrubber_out #(
   parameter type         data_be_t = logic,
-  parameter int unsigned TagWidth       = 32,
+  parameter int unsigned TagSramWidth   = 32,
+  parameter int unsigned TagDataWidth   = 32,
   parameter int unsigned DataWidth      = 128,
   parameter int unsigned TagDepth       = 256,
   parameter int unsigned DataDepth      = 2048,
@@ -38,14 +39,17 @@ module ecc_scrubber_out #(
   output logic                        data_single_error_o,
   output logic                        data_multi_error_o,
 
+  output logic                        tag_valid_bit_o,
+  output logic                        tag_dirty_bit_o,
+
   // Input signals from others accessing tag memory bank
   input  logic                        tag_intc_req_i,
   output logic                        tag_intc_gnt_o,
   input  logic                        tag_intc_we_i,
   input  logic                        tag_intc_be_i,
   input  logic [$clog2(TagDepth)-1:0] tag_intc_add_i,
-  input  logic [       TagWidth-1:0]  tag_intc_wdata_i,
-  output logic [       TagWidth-1:0]  tag_intc_rdata_o,
+  input  logic [       TagSramWidth-1:0]  tag_intc_wdata_i,
+  output logic [       TagSramWidth-1:0]  tag_intc_rdata_o,
   output logic                        tag_intc_multi_err_o,
 
   // Input signals from others accessing data memory bank
@@ -64,8 +68,9 @@ module ecc_scrubber_out #(
   output logic                        tag_bank_we_o,
   output logic                        tag_bank_be_o,
   output logic [$clog2(TagDepth)-1:0] tag_bank_add_o,
-  output logic [       TagWidth-1:0]  tag_bank_wdata_o,
-  input  logic [       TagWidth-1:0]  tag_bank_rdata_i,
+  output logic [$clog2(TagDepth)-1:0] tag_bank_add_q_o,
+  output logic [       TagSramWidth-1:0]  tag_bank_wdata_o,
+  input  logic [       TagSramWidth-1:0]  tag_bank_rdata_i,
 
   // Output directly to data bank
   output logic                        data_bank_req_o,
@@ -73,6 +78,7 @@ module ecc_scrubber_out #(
   output logic                        data_bank_we_o,
   output data_be_t                    data_bank_be_o,
   output logic [$clog2(DataDepth)-1:0] data_bank_add_o,
+  output logic [$clog2(DataDepth)-1:0] data_bank_add_q_o,
   output logic [       DataWidth-1:0] data_bank_wdata_o,
   input  logic [       DataWidth-1:0] data_bank_rdata_i,
 
@@ -84,7 +90,7 @@ module ecc_scrubber_out #(
   logic                        scrub_we;
   logic [$clog2(DataDepth)-1:0] scrub_add;
   // logic [       DataWidth-1:0] scrub_wdata;
-  logic [       TagWidth-1:0]  scrub_tag_rdata;
+  logic [       TagSramWidth-1:0]  scrub_tag_rdata;
   logic [       DataWidth-1:0] scrub_data_rdata;
 
   typedef enum logic [2:0] {Idle, Read, Check} scrub_state_e;
@@ -93,18 +99,24 @@ module ecc_scrubber_out #(
 
   logic [$clog2(DataDepth)-1:0] working_add_d, working_add_q; // use data addr as it should be >= tag addr size, because the block number per index
   
+  logic tag_rwdata_en, data_rwdata_en;
   logic tag_rdata_en, tag_rdata_en_q;
   logic data_rdata_en, data_rdata_en_q;
   logic data_wdata_en, data_wdata_en_q;
   logic data_en_q;
-  logic [TagWidth-1:0]  tag_rdata_q;
+  logic [TagSramWidth-1:0]  tag_rdata_q;
   logic [DataWidth-1:0] data_rdata_q;
   logic                 tag_intc_multi_err_q;
   logic                 data_intc_multi_err_q;
+  logic [$clog2(TagDepth)-1:0]  tag_bank_add_q;
+  logic [$clog2(DataDepth)-1:0] data_bank_add_q;
 
-  assign tag_rdata_en   = tag_intc_req_i  & tag_bank_gnt_i  & ~tag_intc_we_i;
-  assign data_rdata_en  = data_intc_req_i & data_bank_gnt_i & ~data_intc_we_i;
-  assign data_wdata_en  = data_intc_req_i & data_bank_gnt_i &  data_intc_we_i;
+  assign tag_rwdata_en  = tag_intc_req_i  & tag_bank_gnt_i;
+  assign data_rwdata_en = data_intc_req_i & data_bank_gnt_i;
+
+  assign tag_rdata_en   = tag_rwdata_en  & ~tag_intc_we_i;
+  assign data_rdata_en  = data_rwdata_en & ~data_intc_we_i;
+  assign data_wdata_en  = data_rwdata_en &  data_intc_we_i;
   assign data_en_q      = data_rdata_en_q | data_wdata_en_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -178,6 +190,18 @@ module ecc_scrubber_out #(
     end
   end
 
+  always_ff @(posedge clk_i) begin
+    if(tag_rwdata_en) begin
+      tag_bank_add_q  <= tag_bank_add_o;
+    end
+    if(data_rwdata_en) begin
+      data_bank_add_q <= data_bank_add_o;
+    end
+  end
+
+  assign tag_bank_add_q_o  = tag_bank_add_q;
+  assign data_bank_add_q_o = data_bank_add_q;
+
   always_comb begin : proc_data_bank_assign
     // By default, bank is connected to outside
     data_bank_we_o    = data_intc_we_i;
@@ -240,6 +264,10 @@ module ecc_scrubber_out #(
   assign tag_multi_error_o   = ecc_err_i.tag_sram_multi_error;
   assign data_single_error_o = ecc_err_i.data_sram_single_error;
   assign data_multi_error_o  = ecc_err_i.data_sram_multi_error;
+
+  // typedef to have consistent tag data (that what gets written into the sram)
+  assign tag_valid_bit_o     = tag_bank_rdata_i[TagDataWidth-1];
+  assign tag_dirty_bit_o     = tag_bank_rdata_i[TagDataWidth-2];
 
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_bank_add
