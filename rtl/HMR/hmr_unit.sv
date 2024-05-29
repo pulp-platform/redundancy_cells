@@ -607,6 +607,9 @@ module hmr_unit #(
             .error_o ( dmr_failure_data  [            i    ][j] )
           );
         end
+      end else begin: gen_no_data_checker
+        assign dmr_bus_outputs  [i] = '0;
+        assign dmr_failure_data [i] = '0;
       end
 
       if (RapidRecovery) begin : gen_rapid_recovery_unit
