@@ -47,16 +47,15 @@ module redundancy_controller # (
 );
 
     // Redundant versions of output signals
-    logic valid_ov[REP];
-    logic ready_ov[REP];
-    logic busy_ov[REP];
-    logic enable_ov[REP];
-    logic flush_ov[REP];
+    logic [REP-1:0] valid_ov;
+    logic [REP-1:0] ready_ov;
+    logic [REP-1:0] busy_ov;
+    logic [REP-1:0] enable_ov;
+    logic [REP-1:0] flush_ov;
+    logic [REP-1:0] timeout_v;
 
-    logic enable_v[REP], enable_d[REP], enable_q[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
-
-    logic timout_v[REP];
+    logic [REP-1:0]                           enable_b,  enable_v,  enable_d,  enable_q;
+    logic [REP-1:0][$clog2(LockTimeout)-1:0] counter_b, counter_v, counter_d, counter_q;
 
     for (genvar r = 0; r < REP; r++) begin: gen_next_state
       always_comb begin
@@ -70,13 +69,13 @@ module redundancy_controller # (
         // If the unit is stalled e.g. nothing gets out during for the timeout, then trickle new operations in to unstall it
         if (counter_q[r] > LockTimeout) begin
             counter_v[r] = 0;
-            timout_v[r] = 1;
+            timeout_v[r] = 1;
         end else if (valid_i && enable_q[r] && !enable_i) begin
             counter_v[r] = counter_q[r] + 1;
-            timout_v[r] = 0;
+            timeout_v[r] = 0;
         end else begin
             counter_v[r] = 0;
-            timout_v[r] = 0;
+            timeout_v[r] = 0;
         end
       end
     end
@@ -91,8 +90,6 @@ module redundancy_controller # (
     end
 
     // Generate default case
-    logic enable_b[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
         assign enable_b[r] = '0;
         assign counter_b[r] = '0;
@@ -106,7 +103,7 @@ module redundancy_controller # (
         always_comb begin
             enable_ov[r] = enable_q[r];
 
-            if ((enable_q[r] == enable_i) || timout_v[r]) begin
+            if ((enable_q[r] == enable_i) || timeout_v[r]) begin
                 valid_ov[r] = valid_i;
                 ready_ov[r] = ready_i;
                 busy_ov[r] = busy_i;

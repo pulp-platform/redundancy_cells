@@ -88,10 +88,10 @@ module time_DMR_end # (
 );
 
     // Redundant Output signals
-    logic ready_ov[REP];
-    logic valid_ov[REP];
-    logic needs_retry_ov[REP];
-    logic fault_detected_ov[REP];
+    logic [REP-1:0] ready_ov;
+    logic [REP-1:0] valid_ov;
+    logic [REP-1:0] needs_retry_ov;
+    logic [REP-1:0] fault_detected_ov;
 
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of incomming results and generating good output data
@@ -148,8 +148,8 @@ module time_DMR_end # (
     /////////////////////////////////////////////////////////////////////////////////
     // Logic to find out what we should do with our data based on same / not same
 
-    logic new_element_arrived_v[REP];
-    logic data_usable_v[REP];
+    logic [REP-1:0] new_element_arrived_v;
+    logic [REP-1:0] data_usable_v;
 
     // Flag Combinatorial Logic
     for (genvar r = 0; r < REP; r++) begin: gen_data_flags
@@ -166,8 +166,8 @@ module time_DMR_end # (
     // State machine to figure out handshake
 
     typedef enum logic [0:0] {BASE, WAIT_FOR_READY} state_t;
-    state_t state_v[REP], state_d[REP], state_q[REP];
-    logic valid_internal_v[REP], lock_internal_v[REP];
+    state_t [REP-1:0] state_b, state_v, state_d, state_q;
+    logic [REP-1:0] valid_internal_v, lock_internal_v;
 
     // Special State Description:
     // Wait for Ready: We got some data that is usable, but downstream can't use it yet
@@ -200,7 +200,6 @@ module time_DMR_end # (
     end
 
     // Generate default cases
-    state_t state_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
         assign state_b[r] = BASE;
     end
@@ -244,8 +243,8 @@ module time_DMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to lock / unlock Arbitrator with Watchdog timer
 
-    logic lock_v[REP], lock_d[REP], lock_q[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
+    logic [REP-1:0] lock_b, lock_v, lock_d, lock_q;
+    logic [REP-1:0][$clog2(LockTimeout)-1:0] counter_b, counter_v, counter_d, counter_q;
 
     // Next State Combinatorial Logic
     for (genvar r = 0; r < REP; r++) begin: gen_lock_next_state
@@ -283,8 +282,6 @@ module time_DMR_end # (
     assign lock_o = lock_d[0];
 
     // Default state
-    logic lock_b[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state
         assign lock_b[r] = '0;
         assign counter_b[r] = '0;
@@ -300,7 +297,7 @@ module time_DMR_end # (
     logic id_fault_q;
     assign id_fault_q = ^id_q;
 
-    logic [2 ** (IDSize-1)-1:0] recently_seen_v[REP], recently_seen_d[REP], recently_seen_q[REP];
+    logic [REP-1:0][2 ** (IDSize-1)-1:0] recently_seen_b, recently_seen_v, recently_seen_d, recently_seen_q;
 
     for (genvar r = 0; r < REP; r++) begin: gen_deduplication_next_state
         always_comb begin: gen_deduplication_next_state_comb
@@ -322,7 +319,6 @@ module time_DMR_end # (
     end
 
     // Default state
-    logic [2 ** (IDSize-1)-1:0] recently_seen_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_deduplication_default_state
         assign recently_seen_b[r] = ~'0; // All 1s!
     end
@@ -355,14 +351,13 @@ module time_DMR_end # (
     // In a non-error case, we should have a full same signal every other cycle
     // So if that is not the case we had a fault.
 
-    logic fault_detected_d[REP], fault_detected_q[REP];
+    logic [REP-1:0] fault_detected_b, fault_detected_d, fault_detected_q;
 
     for (genvar r = 0; r < REP; r++) begin: gen_flag_next_state
         assign fault_detected_d[r] = ~|full_same[1:0] & valid_i;;
     end
 
     // Default state
-    logic fault_detected_b[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_flag_default_state
         assign fault_detected_b[r] = '0;
     end

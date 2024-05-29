@@ -82,9 +82,9 @@ module time_TMR_end # (
 );
 
     // Redundant Output signals
-    logic ready_ov[REP];
-    logic valid_ov[REP];
-    logic fault_detected_ov[REP];
+    logic [REP-1:0] ready_ov;
+    logic [REP-1:0] valid_ov;
+    logic [REP-1:0] fault_detected_ov;
 
     /////////////////////////////////////////////////////////////////////////////////
     // Storage of incomming results and generating good output data
@@ -164,16 +164,16 @@ module time_TMR_end # (
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to figure out handshake
-    logic lock_internal_v[REP];
+    logic [REP-1:0] lock_internal_v;
 
     if (EarlyValidEnable) begin: gen_early_valid_statemachine
 
         // Input signal reassignment to make state machine more readable
-        logic element_needs_shift_v[REP];
-        logic new_element_arrived_v[REP];
-        logic element_in_input_v[REP];
-        logic element_relies_on_input_v[REP];
-        logic data_usable_v[REP];
+        logic [REP-1:0] element_needs_shift_v;
+        logic [REP-1:0] new_element_arrived_v;
+        logic [REP-1:0] element_in_input_v;
+        logic [REP-1:0] element_relies_on_input_v;
+        logic [REP-1:0] data_usable_v;
 
         for (genvar r = 0; r < REP; r++) begin: gen_data_flags
             always_comb begin: gen_data_flags_comb
@@ -208,7 +208,7 @@ module time_TMR_end # (
         // WAIT_FOR_DATA: We got some pieces of data that should belong together but they are not the same
         // -> We try to collect one more piece of the same data and then send it downstream
         typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID, WAIT_FOR_DATA} state_t;
-        state_t state_v[REP], state_d[REP], state_q[REP];
+        state_t [REP-1:0] state_b, state_v, state_d, state_q;
 
 
         // Next State Combinatorial Logic
@@ -266,7 +266,6 @@ module time_TMR_end # (
         end
 
         // Generate default cases
-        state_t state_b[REP];
         for (genvar r = 0; r < REP; r++) begin: gen_default_state
             assign state_b[r] = WAIT_FOR_VALID;
         end
@@ -308,11 +307,11 @@ module time_TMR_end # (
     end else begin : gen_late_valid_statemachine
 
         // Input signal reassignment to make state machine more readable
-        logic new_id_arrived_v[REP];
-        logic id_in_input_v[REP];
-        logic id_all_same_v[REP];
-        logic id_all_cover_v[REP];
-        logic data_usable_v[REP];
+        logic [REP-1:0] new_id_arrived_v;
+        logic [REP-1:0] id_in_input_v;
+        logic [REP-1:0] id_all_same_v;
+        logic [REP-1:0] id_all_cover_v;
+        logic [REP-1:0] data_usable_v;
 
         for (genvar r = 0; r < REP; r++) begin: gen_data_flags
             always_comb begin: gen_data_flags_comb
@@ -341,7 +340,7 @@ module time_TMR_end # (
         // WAIT_FOR_VALID_X2: We have recieved three fully usable pieces of data
         // -> We need to wait for at least two new data elements before data can be valid again
         typedef enum logic [1:0] {BASE, WAIT_FOR_READY, WAIT_FOR_VALID, WAIT_FOR_VALID_X2} state_t;
-        state_t state_v[REP], state_d[REP], state_q[REP];
+        state_t [REP-1:0] state_b, state_v, state_d, state_q;
 
         // Next State Combinatorial Logic
         for (genvar r = 0; r < REP; r++) begin: gen_next_state
@@ -394,7 +393,6 @@ module time_TMR_end # (
         end
 
         // Generate default cases
-        state_t state_b[REP];
         for (genvar r = 0; r < REP; r++) begin: gen_default_state
             assign state_b[r] = WAIT_FOR_VALID;
         end
@@ -438,8 +436,8 @@ module time_TMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to lock / unlock Arbitrator with Watchdog timer
 
-    logic lock_v[REP], lock_d[REP], lock_q[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
+    logic [REP-1:0] lock_b, lock_v, lock_d, lock_q;
+    logic [REP-1:0][$clog2(LockTimeout)-1:0] counter_b, counter_v, counter_d, counter_q;
 
     // Next State Combinatorial Logic
     for (genvar r = 0; r < REP; r++) begin: gen_lock_next_state
@@ -477,16 +475,14 @@ module time_TMR_end # (
     assign lock_o = lock_d[0];
 
     // Default state
-    logic lock_base[REP];
-    logic [$clog2(LockTimeout)-1:0] counter_base[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state
-        assign lock_base[r] = '0;
-        assign counter_base[r] = '0;
+        assign lock_b[r] = '0;
+        assign counter_b[r] = '0;
     end
 
     // State Storage
-    `FF(lock_q, lock_d, lock_base);
-    `FF(counter_q, counter_d, counter_base);
+    `FF(lock_q, lock_d, lock_b);
+    `FF(counter_q, counter_d, counter_b);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Build error flag
@@ -497,19 +493,18 @@ module time_TMR_end # (
     // always have at least two data elements that are the same in the first 3 elements.
     // Make output only 1 for a signly cycle even if internal pipeline is stopped
 
-    logic fault_detected_d[REP], fault_detected_q[REP];
+    logic [REP-1:0] fault_detected_b, fault_detected_d, fault_detected_q;
 
     for (genvar r = 0; r < REP; r++) begin: gen_flag_next_state
         assign fault_detected_d[r] = ~|full_same[2:0] & valid_i;
     end
 
     // Default state
-    logic fault_detected_base[REP];
     for (genvar r = 0; r < REP; r++) begin: gen_flag_default_state
-        assign fault_detected_base[r] = '0;
+        assign fault_detected_b[r] = '0;
     end
 
-    `FF(fault_detected_q, fault_detected_d, fault_detected_base);
+    `FF(fault_detected_q, fault_detected_d, fault_detected_b);
 
     for (genvar r = 0; r < REP; r++) begin: gen_flag_output
         assign fault_detected_ov[r] = fault_detected_d[r] & !fault_detected_q[r];
