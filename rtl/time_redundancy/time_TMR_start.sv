@@ -60,8 +60,8 @@ module time_TMR_start # (
     input logic ready_i
 );
     // Redundant Output signals
-    logic ready_ov[REP];
-    logic valid_ov[REP];
+    logic [REP-1:0] ready_ov;
+    logic [REP-1:0] valid_ov;
 
     // State machine TLDR
     // - counting the state from 0 to 2 if the handshake is good
@@ -69,9 +69,9 @@ module time_TMR_start # (
 
     // Next State Combinatorial Logic
     typedef enum logic [1:0] {STORE_AND_SEND, SEND, REPLICATE_ONE, REPLICATE_TWO} state_t;
-    state_t state_v[REP], state_d[REP], state_q[REP];
-    DataType  data_v[REP], data_d[REP], data_q[REP];
-    logic [IDSize-1:0] id_v[REP], id_d[REP], id_q[REP];
+    state_t [REP-1:0] state_b, state_v, state_d, state_q;
+    DataType [REP-1:0] data_b, data_v, data_d, data_q;
+    logic [REP-1:0][IDSize-1:0] id_b, id_v, id_d, id_q;
 
     for (genvar r = 0; r < REP; r++) begin: gen_next_state
         always_comb begin : gen_next_state_comb
@@ -129,10 +129,6 @@ module time_TMR_start # (
     end
 
     // Generate default cases
-    state_t state_b[REP];
-    DataType data_b[REP];
-    logic [IDSize-1:0] id_b[REP];
-
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
         assign state_b[r] = STORE_AND_SEND;
         assign data_b[r] = 0;
