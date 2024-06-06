@@ -44,11 +44,19 @@ module ecc_sram #(
   output logic                     multi_error_o
 );
 
+  typedef struct packed {
+    logic [  DataInWidth-1:0]      corrected_data;
+    logic [BankAddrWidth-1:0]      bank_addr;
+  } correct_info_t;
+
   logic [1:0] ecc_error;
   logic       valid_read_d, valid_read_q;
   logic                          valid_load_d, valid_load_q;
-  logic [DataInWidth-1:0]        corrected_data_raw_d, corrected_data_raw_q;
+  correct_info_t                 corrected_data_raw_d, corrected_data_raw_q;
   logic                          corrected_data_raw_en;
+  logic                          corrected_data_raw_valid_d, corrected_data_raw_valid_q;
+  logic                          corrected_data_raw_valid_en;
+  logic                          corrected_data_raw_valid_set, corrected_data_raw_valid_clr;
   logic                          in_update_corrected_data_mode;
 
   logic [  DataInWidth-1:0]      rdata;
@@ -57,6 +65,7 @@ module ecc_sram #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
     if(~rst_ni) begin
       valid_read_q <= '0;
+      valid_load_q <= '0;
     end else begin
       valid_read_q <= valid_read_d;
       valid_load_q <= valid_load_d;
@@ -64,10 +73,23 @@ module ecc_sram #(
   end
 
   always_ff @(posedge clk_i) begin : proc_corrected_data_update
-    if(corrected_data_raw_en) begin
+    if(corrected_data_raw_valid_set) begin
       corrected_data_raw_q <= corrected_data_raw_d;
     end
   end
+  
+  assign corrected_data_raw_valid_set = corrected_data_raw_en;
+  assign corrected_data_raw_valid_clr = in_update_corrected_data_mode;
+  assign corrected_data_raw_valid_en  = corrected_data_raw_valid_set | corrected_data_raw_valid_clr;
+  assign corrected_data_raw_valid_d   = corrected_data_raw_valid_set | (~corrected_data_raw_valid_clr);
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_corrected_data_raw_valid
+    if(~rst_ni) begin
+      corrected_data_raw_valid_q <= '0;
+    end else if(corrected_data_raw_valid_en) begin
+      corrected_data_raw_valid_q <= corrected_data_raw_valid_d;
+    end
+  end
+
   assign valid_read_d = req_i && gnt_o &&
                         (~we_i || (be_i != {ByteEnWidth{1'b1}}));
   assign valid_load_d = req_i && gnt_o && ~we_i;
@@ -161,11 +183,14 @@ module ecc_sram #(
                       wdata_i :
                       store_state_q == READ_MODIFY_WRITE ?
                       (be_selector & input_buffer_q) | (~be_selector & loaded) :
-                      corrected_data_raw_q;
+                      corrected_data_raw_q.corrected_data;
 
     // for read transaction, update the sram content after a single-error was corrected
-    assign corrected_data_raw_en = valid_load_q && single_error_o;
-    assign corrected_data_raw_d  = rdata;
+    assign corrected_data_raw_en  = valid_load_q && single_error_o;
+    assign corrected_data_raw_d   = correct_info_t'{
+                                      corrected_data: rdata,
+                                      bank_addr     : addr_buffer_q
+                                    };
 
 
   end else begin : gen_ecc_input
@@ -224,11 +249,8 @@ module ecc_sram #(
           bank_we       = 1'b0;
           rmw_count_d   = rmw_count_t'(NumRMWCuts);
         end
-        if(valid_load_q && single_error_o) begin
+        if(~req_i & corrected_data_raw_valid_q) begin
           store_state_d = UPDATE_CORRECTED_DATA;
-          gnt_o         = 1'b0;
-          addr_buffer_d = addr_buffer_q;
-          bank_req      = 1'b0;
         end
       end
       READ_MODIFY_WRITE: begin
@@ -248,9 +270,9 @@ module ecc_sram #(
       end
       UPDATE_CORRECTED_DATA: begin
         gnt_o                         = 1'b0;
-        bank_req                      = 1'b1;
+        bank_addr                     = corrected_data_raw_q.bank_addr;
         bank_we                       = 1'b1;
-        bank_addr                     = addr_buffer_q;
+        bank_req                      = 1'b1;
         in_update_corrected_data_mode = 1'b1;
         store_state_d                 = NORMAL;
       end
