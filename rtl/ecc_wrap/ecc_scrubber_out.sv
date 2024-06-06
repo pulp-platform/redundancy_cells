@@ -210,7 +210,7 @@ module ecc_scrubber_out #(
     data_bank_wdata_o = data_intc_wdata_i;
 
     // If scrubber active and outside is not, do scrub
-    if ( (state_q == Read || state_q == Check) && (tag_intc_req_i == 1'b0) && data_intc_req_i == 1'b0) begin
+    if ( (state_q == Read || state_q == Check) && (tag_intc_req_i == 1'b0) && (data_intc_req_i == 1'b0)) begin
       data_bank_we_o    = 1'b0;
       data_bank_be_o    = '0;
       data_bank_add_o   = scrub_add;

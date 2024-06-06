@@ -17,6 +17,7 @@ module ecc_sram #(
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
   parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
+  parameter  int unsigned NumOutputCuts    = 0, // Number of cuts in the data output path
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
   parameter  int unsigned ByteWidth        = 8,
   // Set params
@@ -49,6 +50,9 @@ module ecc_sram #(
   logic [DataInWidth-1:0]        corrected_data_raw_d, corrected_data_raw_q;
   logic                          corrected_data_raw_en;
   logic                          in_update_corrected_data_mode;
+
+  logic [  DataInWidth-1:0]      rdata;
+
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
     if(~rst_ni) begin
@@ -85,8 +89,8 @@ module ecc_sram #(
   logic [ProtectedWidth-1:0] bank_wdata;
   logic [ProtectedWidth-1:0] bank_rdata;
 
-  logic                      bank_scrub_req;
-  logic                      bank_scrub_we;
+  logic                      bank_scrub_req, bank_scrub_req_q;
+  logic                      bank_scrub_we, bank_scrub_we_q;
   logic [ BankAddrWidth-1:0] bank_scrub_addr;
   logic [ProtectedWidth-1:0] bank_scrub_wdata;
   logic [ProtectedWidth-1:0] bank_scrub_rdata;
@@ -151,17 +155,17 @@ module ecc_sram #(
       .out ( bank_wdata )
     );
 
-    assign rdata_o   = loaded;
+    assign rdata   = loaded;
 
     assign to_store = store_state_q == NORMAL ?
                       wdata_i :
-                      in_update_corrected_data_mode ?
-                      corrected_data_raw_q :
-                      (be_selector & input_buffer_q) | (~be_selector & loaded);
+                      store_state_q == READ_MODIFY_WRITE ?
+                      (be_selector & input_buffer_q) | (~be_selector & loaded) :
+                      corrected_data_raw_q;
 
     // for read transaction, update the sram content after a single-error was corrected
     assign corrected_data_raw_en = valid_load_q && single_error_o;
-    assign corrected_data_raw_d  = rdata_o;
+    assign corrected_data_raw_d  = rdata;
 
 
   end else begin : gen_ecc_input
@@ -170,7 +174,7 @@ module ecc_sram #(
     logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
 
     assign bank_wdata = store_state_q == NORMAL ? wdata_i : lns_wdata;
-    assign rdata_o   = bank_rdata;
+    assign rdata   = bank_rdata;
 
     hsiao_ecc_dec #(
       .DataWidth (UnprotectedWidth),
@@ -321,4 +325,15 @@ module ecc_sram #(
     .rdata_o ( bank_scrub_rdata  )  // read data
   );
 
+
+  // Output spill register for breaking timing path
+  shift_reg #(
+    .dtype(logic[DataInWidth-1:0]),
+    .Depth(NumOutputCuts)
+  ) i_output_buffer (
+    .clk_i,
+    .rst_ni,
+    .d_i   (rdata),
+    .d_o   (rdata_o)
+  );
 endmodule
