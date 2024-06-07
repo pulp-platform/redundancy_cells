@@ -19,6 +19,8 @@ module ecc_scrubber_out #(
   parameter int unsigned DataWidth      = 128,
   parameter int unsigned TagDepth       = 256,
   parameter int unsigned DataDepth      = 2048,
+  parameter int unsigned TagReadLatency = 1,
+  parameter int unsigned DataReadLatency= 1,
   parameter type         error_info_per_way_t = logic,
   // Dependency parameters:
   parameter int unsigned DataTagDepthFactor  = DataDepth/TagDepth // should equal to the block number for each index
@@ -146,18 +148,47 @@ module ecc_scrubber_out #(
   end
 
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if(~rst_ni) begin
-      tag_rdata_en_q  <= 1'b0;
-      data_rdata_en_q <= 1'b0;
-      data_wdata_en_q <= 1'b0;
-    end else begin
-      tag_rdata_en_q  <= tag_rdata_en;
-      data_rdata_en_q <= data_rdata_en;
-      data_wdata_en_q <= data_wdata_en;
-    end
-  end
+  // always_ff @(posedge clk_i or negedge rst_ni) begin
+  //   if(~rst_ni) begin
+  //     tag_rdata_en_q  <= 1'b0;
+  //     data_rdata_en_q <= 1'b0;
+  //     data_wdata_en_q <= 1'b0;
+  //   end else begin
+  //     tag_rdata_en_q  <= tag_rdata_en;
+  //     data_rdata_en_q <= data_rdata_en;
+  //     data_wdata_en_q <= data_wdata_en;
+  //   end
+  // end
 
+  shift_reg #(
+    .dtype ( logic          ),
+    .Depth ( TagReadLatency )
+  ) i_shift_reg_tag_rdata_en_q (
+    .clk_i,
+    .rst_ni,
+    .d_i    ( tag_rdata_en    ),
+    .d_o    ( tag_rdata_en_q  )
+  );
+
+  shift_reg #(
+    .dtype ( logic          ),
+    .Depth ( DataReadLatency)
+  ) i_shift_reg_data_rdata_en_q (
+    .clk_i,
+    .rst_ni,
+    .d_i    ( data_rdata_en   ),
+    .d_o    ( data_rdata_en_q )
+  );
+
+  shift_reg #(
+    .dtype ( logic          ),
+    .Depth ( DataReadLatency)
+  ) i_shift_reg_data_wdata_en_q (
+    .clk_i,
+    .rst_ni,
+    .d_i    ( data_wdata_en   ),
+    .d_o    ( data_wdata_en_q )
+  );
 
   assign scrub_add = working_add_q;
 
