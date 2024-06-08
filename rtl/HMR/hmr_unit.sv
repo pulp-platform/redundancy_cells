@@ -85,6 +85,7 @@ module hmr_unit #(
   output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
   output logic [    NumCores-1:0] dmr_sw_synch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
+  output logic                    redundancy_enable_o,
 
   // Rapid recovery buses
   output rapid_recovery_t [NumSysCores-1:0] rapid_recovery_o,
@@ -205,6 +206,8 @@ module hmr_unit #(
 
   logic [NumCores-1:0] sp_store_is_zero;
   logic [NumCores-1:0] sp_store_will_be_zero;
+
+  assign redundancy_enable_o = (|core_in_dmr) | (|core_in_tmr);
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
@@ -474,7 +477,7 @@ module hmr_unit #(
     assign top_register_resps[3].error = 1'b1;
     assign top_register_resps[3].ready = 1'b1;
     assign tmr_incr_mismatches = '0;
-    assign tmr_grp_in_independent = '0;
+    assign tmr_grp_in_independent = '1;
     assign tmr_setback_q = '0;
     assign tmr_resynch_req_o = '0;
     assign tmr_sw_synch_req_o = '0;
