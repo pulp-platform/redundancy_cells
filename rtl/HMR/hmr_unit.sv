@@ -182,7 +182,7 @@ module hmr_unit #(
   logic             [NumBackupRegs-1:0] rapid_recovery_backup_en_inp, rapid_recovery_backup_en_oup;
   logic             [NumBackupRegs-1:0] rapid_recovery_setback;
   rapid_recovery_t  [NumBackupRegs-1:0] rapid_recovery_bus;
-  core_backup_t     [NumBackupRegs-1:0] rapid_recovery_backup_bus;
+  core_backup_t     [NumBackupRegs-1:0] rapid_recovery_backup_bus, core_backup_q;
   nominal_outputs_t [NumBackupRegs-1:0] rapid_recovery_nominal;
 
   /***************************
@@ -671,7 +671,6 @@ module hmr_unit #(
             dmr_failure[i] = dmr_failure[i] | dmr_failure_backup[i] | dmr_failure_data[i][j];
           end
         end
-      end
       end else begin : gen_standard_failure
         always_comb begin
           dmr_failure[i] = dmr_failure_main[i] | dmr_failure_axi[i];
@@ -700,6 +699,17 @@ module hmr_unit #(
   end
 
   if (RapidRecovery) begin: gen_rapid_recovery_connection
+
+    for (genvar i = 0; i < NumBackupRegs; i++) begin
+      always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (~rst_ni) begin
+          core_backup_q[i] <= '0;
+        end else begin
+          core_backup_q[i] <= core_backup_i[i];
+        end
+      end
+    end
+
     always_comb begin
       rapid_recovery_nominal = '0;
       rapid_recovery_backup_bus = '0;
@@ -708,8 +718,8 @@ module hmr_unit #(
       tmr_recovery_finished  = '0;
       if (InterleaveGrps) begin
         for (int i = 0; i < NumBackupRegs; i++) begin
-          rapid_recovery_nominal[i] = core_nominal_outputs_i[i];
-          rapid_recovery_backup_bus[i] = core_backup_i[i];
+          rapid_recovery_nominal[i] = dmr_nominal_outputs[i];
+          rapid_recovery_backup_bus[i] = core_backup_q[i];
           rapid_recovery_start[i]   = dmr_recovery_start[i];
           dmr_recovery_finished[i]  = rapid_recovery_finished[i];
         end
@@ -731,6 +741,7 @@ module hmr_unit #(
       end
     end
   end else begin
+    assign core_backup_q           = '0;
     assign rapid_recovery_nominal  = '0;
     assign rapid_recovery_start    = '0;
     assign tmr_recovery_finished   = '1;
