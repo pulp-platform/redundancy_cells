@@ -664,11 +664,12 @@ module hmr_unit #(
           .debug_resume_o           ( rapid_recovery_bus[i].debug_resume          )
         );
 
-      always_comb begin
-        dmr_failure[i] = dmr_failure_main[i] | dmr_failure_backup[i] | dmr_failure_axi[i];
-        for (int j = 0; j < NumBusVoters; j++) begin
-          if (enable_bus_vote_i[dmr_core_id(i, 0)][j]) begin
-            dmr_failure[i] = dmr_failure[i] | dmr_failure_backup[i] | dmr_failure_data[i][j];
+        always_comb begin
+          dmr_failure[i] = dmr_failure_main[i] | dmr_failure_backup[i] | dmr_failure_axi[i];
+          for (int j = 0; j < NumBusVoters; j++) begin
+            if (enable_bus_vote_i[dmr_core_id(i, 0)][j]) begin
+              dmr_failure[i] = dmr_failure[i] | dmr_failure_backup[i] | dmr_failure_data[i][j];
+            end
           end
         end
       end else begin : gen_standard_failure
