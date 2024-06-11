@@ -61,11 +61,10 @@ include "redundancy_cells/voters.svh"
 All Macros use the following naming scheme:
 `VOTE{Inputs}{Outputs}{Flags}`
 
-For size `1` outputs can be arbitrarily sized arrays (denoted as size `K` below), 
-for size `3` inputs and outputs should be arrays of length 3 at the top level which at lower levels can again be arbitrarily (`K`) sized. 
-The size `X` allows for a parameter called `REP` to determine how many duplicates are used, 
-which allows to make designs which have parametric redundancy. 
-`REP` should be 1 (no redundancy), 2 (fault detection) or 3 (fault correction).
+- For size `1` outputs can be arbitrarily sized arrays (denoted as size `[K:0]` below), 
+- For size `3` inputs and outputs should be arrays of length 3 at the top level which at lower levels can again be arbitrarily (`K`) sized. 
+- The size `X` allows for a parameter to determine how many duplicates are used, which allows to make designs which have compile-time switchable redundancy. 
+The parameter should have a value of 1 (no redundancy), 2 (fault detection) or 3 (fault correction).
 
 Available Flags are:
 - `F` Fault Detection: Additional 1-bit output signal which is one if voting was not unanimous
@@ -84,10 +83,10 @@ All availabe voters are:
 | `VOTE33`   | `input_signal[2:0][K:0], output_signal[2:0][K:0]`                                 | 3 -> 3 Voters                                    |
 | `VOTE33F`  | `input_signal[2:0][K:0], output_signal[2:0][K:0], fault_any`                      | 3 -> 3 Voters with fault detection               |
 | `VOTE33W`  | `input_signal[2:0][K:0], output_signal[2:0][K:0], fault_210[2:0], fault_multiple` | 3 -> 3 Voters with fault location                |
-| `VOTEX1`   | `input_signal[REP:0][K:0], output_signal[K:0]`                                    | REP -> 1 Voter (REP is a parameter from 1 to 3)  |
-| `VOTEX1F`  | `input_signal[REP:0][K:0], output_signal[K:0], fault_any`                         | REP -> 1 Voter with fault detection              |
-| `VOTEXX`   | `input_signal[REP:0][K:0], output_signal[REP:0][K:0]`                             | REP -> REP Voters                                |
-| `VOTEXXF`  | `input_signal[REP:0][K:0], output_signal[REP:0][K:0], fault_any`                  | REP -> REP Voters with fault detection           |
+| `VOTEX1`   | `replicas, input_signal[REP:0][K:0], output_signal[K:0]`                          | replicas -> 1 Voter                              |
+| `VOTEX1F`  | `replicas, input_signal[REP:0][K:0], output_signal[K:0], fault_any`               | replicas -> 1 Voter with fault detection         |
+| `VOTEXX`   | `replicas, input_signal[REP:0][K:0], output_signal[REP:0][K:0]`                   | replicas -> replicas Voters                      |
+| `VOTEXXF`  | `replicas, input_signal[REP:0][K:0], output_signal[REP:0][K:0], fault_any`        | replicas -> replicas Voters with fault detection |
 
 ## Testing
 To run tests, execute the following command:

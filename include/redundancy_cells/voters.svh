@@ -1,3 +1,15 @@
+// Copyright 2024 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// Macros to instantiate voters in a signel line
+
 // Macros to instantiate some kind of Voters
 // If you want to use different kinds of Cells, you only have to change these
 `define TMR_INSTANCE(input_signal, output_signal, instance_name) \
@@ -60,45 +72,53 @@ bitwise_TMR_voter #(.DataWidth($bits(input_signal[0])), .VoterType(2)) instance_
 `TMR_INSTANCE(input_signal, output_signal[2], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_2));
 
 
-// localparam REP -> 1 Voters 
-`define VOTEX1(input_signal, output_signal) \
-if (REP == 3) begin \
+// localparam replicas -> 1 Voters 
+`define VOTEX1(replicas, input_signal, output_signal) \
+if (replicas == 3) begin \
     `VOTE31(input_signal, output_signal); \
-end else if (REP == 2) begin \
+end else if (replicas == 2) begin \
+    assign output_signal = input_signal[0]; \
+end else if (replicas == 1) begin \
     assign output_signal = input_signal[0]; \
 end else begin \
-    assign output_signal = input_signal[0]; \
+    $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
 
-`define VOTEX1F(input_signal, output_signal, fault_any) \
+`define VOTEX1F(replicas, input_signal, output_signal, fault_any) \
 if (REP == 3) begin \
     `VOTE31F(input_signal, output_signal, fault_any); \
-end else if (REP == 2) begin \
+end else if (replicas == 2) begin \
     assign output_signal = input_signal[0]; \
     assign fault_any = input_signal[0] != input_signal[1]; \
-end else begin \
+end else if (replicas == 1) begin \
     assign output_signal = input_signal[0]; \
     assign fault_any = 1'b1; \
+end else begin \
+    $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
 
 
-// localparam REP -> REP Voters 
-`define VOTEXX(input_signal, output_signal) \
+// localparam replicas -> replicas Voters 
+`define VOTEXX(replicas, input_signal, output_signal) \
 if (REP == 3) begin \
     `VOTE33(input_signal, output_signal); \
-end else if (REP == 2) begin \
+end else if (replicas == 2) begin \
+    assign output_signal = input_signal; \
+end else if (replicas == 1) begin \
     assign output_signal = input_signal; \
 end else begin \
-    assign output_signal = input_signal; \
+    $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
 
-`define VOTEXXF(input_signal, output_signal, fault_any) \
+`define VOTEXXF(replicas, input_signal, output_signal, fault_any) \
 if (REP == 3) begin \
     `VOTE33F(input_signal, output_signal, fault_any); \
-end else if (REP == 2) begin \
+end else if (replicas == 2) begin \
     assign output_signal = input_signal; \
     assign fault_any = input_signal[0] != input_signal[1]; \
-end else begin \
+end else if (replicas == 1) begin \
     assign output_signal = input_signal; \
     assign fault_any = 1'b1; \
+end else begin \
+    $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
