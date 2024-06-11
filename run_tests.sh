@@ -48,4 +48,4 @@ call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
 call_vsim tb_ecc_scrubber
-call_vsim tb_voter_macros -suppress vsim-3999 -suppress vopt-8386
+call_vsim tb_voter_macros
