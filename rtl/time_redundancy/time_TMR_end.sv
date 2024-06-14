@@ -311,6 +311,7 @@ module time_TMR_end # (
         logic new_id_arrived[REP];
         logic id_in_input[REP];
         logic id_all_same[REP];
+        logic id_all_cover[REP];
         logic data_usable[REP];
 
         for (genvar r = 0; r < REP; r++) begin: gen_data_flags
@@ -325,6 +326,7 @@ module time_TMR_end # (
                 id_in_input[r] = |id_same[1:0];
 
                 id_all_same[r] = &id_same[2:0];
+                id_all_cover[r] = id_same[1];
 
                 data_usable[r] = |data_same[2:0];
             end
@@ -351,7 +353,7 @@ module time_TMR_end # (
                     BASE:
                         if (new_id_arrived[r]) begin
                             if (ready_i) begin
-                                if (id_all_same[r]) begin
+                                if (id_all_cover[r]) begin
                                     state_v[r] = WAIT_FOR_VALID_X2;
                                 end else begin
                                     state_v[r] = WAIT_FOR_VALID;
@@ -362,7 +364,7 @@ module time_TMR_end # (
                         end
                     WAIT_FOR_READY:
                         if (ready_i) begin
-                            if (id_all_same[r]) begin
+                            if (id_all_cover[r]) begin
                                 state_v[r] = WAIT_FOR_VALID_X2;
                             end else begin
                                 state_v[r] = WAIT_FOR_VALID;
@@ -490,13 +492,13 @@ module time_TMR_end # (
     // Since we can already output at two same elements we could have not seen an error yet,
     // so we can't rely on valid / ready to be in sync with 3 same elements!
     // Instead we use the following observation: If the data comes nicely in pairs of 3 we
-    // always have at least two data elements that are the same.
+    // always have at least two data elements that are the same in the first 3 elements.
     // Make output only 1 for a signly cycle even if internal pipeline is stopped
 
     logic fault_detected_d[REP], fault_detected_q[REP];
 
     for (genvar r = 0; r < REP; r++) begin: gen_flag_next_state
-        assign fault_detected_d[r] = ~|full_same[1:0];
+        assign fault_detected_d[r] = ~|full_same[2:0] & valid_i;
     end
 
     // Default state

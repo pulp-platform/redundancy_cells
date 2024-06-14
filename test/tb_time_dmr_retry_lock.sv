@@ -468,7 +468,7 @@ module tb_time_dmr_retry_lock #(
         enable = 1;
         repeat (TESTS) inject_fault();
         total_error_cnt += error_cnt;
-        $display("Ending Test with ecc enabled and ready faults, got %d errors.", error_cnt);
+        $display("Ending Test with ecc enabled and ID faults, got %d errors.", error_cnt);
         reset_metrics();
 
         // Measure throughput

@@ -12,7 +12,7 @@ module tb_time_tmr #(
     parameter time AQUISITION_DELAY = 8ns
 
 ) ( /* no ports on TB */ );
-    
+
     `include "tb_time.svh"
 
     //////////////////////////////////////////////////////////////////////////////////7
@@ -146,7 +146,7 @@ module tb_time_tmr #(
     assign ready_redundant_faulty = ready_redundant ^ ready_fault;
     assign id_redundant_faulty = id_redundant ^ id_fault;
 
-    initial data_fault  = '0; 
+    initial data_fault  = '0;
     initial valid_fault = '0;
     initial ready_fault = '0;
     initial id_fault    = '0;
@@ -155,13 +155,13 @@ module tb_time_tmr #(
         // Send correct data for some cycles to space errors
         repeat ($urandom_range(min_fault_delay, max_fault_delay)) begin
             @(posedge clk);
-            fault_current = NONE;          
-            data_fault = '0; 
+            fault_current = NONE;
+            data_fault = '0;
             valid_fault = '0;
             ready_fault = '0;
             id_fault = '0;
         end
-        
+
         // Send wrong data
         fault_current = fault_type;
         case (fault_type)
@@ -169,12 +169,12 @@ module tb_time_tmr #(
             VALID_FAULT: valid_fault = 1;
             READY_FAULT: ready_fault = 1;
             ID_FAULT: id_fault = $random;
-        endcase 
+        endcase
 
         // Send correct data again
         @(posedge clk);
-        fault_current = NONE;          
-        data_fault = '0; 
+        fault_current = NONE;
+        data_fault = '0;
         valid_fault = '0;
         ready_fault = '0;
         id_fault = '0;
@@ -228,7 +228,7 @@ module tb_time_tmr #(
         enable = 1;
         repeat (TESTS) inject_fault();
         total_error_cnt += error_cnt;
-        $display("Ending Test with ecc enabled and ready faults, got %d errors.", error_cnt);
+        $display("Ending Test with ecc enabled and ID faults, got %d errors.", error_cnt);
         reset_metrics();
 
         // Measure throughput
