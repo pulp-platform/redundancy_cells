@@ -1,3 +1,27 @@
+// Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
+// Date: 25.04.2024
+// Description: time_TMR is a pair of modules that can be used to error correct
+// any transient fault in a (pipelined) combinatorial process. This is done by
+// repeating the element three times and comparing the results
+//
+// Faults that can be handled:
+// - Any number of fault in the datapath during one cycle e.g. wrong result.
+// - A single fault in the handshake (valid or ready) e.g. dropped or injected results.
+// - A single fault in the accompanying ID.
+//
+// In order to propperly function:
+// - id_o of time_TMR_start needs to be passed paralelly to the combinatorial logic,
+//   using the same handshake and arrive at id_i of time_TMR_end.
+// - All operation tripplets in contact which each other have a unique ID.
+// - The module can only be enabled / disabled when the combinatorially process holds no valid data.
+//
+// This module can deal with out-of-order combinatorial processes under the conditions that
+// the three operations belonging together are not separated.
+// To facilitate that the tripples stay together, the module has the lock_o signal
+// Which defines if the same pipeline should output again in the next cycle.
+// This can for example be used with the rr_arb_tree_lock module, but other implementations are
+// permissible.
+
 `include "voters.svh"
 `include "common_cells/registers.svh"
 
@@ -20,7 +44,7 @@ module time_TMR_end # (
     parameter int unsigned IDSize = 1,
     // This parameter chooses the implementation of the internal state machine.
     // EarlyValidEnable = 1:
-    //   The state machine will return a valid output after it recieved two out of three 
+    //   The state machine will return a valid output after it recieved two out of three
     //   data elements belonging together if possible e.g. no faults occur (otherwise valid in third cycle)
     //   This option slightly increases area and critical path.
     // EarlyValidEnable = 0:
@@ -28,7 +52,7 @@ module time_TMR_end # (
     //   Internal area and critical path are reduced.
     parameter bit EarlyValidEnable = 0,
     // Determines if the internal state machines should
-    // be parallely redundant, meaning errors inside this module 
+    // be parallely redundant, meaning errors inside this module
     // can also not cause errors in the output
     // The external output is never protected!
     parameter bit InternalRedundancy = 0,
@@ -83,7 +107,7 @@ module time_TMR_end # (
     logic [2:0] data_same_in, id_same_in;
     logic [1:0] data_same_d, data_same_q, id_same_d, id_same_q;
 
-    always_comb begin: data_same_generation_comb
+    always_comb begin: gen_data_same
         data_same_in = '0;
         id_same_in = '0;
         data_o = '0;
@@ -151,8 +175,8 @@ module time_TMR_end # (
         logic element_relies_on_input[REP];
         logic data_usable[REP];
 
-        for (genvar r = 0; r < REP; r++) begin
-            always_comb begin : input_reassignment_comb
+        for (genvar r = 0; r < REP; r++) begin: gen_data_flags
+            always_comb begin: gen_data_flags_comb
                 // Some new element just showed up and we need to send data outwards again.
                 new_element_arrived[r] = (id_same != 5'b11111) && ( // ID All same -> No element change counts. ID always needs to change!
                     (full_same & 5'b01111) == 5'b00001 ||           // 1st and 2nd element the same, other two each different from pair
@@ -188,8 +212,8 @@ module time_TMR_end # (
 
 
         // Next State Combinatorial Logic
-        for (genvar r = 0; r < REP; r++) begin
-            always_comb begin : next_state_generation_comb
+        for (genvar r = 0; r < REP; r++) begin: gen_next_state
+            always_comb begin: gen_next_state_comb
                 // Default to staying in the same state
                 state_v[r] = state_q[r];
 
@@ -237,13 +261,13 @@ module time_TMR_end # (
         // State Voting Logic
         if (InternalRedundancy) begin : gen_state_voters
             `VOTE3to3ENUM(state_v, state_d);
-        end else begin
+        end else begin: gen_state_passthrough
             assign state_d = state_v;
         end
 
         // Generate default cases
         state_t state_base[REP];
-        for (genvar r = 0; r < REP; r++) begin
+        for (genvar r = 0; r < REP; r++) begin: gen_default_state
             assign state_base[r] = WAIT_FOR_VALID;
         end
 
@@ -251,8 +275,8 @@ module time_TMR_end # (
         `FF(state_q, state_d, state_base);
 
         // Output Combinatorial Logic
-        for (genvar r = 0; r < REP; r++) begin
-            always_comb begin: output_generation_comb
+        for (genvar r = 0; r < REP; r++) begin: gen_output
+            always_comb begin: gen_output_comb
                 if (enable_i) begin
                     case (state_q[r])
                         BASE:           valid_ov[r] = (!element_relies_on_input[r] | valid_i) & data_usable[r] & new_element_arrived[r];
@@ -289,8 +313,8 @@ module time_TMR_end # (
         logic id_all_same[REP];
         logic data_usable[REP];
 
-        for (genvar r = 0; r < REP; r++) begin
-            always_comb begin : data_flags_generation_comb
+        for (genvar r = 0; r < REP; r++) begin: gen_data_flags
+            always_comb begin: gen_data_flags_comb
                 new_id_arrived[r] = (
                     (id_same == 5'b00111) ||
                     (id_same == 5'b00100) ||
@@ -318,8 +342,8 @@ module time_TMR_end # (
         state_t state_v[REP], state_d[REP], state_q[REP];
 
         // Next State Combinatorial Logic
-        for (genvar r = 0; r < REP; r++) begin
-            always_comb begin : next_state_generation_comb
+        for (genvar r = 0; r < REP; r++) begin: gen_next_state
+            always_comb begin: gen_next_state_comb
                 // Default to staying in the same state
                 state_v[r] = state_q[r];
 
@@ -361,13 +385,13 @@ module time_TMR_end # (
         // State Voting Logic
         if (InternalRedundancy) begin : gen_state_voters
             `VOTE3to3ENUM(state_v, state_d);
-        end else begin
+        end else begin: gen_state_passthrough
             assign state_d = state_v;
         end
 
         // Generate default cases
         state_t state_base[REP];
-        for (genvar r = 0; r < REP; r++) begin
+        for (genvar r = 0; r < REP; r++) begin: gen_default_state
             assign state_base[r] = WAIT_FOR_VALID;
         end
 
@@ -375,8 +399,8 @@ module time_TMR_end # (
         `FF(state_q, state_d, state_base);
 
         // Output Combinatorial Logic
-        for (genvar r = 0; r < REP; r++) begin
-            always_comb begin: output_generation_comb
+        for (genvar r = 0; r < REP; r++) begin: gen_output
+            always_comb begin: gen_output_comb
                 if (enable_i) begin
                     case (state_q[r])
                         BASE:              valid_ov[r] = new_id_arrived[r] & data_usable[r];
@@ -414,8 +438,8 @@ module time_TMR_end # (
     logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
 
     // Next State Combinatorial Logic
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin : lock_comb
+    for (genvar r = 0; r < REP; r++) begin: gen_lock_next_state
+        always_comb begin : gen_lock_next_state_comb
             if (counter_q[r] > LockTimeout) begin
                 lock_v[r] = 0;
                 counter_v[r] = 0;
@@ -438,10 +462,10 @@ module time_TMR_end # (
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin : gen_lock_voters
+    if (InternalRedundancy) begin: gen_lock_voters
         `VOTE3to3(lock_v, lock_d);
         `VOTE3to3(counter_v, counter_d);
-    end else begin
+    end else begin: gen_lock_passthrough
         assign counter_d = counter_v;
         assign lock_d = lock_v;
     end
@@ -451,7 +475,7 @@ module time_TMR_end # (
     // Default state
     logic lock_base[REP];
     logic [$clog2(LockTimeout)-1:0] counter_base[REP];
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state
         assign lock_base[r] = '0;
         assign counter_base[r] = '0;
     end
@@ -463,27 +487,27 @@ module time_TMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Build error flag
 
-    // Since we can already output at two same elements we could have not seen an error yet, 
+    // Since we can already output at two same elements we could have not seen an error yet,
     // so we can't rely on valid / ready to be in sync with 3 same elements!
-    // Instead we use the following observation: If the data comes nicely in pairs of 3 we 
+    // Instead we use the following observation: If the data comes nicely in pairs of 3 we
     // always have at least two data elements that are the same.
     // Make output only 1 for a signly cycle even if internal pipeline is stopped
 
     logic fault_detected_d[REP], fault_detected_q[REP];
 
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_flag_next_state
         assign fault_detected_d[r] = ~|full_same[1:0];
     end
 
     // Default state
     logic fault_detected_base[REP];
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_flag_default_state
         assign fault_detected_base[r] = '0;
     end
 
     `FF(fault_detected_q, fault_detected_d, fault_detected_base);
 
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_flag_output
         assign fault_detected_ov[r] = fault_detected_d[r] & !fault_detected_q[r];
     end
 
@@ -494,7 +518,7 @@ module time_TMR_end # (
         `VOTE3to1(ready_ov, ready_o);
         `VOTE3to1(valid_ov, valid_o);
         `VOTE3to1(fault_detected_ov, fault_detected_o);
-    end else begin
+    end else begin: gen_output_passthrough
         assign ready_o = ready_ov[0];
         assign valid_o = valid_ov[0];
         assign fault_detected_o = fault_detected_ov[0];

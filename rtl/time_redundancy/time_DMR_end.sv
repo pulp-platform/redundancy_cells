@@ -1,3 +1,37 @@
+// Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
+// Date: 25.04.2024
+// Description: time_DMR is a pair of modules that can be used to
+// detect faults in any (pipelined) combinatorial process. This is
+// done by repeating each input twice and comparing the outputs.
+//
+// Faults that can be handled:
+// - Any number of fault in the datapath during one cycle e.g. wrong result.
+// - A single fault in the handshake (valid or ready) e.g. dropped or injected results.
+// - A single fault in the accompanying ID.
+//
+// In case a fault occurs and the result needs to be recalculated, the needs_retry_o signal
+// is asserted for one cycle and the ID that needs to be tried again is given.
+// Not all faults nessesarily need a retry, in case you just want to know if
+// faults are happening you can use fault_detected_o for it.
+//
+// This needs_retry_o signal should be used to trigger some kind of mitigating action:
+// For example, one could use the "retry" modules or "retry_inorder" modules
+// to recalculate in hardware, or invoke some recalculation or error on the software side.
+//
+// In order to propperly function:
+// - next_id_o of time_DMR_start needs to be directly connected to next_id_i of time_DMR_end.
+// - id_o of time_DMR_start needs to be passed paralelly to the combinatorial logic, using the same handshake
+//   and arrive at id_i of time_DMR_end.
+// - All operation pairs in contact with each other have a unique ID.
+// - The module can only be enabled / disabled when the combinatorially process holds no valid data.
+//
+// This module can deal with out-of-order combinatorial processes under the conditions that
+// the two operations belonging together are not separated.
+// To facilitate this on the output side the module has the lock_o signal which is asserted if
+// the module wants another element of the same kind in the next cycle.
+// This can for example be used with the rr_arb_tree_lock module, but other implementations are
+// permissible.
+
 `include "voters.svh"
 `include "common_cells/registers.svh"
 
@@ -19,7 +53,7 @@ module time_DMR_end # (
     // Needs to match with time_TMR_start!
     parameter int unsigned IDSize = 1,
     // Determines if the internal state machines should
-    // be parallely redundant, meaning errors inside this module 
+    // be parallely redundant, meaning errors inside this module
     // can also not cause errors in the output
     // The external output is never protected!
     parameter bit InternalRedundancy = 0,
@@ -51,7 +85,7 @@ module time_DMR_end # (
 
     // Output Flags for Error Counting
     output logic fault_detected_o
-);  
+);
 
     // Redundant Output signals
     logic ready_ov[REP];
@@ -80,7 +114,7 @@ module time_DMR_end # (
     logic data_same_in, id_same_in;
     logic data_same_q, id_same_q;
 
-    always_comb begin: data_same_generation_comb
+    always_comb begin: gen_data_same
         data_same_in = '0;
         id_same_in = '0;
 
@@ -118,8 +152,8 @@ module time_DMR_end # (
     logic data_usable[REP];
 
     // Flag Combinatorial Logic
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin : data_flags_generation_comb
+    for (genvar r = 0; r < REP; r++) begin: gen_data_flags
+        always_comb begin: gen_data_flags_comb
             // Some new element just showed up and we need to send data outwards again.
             new_element_arrived[r] = (id_same == 2'b01) || (id_same == 2'b00);
 
@@ -143,8 +177,8 @@ module time_DMR_end # (
 
 
     // Next State Combinatorial Logic
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin : next_state_generation_comb
+    for (genvar r = 0; r < REP; r++) begin: gen_next_state
+        always_comb begin: gen_next_state_comb
             // Default to staying in the same state
             state_v[r] = state_q[r];
 
@@ -167,14 +201,14 @@ module time_DMR_end # (
 
     // Generate default cases
     state_t state_base[REP];
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_default_state
         assign state_base[r] = BASE;
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin : gen_state_voters
+    if (InternalRedundancy) begin: gen_state_voters
         `VOTE3to3ENUM(state_v, state_d);
-    end else begin
+    end else begin: gen_state_passthrough
         assign state_d = state_v;
     end
 
@@ -182,8 +216,8 @@ module time_DMR_end # (
     `FF(state_q, state_d, state_base);
 
     // Output Combinatorial Logic
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin: output_generation_comb
+    for (genvar r = 0; r < REP; r++) begin: gen_output
+        always_comb begin: gen_output_comb
             if (enable_i) begin
                 case (state_q[r])
                     BASE:           valid_internal[r] = valid_i & new_element_arrived[r];
@@ -214,8 +248,8 @@ module time_DMR_end # (
     logic [$clog2(LockTimeout)-1:0] counter_v[REP], counter_d[REP], counter_q[REP];
 
     // Next State Combinatorial Logic
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin : lock_comb
+    for (genvar r = 0; r < REP; r++) begin: gen_lock_next_state
+        always_comb begin: gen_lock_next_state_comb
             if (counter_q[r] > LockTimeout) begin
                 lock_v[r] = 0;
                 counter_v[r] = 0;
@@ -241,7 +275,7 @@ module time_DMR_end # (
     if (InternalRedundancy) begin : gen_lock_voters
         `VOTE3to3(lock_v, lock_d);
         `VOTE3to3(counter_v, counter_d);
-    end else begin
+    end else begin: gen_lock_passthrough
         assign counter_d = counter_v;
         assign lock_d = lock_v;
     end
@@ -251,7 +285,7 @@ module time_DMR_end # (
     // Default state
     logic lock_base[REP];
     logic [$clog2(LockTimeout)-1:0] counter_base[REP];
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state
         assign lock_base[r] = '0;
         assign counter_base[r] = '0;
     end
@@ -268,8 +302,8 @@ module time_DMR_end # (
 
     logic [2 ** (IDSize-1)-1:0] recently_seen_v[REP], recently_seen_d[REP], recently_seen_q[REP];
 
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin
+    for (genvar r = 0; r < REP; r++) begin: gen_deduplication_next_state
+        always_comb begin: gen_deduplication_next_state_comb
             recently_seen_v[r] = recently_seen_q[r];
 
             recently_seen_v[r][next_id_i[IDSize-2:0]] = 0;
@@ -281,29 +315,29 @@ module time_DMR_end # (
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin : gen_deduplication_voters
+    if (InternalRedundancy) begin: gen_deduplication_voters
         `VOTE3to3(recently_seen_v, recently_seen_d);
-    end else begin
+    end else begin: gen_deduplication_passthrough
         assign recently_seen_d = recently_seen_v;
     end
 
     // Default state
     logic [2 ** (IDSize-1)-1:0] recently_seen_base[REP];
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_deduplication_default_state
         assign recently_seen_base[r] = ~'0; // All 1s!
     end
 
     // State Storage
     `FF(recently_seen_q, recently_seen_d, recently_seen_base);
 
-    for (genvar r = 0; r < REP; r++) begin
-        always_comb begin
+    for (genvar r = 0; r < REP; r++) begin: gen_deduplication_output
+        always_comb begin: gen_deduplication_output_comb
             if (enable_i) begin
                 if (id_fault_q | recently_seen_q[r][id_q[IDSize-2:0]] & valid_internal[r]) begin
                     valid_ov[r] = 0;
                 end else begin
                     valid_ov[r] = valid_internal[r];
-                end  
+                end
                 needs_retry_ov[r] = id_same[0] & !data_usable[r];
             end else begin
                 valid_ov[r] = valid_internal[r];
@@ -323,31 +357,31 @@ module time_DMR_end # (
 
     logic fault_detected_d[REP], fault_detected_q[REP];
 
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_flag_next_state
         assign fault_detected_d[r] = ~|full_same[1:0];
     end
 
     // Default state
     logic fault_detected_base[REP];
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_flag_default_state
         assign fault_detected_base[r] = '0;
     end
 
     `FF(fault_detected_q, fault_detected_d, fault_detected_base);
 
-    for (genvar r = 0; r < REP; r++) begin
+    for (genvar r = 0; r < REP; r++) begin: gen_flag_output
         assign fault_detected_ov[r] = fault_detected_d[r] & !fault_detected_q[r];
     end
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Output Voting
 
-    if (InternalRedundancy) begin : gen_output_voters
+    if (InternalRedundancy) begin: gen_output_voters
         `VOTE3to1(ready_ov, ready_o);
         `VOTE3to1(valid_ov, valid_o);
         `VOTE3to1(needs_retry_ov, needs_retry_o);
         `VOTE3to1(fault_detected_ov, fault_detected_o);
-    end else begin
+    end else begin: gen_output_passthrough
         assign ready_o = ready_ov[0];
         assign valid_o = valid_ov[0];
         assign needs_retry_o = needs_retry_ov[0];

@@ -1,3 +1,23 @@
+// Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
+// Date: 25.04.2024
+// Description: retry is a pair of modules that can be used to run an operation
+// passing through a (pipelined) combinatorial process.
+//
+// In order to propperly function:
+// - id_o of retry_start needs to be passed paralelly along the combinatorial logic,
+//   using the same handshake and arrive at id_i of retry_end
+// - retry_id_i of retry_start needs to be directly connected to retry_id_o of retry_end
+// - retry_valid_i of retry_start needs to be directly connected to retry_valid_o of retry_end
+// - retry_ready_o of retry_start needs to be directly connected to retry_ready_i of retry_end
+// - All elements in processing have a unique ID
+//
+// This modules might cause operations to reach the output of retry_end in a different
+// order than they have entered retry_start e.g. can be out-of-order in case of a retry
+// so make sure you can deal with out-of-order results.
+// For the special case that the process is purely combinatorial, the same operaton is tried again
+// in the very next cycle and thus the order is preserved.
+// If you need in-order for pipelined processes have a look at retry_inorder instead.
+
 `include "common_cells/registers.svh"
 `include "voters.svh"
 
@@ -30,7 +50,7 @@ module retry_start # (
     logic [IDSize-1:0] failed_id_d, failed_id_q;
     logic failed_valid_d, failed_valid_q;
 
-    always_comb begin
+    always_comb begin: gen_next_cycle_decision
         if (ready_i | retry_valid_i) begin
             failed_valid_d = retry_valid_i;
         end else begin
@@ -54,7 +74,7 @@ module retry_start # (
 
     logic [IDSize-1:0] counter_id_d, counter_id_q;
 
-    always_comb begin
+    always_comb begin: gen_id_counter
         if ((failed_valid_q | valid_i) & ready_i) begin
             `INCREMENT_WITH_PARITY(counter_id_q, counter_id_d);
         end else begin
@@ -69,7 +89,7 @@ module retry_start # (
 
     logic [2 ** (IDSize-1)-1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
 
-    always_comb begin
+    always_comb begin: gen_failed_state
         // Keep data as is as abase
         data_storage_d = data_storage_q;
 
@@ -80,7 +100,7 @@ module retry_start # (
 
     `FF(data_storage_q, data_storage_d, 0);
 
-    always_comb begin
+    always_comb begin: gen_output
         if (failed_valid_q & ready_i) begin
             data_o = data_storage_q[failed_id_q[IDSize-2:0]];
         end else begin
