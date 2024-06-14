@@ -55,6 +55,7 @@ call_vsim tb_time_tmr
 call_vsim tb_time_tmr_lock
 call_vsim tb_time_dmr
 call_vsim tb_retry
+call_vsim tb_retry_inorder
 call_vsim tb_time_dmr_retry
 call_vsim tb_time_dmr_retry_lock -voptargs="+acc"
 
