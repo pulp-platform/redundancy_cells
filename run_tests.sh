@@ -50,3 +50,14 @@ call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
 call_vsim tb_ecc_scrubber
 call_vsim tb_voter_macros
+
+call_vsim tb_time_tmr
+call_vsim tb_time_tmr_lock
+call_vsim tb_time_dmr
+call_vsim tb_retry
+call_vsim tb_time_dmr_retry
+call_vsim tb_time_dmr_retry_lock -voptargs="+acc"
+
+for num in 1 4 7; do
+  call_vsim tb_rr_arb_tree_lock -GNumInp=$num -coverage -voptargs="+acc +cover=bcesfx" -suppress vsim-3009
+done

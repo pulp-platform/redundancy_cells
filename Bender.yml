@@ -25,14 +25,22 @@ sources:
   - rtl/hsiao_ecc/hsiao_ecc_enc.sv
   - rtl/hsiao_ecc/hsiao_ecc_dec.sv
   - rtl/hsiao_ecc/hsiao_ecc_cor.sv
+  - rtl/time_redundancy/retry_end.sv
+  - rtl/time_redundancy/retry_start.sv
+  - rtl/time_redundancy/rr_arb_tree_lock.sv
+  - rtl/time_redundancy/voters.svh
   - rtl/TMR_voter.sv
   - rtl/TMR_voter_fail.sv
   - rtl/TMR_word_voter.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
-  - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
+  - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
+  - rtl/time_redundancy/time_TMR_end.sv
+  - rtl/time_redundancy/time_TMR_start.sv
+  - rtl/time_redundancy/time_DMR_end.sv
+  - rtl/time_redundancy/time_DMR_start.sv
 
   - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
     files:
@@ -99,6 +107,16 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
       - test/tb_bitwise_tmr_voter_fail.sv
       - test/tb_voter_macros.sv
+      - test/tb_time_tmr.sv
+      - test/tb_time_dmr.sv
+      - test/tb_retry.sv
+      - test/tb_time_dmr_retry.sv
+      - test/tb_time_tmr_lock_dut.sv
+      - test/tb_time_tmr_lock.sv
+      - test/tb_time_dmr_retry_lock_dut.sv
+      - test/tb_time_dmr_retry_lock.sv
+      - test/tb_rr_arb_tree_lock.sv
+
 
 vendor_package:
   - name: lowrisc_opentitan
