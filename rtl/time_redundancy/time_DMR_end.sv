@@ -32,7 +32,7 @@
 // This can for example be used with the rr_arb_tree_lock module, but other implementations are
 // permissible.
 
-`include "voters.svh"
+`include "redundancy_cells/voters.svh"
 `include "common_cells/registers.svh"
 
 module time_DMR_end # (
@@ -205,11 +205,7 @@ module time_DMR_end # (
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin: gen_state_voters
-        `VOTE3to3ENUM(state_v, state_d);
-    end else begin: gen_state_passthrough
-        assign state_d = state_v;
-    end
+    `VOTEXX(REP, state_v, state_d);
 
     // State Storage
     `FF(state_q, state_d, state_b);
@@ -271,13 +267,8 @@ module time_DMR_end # (
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin : gen_lock_voters
-        `VOTE3to3(lock_v, lock_d);
-        `VOTE3to3(counter_v, counter_d);
-    end else begin: gen_lock_passthrough
-        assign counter_d = counter_v;
-        assign lock_d = lock_v;
-    end
+    `VOTEXX(REP, lock_v, lock_d);
+    `VOTEXX(REP, counter_v, counter_d);
 
     assign lock_o = lock_d[0];
 
@@ -312,11 +303,7 @@ module time_DMR_end # (
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin: gen_deduplication_voters
-        `VOTE3to3(recently_seen_v, recently_seen_d);
-    end else begin: gen_deduplication_passthrough
-        assign recently_seen_d = recently_seen_v;
-    end
+    `VOTEXX(REP, recently_seen_v, recently_seen_d);
 
     // Default state
     for (genvar r = 0; r < REP; r++) begin: gen_deduplication_default_state
@@ -371,16 +358,9 @@ module time_DMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Output Voting
 
-    if (InternalRedundancy) begin: gen_output_voters
-        `VOTE3to1(ready_ov, ready_o);
-        `VOTE3to1(valid_ov, valid_o);
-        `VOTE3to1(needs_retry_ov, needs_retry_o);
-        `VOTE3to1(fault_detected_ov, fault_detected_o);
-    end else begin: gen_output_passthrough
-        assign ready_o = ready_ov[0];
-        assign valid_o = valid_ov[0];
-        assign needs_retry_o = needs_retry_ov[0];
-        assign fault_detected_o = fault_detected_ov[0];
-    end
+    `VOTEX1(REP, ready_ov, ready_o);
+    `VOTEX1(REP, valid_ov, valid_o);
+    `VOTEX1(REP, needs_retry_ov, needs_retry_o);
+    `VOTEX1(REP, fault_detected_ov, fault_detected_o);
 
 endmodule

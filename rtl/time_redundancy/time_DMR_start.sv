@@ -32,8 +32,14 @@
 // This can for example be used with the rr_arb_tree_lock module, but other implementations are
 // permissible.
 
-`include "voters.svh"
+`include "redundancy_cells/voters.svh"
 `include "common_cells/registers.svh"
+
+`define INCREMENT_WITH_PARITY(input_signal, output_signal) \
+begin \
+    output_signal[$bits(input_signal)-2:0] = input_signal[$bits(input_signal)-2:0] + 1; \
+    output_signal[$bits(input_signal)-1] = ^output_signal[$bits(input_signal)-2:0]; \
+end
 
 module time_DMR_start # (
     // The data type you want to send through / replicate
@@ -136,15 +142,9 @@ module time_DMR_start # (
     end
 
     // State Voting Logic
-    if (InternalRedundancy) begin : gen_state_voters
-        `VOTE3to3ENUM(state_v, state_d);
-        `VOTE3to3(id_v, id_d);
-        `VOTE3to3(data_v, data_d);
-    end else begin: gen_state_passthrough
-        assign state_d = state_v;
-        assign data_d = data_v;
-        assign id_d = id_v;
-    end
+    `VOTEXX(REP, state_v, state_d);
+    `VOTEXX(REP, id_v, id_d);
+    `VOTEXX(REP, data_v, data_d);
 
     // Generate default cases
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
@@ -182,14 +182,8 @@ module time_DMR_start # (
     assign data_o = data_d[0];
     assign id_o = id_d[0];
 
-    if (InternalRedundancy) begin: gen_output_voters
-        `VOTE3to1(next_id_ov, next_id_o);
-        `VOTE3to1(ready_ov, ready_o);
-        `VOTE3to1(valid_ov, valid_o);
-    end else begin: gen_output_passthrough
-        assign next_id_o = next_id_ov[0];
-        assign ready_o = ready_ov[0];
-        assign valid_o = valid_ov[0];
-    end
+    `VOTEX1(REP, next_id_ov, next_id_o);
+    `VOTEX1(REP, ready_ov, ready_o);
+    `VOTEX1(REP, valid_ov, valid_o);
 
 endmodule

@@ -10,7 +10,7 @@
 // be consumed and the condition for switching can not be reached.
 // Switching back to the redundant mode will unstall the setup.
 
-`include "voters.svh"
+`include "redundancy_cells/voters.svh"
 `include "common_cells/registers.svh"
 
 module redundancy_controller # (
@@ -80,14 +80,8 @@ module redundancy_controller # (
       end
     end
 
-    // State Voting Logic
-    if (InternalRedundancy) begin : gen_state_voters
-        `VOTE3to3(enable_v, enable_d);
-        `VOTE3to3(counter_v, counter_d);
-    end else begin
-        assign enable_d = enable_v;
-        assign counter_d = counter_v;
-    end
+    `VOTEXX(REP, enable_v, enable_d);
+    `VOTEXX(REP, counter_v, counter_d);
 
     // Generate default case
     for (genvar r = 0; r < REP; r++) begin: gen_default_state
@@ -116,16 +110,9 @@ module redundancy_controller # (
     end
 
     // Output voting logic
-    if (InternalRedundancy) begin: gen_output_voters
-        `VOTE3to1(enable_ov, enable_o);
-        `VOTE3to1(valid_ov, valid_o);
-        `VOTE3to1(ready_ov, ready_o);
-        `VOTE3to1(busy_ov, busy_o);
-    end else begin: gen_output_passthrough
-        assign enable_o = enable_ov[0];
-        assign valid_o = valid_ov[0];
-        assign ready_o = ready_ov[0];
-        assign busy_o = busy_ov[0];
-    end
+    `VOTEX1(REP, enable_ov, enable_o);
+    `VOTEX1(REP, valid_ov, valid_o);
+    `VOTEX1(REP, ready_ov, ready_o);
+    `VOTEX1(REP, busy_ov, busy_o);
 
 endmodule

@@ -17,7 +17,12 @@
 // If you need in-order for pipelined processes have a look at retry_inorder instead.
 
 `include "common_cells/registers.svh"
-`include "voters.svh"
+
+`define INCREMENT_WITH_PARITY(input_signal, output_signal) \
+begin \
+    output_signal[$bits(input_signal)-2:0] = input_signal[$bits(input_signal)-2:0] + 1; \
+    output_signal[$bits(input_signal)-1] = ^output_signal[$bits(input_signal)-2:0]; \
+end
 
 module retry_start # (
     parameter type DataType  = logic,
