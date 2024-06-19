@@ -37,12 +37,15 @@ call_vsim() {
 }
 
 call_vsim tb_tmr_voter
+call_vsim tb_tmr_voter_fail
 call_vsim tb_tmr_voter_detect
 call_vsim tb_tmr_word_voter
 call_vsim tb_bitwise_tmr_voter
+call_vsim tb_bitwise_tmr_voter_fail
 call_vsim tb_ecc_sram -voptargs="+acc=nr"
 call_vsim -GDataWidth=8 tb_ecc_secded
 call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
 call_vsim tb_ecc_scrubber
+call_vsim tb_voter_macros

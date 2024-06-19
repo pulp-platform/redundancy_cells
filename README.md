@@ -53,6 +53,41 @@ The `DropECC` parameter allows for a faster signal along the decode data path, n
 ## Triple Modular Redundancy majority voters
 The `TMR_voter`s are Triple Modular Redundancy majority voters, based on research indicated in the corresponding files. To detect the failing module, additional signals are implemented in higher-level modules.
 
+## Voting Macros
+For quickly instantiating voters, the following macros might be useful. They can be used via bender with:
+```
+`include "redundancy_cells/voters.svh"
+```
+All Macros use the following naming scheme:
+`VOTE{Inputs}{Outputs}{Flags}`
+
+- For size `1` outputs can be arbitrarily sized arrays (denoted as size `[K:0]` below), 
+- For size `3` inputs and outputs should be arrays of length 3 at the top level which at lower levels can again be arbitrarily (`K`) sized. 
+- The size `X` allows for a parameter to determine how many duplicates are used, which allows to make designs which have compile-time switchable redundancy. 
+The parameter should have a value of 1 (no redundancy), 2 (fault detection) or 3 (fault correction).
+
+Available Flags are:
+- `F` Fault Detection: Additional 1-bit output signal which is one if voting was not unanimous
+- `W` Fault Location: Additional 3-bit output signal which specifies which input was different and 1-bit signal if all bits where different
+
+Voters work with enumerated types, but there is no guarantee when multiple faults occur at once that the output is a valid enum entry.
+Enumerated types that consist of a single bit are not supported.
+
+All availabe voters are:
+
+| Macro      | Arguments                                                                         | Description                                      |
+|------------|-----------------------------------------------------------------------------------|--------------------------------------------------|
+| `VOTE31`   | `input_signal[2:0][K:0], output_signal[K:0]`                                      | 3 -> 1 Voter                                     |
+| `VOTE31F`  | `input_signal[2:0][K:0], output_signal[K:0], fault_any`                           | 3 -> 1 Voter with fault detection                |
+| `VOTE31W`  | `input_signal[2:0][K:0], output_signal[K:0], fault_210[2:0], fault_multiple`      | 3 -> 1 Voter with fault location                 |
+| `VOTE33`   | `input_signal[2:0][K:0], output_signal[2:0][K:0]`                                 | 3 -> 3 Voters                                    |
+| `VOTE33F`  | `input_signal[2:0][K:0], output_signal[2:0][K:0], fault_any`                      | 3 -> 3 Voters with fault detection               |
+| `VOTE33W`  | `input_signal[2:0][K:0], output_signal[2:0][K:0], fault_210[2:0], fault_multiple` | 3 -> 3 Voters with fault location                |
+| `VOTEX1`   | `replicas, input_signal[REP:0][K:0], output_signal[K:0]`                          | replicas -> 1 Voter                              |
+| `VOTEX1F`  | `replicas, input_signal[REP:0][K:0], output_signal[K:0], fault_any`               | replicas -> 1 Voter with fault detection         |
+| `VOTEXX`   | `replicas, input_signal[REP:0][K:0], output_signal[REP:0][K:0]`                   | replicas -> replicas Voters                      |
+| `VOTEXXF`  | `replicas, input_signal[REP:0][K:0], output_signal[REP:0][K:0], fault_any`        | replicas -> replicas Voters with fault detection |
+
 ## Testing
 To run tests, execute the following command:
 ```bash

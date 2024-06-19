@@ -8,6 +8,9 @@ dependencies:
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.0 }
   register_interface:  { git: "https://github.com/pulp-platform/register_interface.git", version: 0.4.4 }
   common_cells:        { git: "https://github.com/pulp-platform/common_cells.git", version: 1.35.0 }
+  
+export_include_dirs:
+  - include
 
 sources:
     # Source files grouped in levels. Files in level 0 have no dependencies on files in this
@@ -23,6 +26,7 @@ sources:
   - rtl/hsiao_ecc/hsiao_ecc_dec.sv
   - rtl/hsiao_ecc/hsiao_ecc_cor.sv
   - rtl/TMR_voter.sv
+  - rtl/TMR_voter_fail.sv
   - rtl/TMR_word_voter.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
@@ -68,6 +72,7 @@ sources:
   - rtl/TMR_voter_detect.sv
     # Level 2
   - rtl/bitwise_TMR_voter.sv
+  - rtl/bitwise_TMR_voter_fail.sv
   - rtl/ecc_wrap/ecc_manager.sv
   - target: deprecated
     files:
@@ -88,9 +93,12 @@ sources:
       - test/tb_ecc_secded.sv
       - test/tb_ecc_sram.sv
       - test/tb_tmr_voter.sv
+      - test/tb_tmr_voter_fail.sv
       - test/tb_tmr_voter_detect.sv
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
+      - test/tb_bitwise_tmr_voter_fail.sv
+      - test/tb_voter_macros.sv
 
 vendor_package:
   - name: lowrisc_opentitan
