@@ -132,7 +132,7 @@ end else if (replicas == 2) begin \
     assign fault_any = input_signal[0] != input_signal[1]; \
 end else if (replicas == 1) begin \
     assign output_signal = input_signal[0]; \
-    assign fault_any = 1'b1; \
+    assign fault_any = 1'b0; \
 end else begin \
     $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
@@ -143,9 +143,10 @@ end
 if (replicas == 3) begin \
     `VOTE33(input_signal, output_signal); \
 end else if (replicas == 2) begin \
-    assign output_signal = input_signal; \
+    assign output_signal[0] = input_signal[0]; \
+    assign output_signal[1] = input_signal[1]; \
 end else if (replicas == 1) begin \
-    assign output_signal = input_signal; \
+    assign output_signal[0] = input_signal[0]; \
 end else begin \
     $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
@@ -154,11 +155,12 @@ end
 if (replicas == 3) begin \
     `VOTE33F(input_signal, output_signal, fault_any); \
 end else if (replicas == 2) begin \
-    assign output_signal = input_signal; \
+    assign output_signal[0] = input_signal[0]; \
+    assign output_signal[1] = input_signal[1]; \
     assign fault_any = input_signal[0] != input_signal[1]; \
 end else if (replicas == 1) begin \
-    assign output_signal = input_signal; \
-    assign fault_any = 1'b1; \
+    assign output_signal[0] = input_signal[0]; \
+    assign fault_any = 1'b0; \
 end else begin \
     $fatal(1, "Unsupported number of replicas in voter macro!\n"); \
 end
