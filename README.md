@@ -70,7 +70,7 @@ Available Flags are:
 - `F` Fault Detection: Additional 1-bit output signal which is one if voting was not unanimous
 - `W` Fault Location: Additional 3-bit output signal which specifies which input was different and 1-bit signal if all bits where different
 
-Voters work with enumerated types, but there is no guarante when multiple faults occurr at once that the output is a valid enum entry.
+Voters work with enumerated types, but there is no guarantee when multiple faults occur at once that the output is a valid enum entry.
 Enumerated types that consist of a single bit are not supported.
 
 All availabe voters are:
