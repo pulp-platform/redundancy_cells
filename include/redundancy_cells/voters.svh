@@ -125,7 +125,7 @@ end else begin \
 end
 
 `define VOTEX1F(replicas, input_signal, output_signal, fault_any) \
-if (REP == 3) begin \
+if (replicas == 3) begin \
     `VOTE31F(input_signal, output_signal, fault_any); \
 end else if (replicas == 2) begin \
     assign output_signal = input_signal[0]; \
@@ -140,7 +140,7 @@ end
 
 // localparam replicas -> replicas Voters 
 `define VOTEXX(replicas, input_signal, output_signal) \
-if (REP == 3) begin \
+if (replicas == 3) begin \
     `VOTE33(input_signal, output_signal); \
 end else if (replicas == 2) begin \
     assign output_signal = input_signal; \
@@ -151,7 +151,7 @@ end else begin \
 end
 
 `define VOTEXXF(replicas, input_signal, output_signal, fault_any) \
-if (REP == 3) begin \
+if (replicas == 3) begin \
     `VOTE33F(input_signal, output_signal, fault_any); \
 end else if (replicas == 2) begin \
     assign output_signal = input_signal; \
