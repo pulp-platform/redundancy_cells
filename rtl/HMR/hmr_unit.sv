@@ -811,6 +811,8 @@ module hmr_unit #(
             sys_nominal_outputs_o[i] = '0;
             sys_bus_outputs_o[i]     = '0;
             sys_axi_outputs_o[i]     = '0;
+            sys_axi_outputs_o[i].r_ready = 1'b1;
+            sys_axi_outputs_o[i].b_ready = 1'b1;
           end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
@@ -823,6 +825,8 @@ module hmr_unit #(
             sys_nominal_outputs_o[i] = '0;
             sys_bus_outputs_o[i]     = '0;
             sys_axi_outputs_o[i]     = '0;
+            sys_axi_outputs_o[i].r_ready = 1'b1;
+            sys_axi_outputs_o[i].b_ready = 1'b1;
           end
         end else begin : independent_mode
             sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
@@ -884,6 +888,8 @@ module hmr_unit #(
               end else begin : disable_core // Assign disable
                 sys_nominal_outputs_o[i] = '0;
                 sys_bus_outputs_o    [i] = '0;
+                sys_axi_outputs_o[i].r_ready = 1'b1;
+                sys_axi_outputs_o[i].b_ready = 1'b1;
               end
             end else begin : independent_mode
               sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
@@ -952,6 +958,8 @@ module hmr_unit #(
                 sys_nominal_outputs_o[i] = '0;
                 sys_bus_outputs_o    [i] = '0;
                 sys_axi_outputs_o    [i] = '0;
+                sys_axi_outputs_o[i].r_ready = 1'b1;
+                sys_axi_outputs_o[i].b_ready = 1'b1;
               end
             end else begin : independent_mode
               sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
