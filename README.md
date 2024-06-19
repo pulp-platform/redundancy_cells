@@ -56,7 +56,7 @@ The `TMR_voter`s are Triple Modular Redundancy majority voters, based on researc
 ## Voting Macros
 For quickly instantiating voters, the following macros might be useful. They can be used via bender with:
 ```
-include "redundancy_cells/voters.svh"
+`include "redundancy_cells/voters.svh"
 ```
 All Macros use the following naming scheme:
 `VOTE{Inputs}{Outputs}{Flags}`
