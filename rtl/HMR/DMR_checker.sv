@@ -17,7 +17,8 @@
 module DMR_checker #(
   parameter type check_bus_t = logic,
   parameter int unsigned Pipeline  = 0,
-  parameter bit AxiBus = 1'b0
+  parameter bit AxiBus = 1'b0,
+  parameter bit AxiHasAce = 1'b0
 )(
   input  logic       clk_i,
   input  logic       rst_ni,
@@ -32,7 +33,7 @@ check_bus_t inp_q;
 logic error;
 
 if (AxiBus == 1) begin: gen_axi_checker
-  logic error_aw, error_w, error_ar, error_r, error_b;
+  logic error_aw, error_w, error_ar, error_r, error_b, error_ac, error_cr, error_cd;
   if (Pipeline) begin
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (~rst_ni) begin
@@ -47,7 +48,14 @@ if (AxiBus == 1) begin: gen_axi_checker
         compare.ar_valid <= inp_a_i.ar_valid ^ inp_b_i.ar_valid;
         compare.r_ready  <= inp_a_i.r_ready ^ inp_b_i.r_ready;
         compare.b_ready  <= inp_a_i.b_ready ^ inp_b_i.b_ready;
-        inp_q            <= inp_a_i;
+        if (AxiHasAce) begin
+          compare.ac_ready  <= inp_a_i.ac_ready ^ inp_b_i.ac_ready;
+          compare.cr_valid  <= inp_a_i.cr_valid ^ inp_b_i.cr_valid;
+          compare.cr_resp  <= inp_a_i.cr_resp ^ inp_b_i.cr_resp;
+          compare.cd_valid  <= inp_a_i.cd_valid ^ inp_b_i.cd_valid;
+          compare.cd  <= inp_a_i.cd ^ inp_b_i.cd;
+        end
+        inp_q <= inp_a_i;
       end
     end
   end else begin
@@ -59,6 +67,13 @@ if (AxiBus == 1) begin: gen_axi_checker
     assign compare.ar_valid = inp_a_i.ar_valid ^ inp_b_i.ar_valid;
     assign compare.r_ready  = inp_a_i.r_ready ^ inp_b_i.r_ready;
     assign compare.b_ready  = inp_a_i.b_ready ^ inp_b_i.b_ready;
+    if (AxiHasAce) begin
+      assign compare.ac_ready  = inp_a_i.ac_ready ^ inp_b_i.ac_ready;
+      assign compare.cr_valid  = inp_a_i.cr_valid ^ inp_b_i.cr_valid;
+      assign compare.cr_resp  = inp_a_i.cr_resp ^ inp_b_i.cr_resp;
+      assign compare.cd_valid  = inp_a_i.cd_valid ^ inp_b_i.cd_valid;
+      assign compare.cd  = inp_a_i.cd ^ inp_b_i.cd;
+    end
     assign inp_q = inp_a_i;
   end
   assign error_aw = (|compare.aw) | compare.aw_valid;
@@ -66,7 +81,16 @@ if (AxiBus == 1) begin: gen_axi_checker
   assign error_ar = (|compare.ar) | compare.ar_valid;
   assign error_r = compare.r_ready;
   assign error_b = compare.b_ready;
-  assign error = error_aw | error_w | error_ar | error_r | error_b;
+  if (AxiHasAce) begin
+    assign error_ac  = compare.ac_ready;
+    assign error_cr  = (|compare.cr_resp) | compare.cr_valid;
+    assign error_cd  = (|compare.cd) | compare.cd_valid;
+  end else begin
+    assign error_ac  = '0;
+    assign error_cr  = '0;
+    assign error_cd  = '0;
+  end
+  assign error = error_aw | error_w | error_ar | error_r | error_b | error_ac | error_cr | error_cd;
 end else begin: gen_generic_checker
   if (Pipeline) begin
     always_ff @(posedge clk_i, negedge rst_ni) begin
