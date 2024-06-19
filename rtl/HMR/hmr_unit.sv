@@ -30,6 +30,7 @@ module hmr_unit #(
   parameter  bit          SeparateData   = 1'b1,
   /// Separates voters and checkers for AXI buses
   parameter  bit          SeparateAxiBus = 1'b0,
+  parameter  bit          AxiHasAce      = 1'b0,
   /// Number of separate voters/checkers for individual buses
   parameter  int unsigned NumBusVoters   = 1,
   /// Address width of the core register file (in RISC-V it should be always 6)
@@ -584,6 +585,7 @@ module hmr_unit #(
       if (SeparateAxiBus) begin: gen_axi_checker
         DMR_checker #(
           .AxiBus ( SeparateAxiBus ),
+          .AxiHasAce ( AxiHasAce ),
           .check_bus_t ( axi_req_t )
         ) dmr_core_checker_axi (
           .clk_i   (                                       ),
