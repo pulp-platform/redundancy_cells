@@ -79,37 +79,32 @@ end else begin \
 end
 
 
-// Macro to create a name based on the current line in the file
-// Name looks like: base_name_L42
-`define UNIQUE_NAME(base_name) ``base_name``_L```__LINE__
-
-
 // 3 -> 1 Voters
 `define VOTE31(input_signal, output_signal) \
-`TMR_INSTANCE(input_signal, output_signal, `UNIQUE_NAME(i_bitwise_TMR_voter_fail));
+`TMR_INSTANCE(input_signal, output_signal, i_bitwise_TMR_voter_fail);
 
 `define VOTE31F(input_signal, output_signal, fault_any) \
-`TMR_INSTANCE_F(input_signal, output_signal, fault_any, `UNIQUE_NAME(i_bitwise_TMR_voter_fail));
+`TMR_INSTANCE_F(input_signal, output_signal, fault_any, i_bitwise_TMR_voter_fail);
 
 `define VOTE31W(input_signal, output_signal, fault_210, fault_multiple) \
-`TMR_INSTANCE_W(input_signal, output_signal, fault_210, fault_multiple, `UNIQUE_NAME(i_bitwise_TMR_voter));
+`TMR_INSTANCE_W(input_signal, output_signal, fault_210, fault_multiple, i_bitwise_TMR_voter);
 
 
 // 3 -> 3 Voters
 `define VOTE33(input_signal, output_signal) \
-`TMR_INSTANCE(input_signal, output_signal[0], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_0)); \
-`TMR_INSTANCE(input_signal, output_signal[1], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_1)); \
-`TMR_INSTANCE(input_signal, output_signal[2], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_2));
+`TMR_INSTANCE(input_signal, output_signal[0], i_bitwise_TMR_voter_fail_0); \
+`TMR_INSTANCE(input_signal, output_signal[1], i_bitwise_TMR_voter_fail_1); \
+`TMR_INSTANCE(input_signal, output_signal[2], i_bitwise_TMR_voter_fail_2);
 
 `define VOTE33F(input_signal, output_signal, fault_any) \
-`TMR_INSTANCE_F(input_signal, output_signal[0], fault_any, `UNIQUE_NAME(i_bitwise_TMR_voter_fail_0f)); \
-`TMR_INSTANCE(input_signal, output_signal[1], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_1)); \
-`TMR_INSTANCE(input_signal, output_signal[2], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_2));
+`TMR_INSTANCE_F(input_signal, output_signal[0], fault_any, i_bitwise_TMR_voter_fail_0f); \
+`TMR_INSTANCE(input_signal, output_signal[1], i_bitwise_TMR_voter_fail_1); \
+`TMR_INSTANCE(input_signal, output_signal[2], i_bitwise_TMR_voter_fail_2);
 
 `define VOTE33W(input_signal, output_signal, fault_210, fault_multiple) \
-`TMR_INSTANCE_W(input_signal, output_signal[0], fault_210, fault_multiple, `UNIQUE_NAME(i_bitwise_TMR_voter_fail_0w)); \
-`TMR_INSTANCE(input_signal, output_signal[1], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_1)); \
-`TMR_INSTANCE(input_signal, output_signal[2], `UNIQUE_NAME(i_bitwise_TMR_voter_fail_2));
+`TMR_INSTANCE_W(input_signal, output_signal[0], fault_210, fault_multiple, i_bitwise_TMR_voter_fail_0w); \
+`TMR_INSTANCE(input_signal, output_signal[1], i_bitwise_TMR_voter_fail_1); \
+`TMR_INSTANCE(input_signal, output_signal[2], i_bitwise_TMR_voter_fail_2);
 
 
 // localparam replicas -> 1 Voters 
