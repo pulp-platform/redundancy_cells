@@ -21,54 +21,70 @@
 // If you want to use different kinds of cells, you only have to change these
 `define TMR_INSTANCE(input_signal, output_signal, instance_name) \
 if ($bits(input_signal[0]) > 1) begin \
-    bitwise_TMR_voter_fail #(.DataWidth($bits(input_signal[0])), .VoterType(2)) instance_name ( \
-      .a_i(`BITWISE(input_signal[0])), \
-      .b_i(`BITWISE(input_signal[1])), \
-      .c_i(`BITWISE(input_signal[2])), \
-      .majority_o(`BITWISE(output_signal)), \
-      .fault_detected_o() \
+    bitwise_TMR_voter_fail #( \
+        .DataWidth($bits(input_signal[0])), \
+        .VoterType(2) \
+    ) instance_name ( \
+        .a_i(`BITWISE(input_signal[0])), \
+        .b_i(`BITWISE(input_signal[1])), \
+        .c_i(`BITWISE(input_signal[2])), \
+        .majority_o(`BITWISE(output_signal)), \
+        .fault_detected_o() \
     ); \
 end else begin \
-    TMR_voter_fail #(.VoterType(2)) instance_name ( \
-      .a_i(input_signal[0]), \
-      .b_i(input_signal[1]), \
-      .c_i(input_signal[2]), \
-      .majority_o(output_signal), \
-      .fault_detected_o() \
+    TMR_voter_fail #( \
+        .VoterType(2) \
+    ) instance_name ( \
+        .a_i(input_signal[0]), \
+        .b_i(input_signal[1]), \
+        .c_i(input_signal[2]), \
+        .majority_o(output_signal), \
+        .fault_detected_o() \
     ); \
 end
 
 `define TMR_INSTANCE_F(input_signal, output_signal, fault_any, instance_name) \
 if ($bits(input_signal[0]) > 1) begin \
-    bitwise_TMR_voter_fail #(.DataWidth($bits(input_signal[0])), .VoterType(1)) instance_name ( \
-      .a_i(`BITWISE(input_signal[0])), \
-      .b_i(`BITWISE(input_signal[1])), \
-      .c_i(`BITWISE(input_signal[2])), \
-      .majority_o(`BITWISE(output_signal)), \
-      .fault_detected_o(fault_any) \
+    bitwise_TMR_voter_fail #( \
+        .DataWidth($bits(input_signal[0])), \
+        .VoterType(1) \
+    ) instance_name ( \
+        .a_i(`BITWISE(input_signal[0])), \
+        .b_i(`BITWISE(input_signal[1])), \
+        .c_i(`BITWISE(input_signal[2])), \
+        .majority_o(`BITWISE(output_signal)), \
+        .fault_detected_o(fault_any) \
     ); \
 end else begin \
-    TMR_voter_fail #(.VoterType(1)) instance_name ( \
-      .a_i(input_signal[0]), \
-      .b_i(input_signal[1]), \
-      .c_i(input_signal[2]), \
-      .majority_o(output_signal), \
-      .fault_detected_o(fault_any) \
+    TMR_voter_fail #( \
+        .VoterType(1) \
+    ) instance_name ( \
+        .a_i(input_signal[0]), \
+        .b_i(input_signal[1]), \
+        .c_i(input_signal[2]), \
+        .majority_o(output_signal), \
+        .fault_detected_o(fault_any) \
     ); \
 end
 
 `define TMR_INSTANCE_W(input_signal, output_signal, fault_210, fault_multiple, instance_name) \
 if ($bits(input_signal[0]) > 1) begin \
-    bitwise_TMR_voter #(.DataWidth($bits(input_signal[0])), .VoterType(2)) instance_name ( \
-      .a_i(`BITWISE(input_signal[0])), \
-      .b_i(`BITWISE(input_signal[1])), \
-      .c_i(`BITWISE(input_signal[2])), \
-      .majority_o(`BITWISE(output_signal)), \
-      .error_o(fault_multiple), \
-      .error_cba_o(fault_210) \
+    bitwise_TMR_voter #( \
+        .DataWidth($bits(input_signal[0])), \
+        .VoterType(2) \
+    ) instance_name ( \
+        .a_i(`BITWISE(input_signal[0])), \
+        .b_i(`BITWISE(input_signal[1])), \
+        .c_i(`BITWISE(input_signal[2])), \
+        .majority_o(`BITWISE(output_signal)), \
+        .error_o(fault_multiple), \
+        .error_cba_o(fault_210) \
     ); \
 end else begin \
-    bitwise_TMR_voter #(.DataWidth($bits(input_signal[0])), .VoterType(2)) instance_name ( \
+    bitwise_TMR_voter #( \
+        .DataWidth($bits(input_signal[0])), \
+        .VoterType(2) \
+    ) instance_name ( \
       .a_i(input_signal[0]), \
       .b_i(input_signal[1]), \
       .c_i(input_signal[2]), \
