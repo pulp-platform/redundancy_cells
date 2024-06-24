@@ -50,8 +50,8 @@ module ecc_scrubber_out #(
   input  logic                        tag_intc_we_i,
   input  logic                        tag_intc_be_i,
   input  logic [$clog2(TagDepth)-1:0] tag_intc_add_i,
-  input  logic [       TagSramWidth-1:0]  tag_intc_wdata_i,
-  output logic [       TagSramWidth-1:0]  tag_intc_rdata_o,
+  input  logic [   TagSramWidth-1:0]  tag_intc_wdata_i,
+  output logic [   TagSramWidth-1:0]  tag_intc_rdata_o,
   output logic                        tag_intc_multi_err_o,
 
   // Input signals from others accessing data memory bank
@@ -71,16 +71,16 @@ module ecc_scrubber_out #(
   output logic                        tag_bank_be_o,
   output logic [$clog2(TagDepth)-1:0] tag_bank_add_o,
   output logic [$clog2(TagDepth)-1:0] tag_bank_add_q_o,
-  output logic [       TagSramWidth-1:0]  tag_bank_wdata_o,
-  input  logic [       TagSramWidth-1:0]  tag_bank_rdata_i,
+  output logic [   TagSramWidth-1:0]  tag_bank_wdata_o,
+  input  logic [   TagSramWidth-1:0]  tag_bank_rdata_i,
 
   // Output directly to data bank
   output logic                        data_bank_req_o,
   input  logic                        data_bank_gnt_i,
   output logic                        data_bank_we_o,
   output data_be_t                    data_bank_be_o,
-  output logic [$clog2(DataDepth)-1:0] data_bank_add_o,
-  output logic [$clog2(DataDepth)-1:0] data_bank_add_q_o,
+  output logic [$clog2(DataDepth)-1:0]data_bank_add_o,
+  output logic [$clog2(DataDepth)-1:0]data_bank_add_q_o,
   output logic [       DataWidth-1:0] data_bank_wdata_o,
   input  logic [       DataWidth-1:0] data_bank_rdata_i,
 
@@ -89,17 +89,18 @@ module ecc_scrubber_out #(
 );
 
   logic                        scrub_req;
+  logic                        scrub_taginv;
   logic                        scrub_we;
-  logic [$clog2(DataDepth)-1:0] scrub_add;
+  logic [$clog2(DataDepth)-1:0]scrub_add;
   // logic [       DataWidth-1:0] scrub_wdata;
-  logic [       TagSramWidth-1:0]  scrub_tag_rdata;
+  logic [    TagSramWidth-1:0] scrub_tag_rdata;
   logic [       DataWidth-1:0] scrub_data_rdata;
 
-  typedef enum logic [2:0] {Idle, Read, Check} scrub_state_e;
+  typedef enum logic [1:0] {Idle, Read, Check, TagInv} scrub_state_e;
 
   scrub_state_e state_d, state_q;
 
-  logic [$clog2(DataDepth)-1:0] working_add_d, working_add_q; // use data addr as it should be >= tag addr size, because the block number per index
+  logic [$clog2(DataDepth)-1:0] working_add_d, working_add_q, working_add_plus1; // use data addr as it should be >= tag addr size, because the block number per index
   
   logic tag_rwdata_en, data_rwdata_en;
   logic tag_rdata_en, tag_rdata_en_q;
@@ -192,8 +193,8 @@ module ecc_scrubber_out #(
 
   assign scrub_add = working_add_q;
 
-  assign tag_bank_req_o     = tag_intc_req_i  || scrub_req;
-  assign tag_intc_gnt_o     = tag_bank_gnt_i;
+  assign tag_bank_req_o     = tag_intc_req_i  || scrub_req || scrub_taginv;
+  assign tag_intc_gnt_o     = tag_bank_gnt_i & ~scrub_taginv; // if scrubbr finds a valid clean data with uncorrectable error, need to invalidate the cache line, block tag for a while
   assign tag_intc_rdata_o      = tag_rdata_en_q  ? tag_bank_rdata_i : tag_rdata_q;
   assign tag_intc_multi_err_o  = tag_rdata_en_q  ? ecc_err_i.tag_sram_multi_error : tag_intc_multi_err_q;
 
@@ -214,7 +215,12 @@ module ecc_scrubber_out #(
     tag_bank_wdata_o = tag_intc_wdata_i;
 
     // If scrubber active and outside is not, do scrub
-    if ( (state_q == Read || state_q == Check) && (tag_intc_req_i == 1'b0) && (data_intc_req_i == 1'b0)) begin
+    if(scrub_taginv || (state_q == TagInv)) begin
+      tag_bank_we_o    = 1'b1;
+      tag_bank_be_o    = '1;
+      tag_bank_add_o   = scrub_add[$clog2(DataDepth)-1:$clog2(DataTagDepthFactor)];
+      tag_bank_wdata_o = '0;
+    end else if ( (state_q == Read || state_q == Check) && (tag_intc_req_i == 1'b0) && (data_intc_req_i == 1'b0)) begin
       tag_bank_we_o    = 1'b0;
       tag_bank_be_o    = '0;
       tag_bank_add_o   = scrub_add[$clog2(DataDepth)-1:$clog2(DataTagDepthFactor)];
@@ -251,40 +257,70 @@ module ecc_scrubber_out #(
   always_comb begin : proc_FSM_logic
     state_d       = state_q;
     scrub_req     = 1'b0;
+    scrub_taginv  = 1'b0;
     working_add_d = working_add_q;
     scrub_tag_bit_corrected_o  = 1'b0;
     scrub_tag_uncorrectable_o  = 1'b0;
     scrub_data_bit_corrected_o = 1'b0;
     scrub_data_uncorrectable_o = 1'b0;
 
-    if (state_q == Idle) begin
-      // Switch to read state if triggered to scrub
-      if (scrub_trigger_i) begin
-        state_d = Read;
+    case (state_q)
+      Idle: begin
+        // Switch to read state if triggered to scrub
+        if (scrub_trigger_i) begin
+          state_d = Read;
+        end
       end
-
-    end else if (state_q == Read) begin
-      // Request only active if outside is inactive, and the ecc_sram is ready
-      if ((tag_intc_req_i == 1'b0) && 
-          (tag_bank_gnt_i == 1'b1) &&
-          (data_intc_req_i == 1'b0) && 
-          (data_bank_gnt_i == 1'b1)
-          ) begin
-        // Request read to scrub
-        scrub_req = 1'b1;
-        state_d = Check;
+      Read: begin
+        // Request only active if outside is inactive, and the ecc_sram is ready
+        if ((tag_intc_req_i == 1'b0) && 
+            (tag_bank_gnt_i == 1'b1) &&
+            (data_intc_req_i == 1'b0) && 
+            (data_bank_gnt_i == 1'b1)
+            ) begin
+          // Request read to scrub
+          scrub_req = 1'b1;
+          state_d = Check;
+        end
       end
+      Check: begin
+        // Find uncorrectable error in a valid clean data line, invalidate the line
+        if(data_multi_error_o) begin
+          if(~tag_multi_error_o) begin
+            if(tag_valid_bit_o & ~tag_dirty_bit_o) begin
+              scrub_taginv = 1'b1;
+              if(tag_bank_gnt_i) begin
+                state_d = Idle;
+                working_add_d = working_add_plus1; // increment address
+              end else begin
+                state_d = TagInv;
+                working_add_d = working_add_q; // don't increment address
+              end
+            end
+          end
+        end else begin
+          // Return to idle state
+          state_d         = Idle;
+          working_add_d   = working_add_plus1; // increment address
+        end
 
-    end else if (state_q == Check) begin
-      // Return to idle state
-      state_d         = Idle;
-      working_add_d   = (working_add_q + 1) % DataDepth; // increment address
-
-      scrub_tag_bit_corrected_o  = tag_single_error_o;
-      scrub_tag_uncorrectable_o  = tag_multi_error_o;
-      scrub_data_bit_corrected_o = data_single_error_o;
-      scrub_data_uncorrectable_o = data_multi_error_o;
-    end
+        scrub_tag_bit_corrected_o  = tag_single_error_o;
+        scrub_tag_uncorrectable_o  = tag_multi_error_o;
+        scrub_data_bit_corrected_o = data_single_error_o;
+        scrub_data_uncorrectable_o = data_multi_error_o;
+      end
+      TagInv: begin
+        scrub_taginv = 1'b1;
+        if(tag_bank_gnt_i) begin
+          state_d = Idle;
+          working_add_d = working_add_plus1; // increment address
+        end else begin
+          state_d = TagInv;
+          working_add_d = working_add_q; // don't increment address
+        end
+      end
+      default: /* do nothing */;
+    endcase
   end
   
   // TODO: tag sram has uncorrectable error, interrupt
@@ -300,7 +336,7 @@ module ecc_scrubber_out #(
   assign tag_valid_bit_o     = tag_bank_rdata_i[TagDataWidth-1];
   assign tag_dirty_bit_o     = tag_bank_rdata_i[TagDataWidth-2];
 
-
+  assign working_add_plus1 = (working_add_q + 1) % DataDepth; // increment address
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_bank_add
     if(!rst_ni) begin
       working_add_q <= '0;
