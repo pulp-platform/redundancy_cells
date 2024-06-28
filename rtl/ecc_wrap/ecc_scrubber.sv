@@ -89,7 +89,7 @@ module ecc_scrubber #(
   end else begin : gen_internal_ecc
     assign ecc_out_o = '0;
 
-    for (genvar assoc = 0; assoc<Assoc; ++assoc)begin : error_correct_assoc
+    for (genvar assoc = 0; assoc<Assoc; ++assoc)begin : gen_error_correct_assoc
       hsiao_ecc_cor #(
         .DataWidth (DataWidth-ProtWidth),
         .ProtWidth (ProtWidth)
