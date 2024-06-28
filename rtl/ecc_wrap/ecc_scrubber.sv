@@ -89,7 +89,7 @@ module ecc_scrubber #(
   end else begin : gen_internal_ecc
     assign ecc_out_o = '0;
 
-    for (genvar assoc = 0; assoc<Assoc; ++assoc)begin // TODO make not the same define add [assoc]
+    for (genvar assoc = 0; assoc<Assoc; ++assoc)begin : error_correct_assoc
       hsiao_ecc_cor #(
         .DataWidth (DataWidth-ProtWidth),
         .ProtWidth (ProtWidth)
@@ -104,7 +104,7 @@ module ecc_scrubber #(
 
   always_comb begin
     for (int assoc=0; assoc<Assoc; ++assoc)begin
-      if ((|ecc_err[assoc])===1'b1 )begin 
+      if ((|ecc_err[assoc])===1'b1 )begin
         scrub_wdata = temp_scrub_wdata[assoc];
         assoc_c = assoc;
         break;
@@ -143,7 +143,7 @@ module ecc_scrubber #(
 
       end else begin                  // Correctable Error
         // Write corrected version
-        scrub_req = 1<<assoc_c; 
+        scrub_req = 1<<assoc_c;
         scrub_we  = 1'b1;
 
         // INTC interference - retry read and write
