@@ -176,14 +176,14 @@ module rr_arb_tree_lock #(
         `ifndef VERILATOR
           lock: assert property(
             @(posedge clk_i) LockIn |-> req_o && !gnt_i |=> idx_o == $past(idx_o)) else
-                $fatal (1, "Lock implies same arbiter decision in next cycle if output is not \
+                $error (1, "Lock implies same arbiter decision in next cycle if output is not \
                             ready.");
 
           logic [NumIn-1:0] req_tmp;
           assign req_tmp = req_q & req_i;
           lock_req: assume property(
             @(posedge clk_i) LockIn |-> lock_d |=> req_tmp == req_q) else
-                $fatal (1, "It is disallowed to deassert unserved request signals when LockIn is \
+                $error (1, "It is disallowed to deassert unserved request signals when LockIn is \
                             enabled.");
         `endif
         // pragma translate_on
@@ -353,30 +353,30 @@ module rr_arb_tree_lock #(
     `ifndef XSIM
     initial begin : p_assert
       assert(NumIn)
-        else $fatal(1, "Input must be at least one element wide.");
+        else $error(1, "Input must be at least one element wide.");
       assert(!(LockIn && ExtPrio))
-        else $fatal(1,"Cannot use LockIn feature together with external ExtPrio.");
+        else $error(1,"Cannot use LockIn feature together with external ExtPrio.");
     end
 
     hot_one : assert property(
       @(posedge clk_i) $onehot0(gnt_o))
-        else $fatal (1, "Grant signal must be hot1 or zero.");
+        else $error (1, "Grant signal must be hot1 or zero.");
 
     gnt0 : assert property(
       @(posedge clk_i) |gnt_o |-> gnt_i)
-        else $fatal (1, "Grant out implies grant in.");
+        else $error (1, "Grant out implies grant in.");
 
     gnt1 : assert property(
       @(posedge clk_i) req_o |-> gnt_i |-> |gnt_o)
-        else $fatal (1, "Req out and grant in implies grant out.");
+        else $error (1, "Req out and grant in implies grant out.");
 
     gnt_idx : assert property(
       @(posedge clk_i) req_o |->  gnt_i |-> gnt_o[idx_o])
-        else $fatal (1, "Idx_o / gnt_o do not match.");
+        else $error (1, "Idx_o / gnt_o do not match.");
 
     req1 : assert property(
       @(posedge clk_i) req_o |-> |req_i)
-        else $fatal (1, "Req out implies req in.");
+        else $error (1, "Req out implies req in.");
 
     lock2 : assert property(
       @(posedge clk_i) disable iff (!rst_ni) lock_rr_q |-> idx_o == $past(idx_o))
