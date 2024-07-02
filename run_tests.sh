@@ -19,8 +19,9 @@ set -e
 VSIM_LOGFILE=vsim.log
 
 bender script vsim -t test -t rtl --vlog-arg="-svinputport=compat" -t deprecated > compile.tcl
+echo "return 0" >> compile.tcl
 
-$VSIM -c -do 'source compile.tcl; quit' > vcom.log
+$VSIM -c -do 'quit -code [source compile.tcl]' > vcom.log
 
 rm -f $VSIM_LOGFILE
 
@@ -33,7 +34,7 @@ call_vsim() {
   echo "  --> $@"
   tail -7 $VSIM_LOGFILE
   echo ""
-  # grep "Errors: 0," vsim.log
+  tail -1 vsim.log | grep "Errors: 0," > /dev/null
 }
 
 call_vsim tb_tmr_voter
