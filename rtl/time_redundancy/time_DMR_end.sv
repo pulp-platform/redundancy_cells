@@ -74,7 +74,7 @@ module time_DMR_end # (
     output logic ready_o,
 
     // Signal for working with upstream Lockable RR Arbiter
-    output logic lock_o,
+    output logic [REP-1:0] lock_o,
 
     // Downstream connection
     output DataType data_o,
@@ -270,7 +270,7 @@ module time_DMR_end # (
     `VOTEXX(REP, lock_v, lock_d);
     `VOTEXX(REP, counter_v, counter_d);
 
-    assign lock_o = lock_d[0];
+    assign lock_o = lock_d;
 
     // Default state
     for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state

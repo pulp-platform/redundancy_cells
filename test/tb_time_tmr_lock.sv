@@ -9,6 +9,8 @@ module tb_time_tmr_lock #(
     parameter [NumOpgroups-1:0][7:0] OpgroupNumRegs = {8'd4, 8'd3, 8'd3},
     parameter bit EarlyValidEnable = 0,
     parameter bit InternalRedundancy = 0,
+    // Do not modify
+    localparam int REP = InternalRedundancy ? 3 : 1,
 
     // TB Parameters
     parameter int unsigned TESTS = 10000,
@@ -134,13 +136,14 @@ module tb_time_tmr_lock #(
     tmr_stacked_t out_tmr_stack;
 
     // Backpropagating lock signal
-    logic lock;
+    logic [REP-1:0] lock;
 
     // Round-Robin arbiter to decide which result to use
     rr_arb_tree_lock #(
-        .NumIn     ( NumOpgroups ),
-        .DataType  ( rr_stacked_t  ),
-        .AxiVldRdy ( 1'b1         )
+        .NumIn              ( NumOpgroups        ),
+        .DataType           ( rr_stacked_t       ),
+        .AxiVldRdy          ( 1'b1               ),
+        .InternalRedundancy ( InternalRedundancy )
     ) i_arbiter (
         .clk_i(clk),
         .rst_ni(rst_n),

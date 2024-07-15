@@ -75,7 +75,7 @@ module time_TMR_end # (
     input logic ready_i,
 
     // Signal for working with Lockable RR Arbiter
-    output logic lock_o,
+    output logic [REP-1:0] lock_o,
 
     // Flag for External Error Counter
     output logic fault_detected_o
@@ -459,7 +459,7 @@ module time_TMR_end # (
     `VOTEXX(REP, lock_v, lock_d);
     `VOTEXX(REP, counter_v, counter_d);
 
-    assign lock_o = lock_d[0];
+    assign lock_o = lock_d;
 
     // Default state
     for (genvar r = 0; r < REP; r++) begin: gen_lock_default_state

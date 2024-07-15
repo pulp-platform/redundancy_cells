@@ -46,6 +46,9 @@
 /// If it is `1'b1` two `lzc`, a masking logic stage and a two input multiplexer are instantiated.
 /// However these are small in respect of the data multiplexers needed, as the width of the `req_i`
 /// signal is usually less as than `DataWidth`.
+
+`include "redundancy_cells/voters.svh"
+
 module rr_arb_tree_lock #(
   /// Number of inputs to be arbitrated.
   parameter int unsigned NumIn      = 64,
@@ -67,13 +70,6 @@ module rr_arb_tree_lock #(
   ///
   /// Set to `1'b1` to treat req/gnt as vld/rdy.
   parameter bit          AxiVldRdy  = 1'b0,
-  /// The `LockIn` option prevents the arbiter from changing the arbitration
-  /// decision when the arbiter is disabled. I.e., the index of the first request
-  /// that wins the arbitration will be locked in case the destination is not
-  /// able to grant the request in the same cycle.
-  ///
-  /// Set to `1'b1` to enable.
-  parameter bit          LockIn     = 1'b0,
   /// When set, ensures that throughput gets distributed evenly between all inputs.
   ///
   /// Set to `1'b0` to disable.
@@ -83,18 +79,25 @@ module rr_arb_tree_lock #(
   parameter int unsigned IdxWidth   = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
   /// Dependent parameter, do **not** overwrite.
   /// Type for defining the arbitration priority and arbitrated index signal.
-  parameter type         idx_t      = logic [IdxWidth-1:0]
+  parameter type         idx_t      = logic [IdxWidth-1:0],
+  // Determines if the internal state machines should
+  // be parallely redundant, meaning errors inside this module
+  // can also not cause errors in the output
+  // The external output is never protected!
+  parameter bit          InternalRedundancy = 0,
+  // Do not modify
+  localparam int         REP        = InternalRedundancy ? 3 : 1
 ) (
   /// Clock, positive edge triggered.
   input  logic                clk_i,
   /// Asynchronous reset, active low.
   input  logic                rst_ni,
   /// Clears the arbiter state. Only used if `ExtPrio` is `1'b0` or `LockIn` is `1'b1`.
-  input  logic                flush_i,
+  input  logic      [REP-1:0] flush_i,
   /// External round-robin priority.
   input  idx_t                rr_i,
   /// lock idx signal, only used if `ExtPrio` is `1'b0.`
-  input logic                 lock_rr_i,
+  input logic       [REP-1:0] lock_rr_i,
   /// Input requests arbitration.
   input  logic    [NumIn-1:0] req_i,
   /* verilator lint_off UNOPTFLAT */
@@ -117,7 +120,7 @@ module rr_arb_tree_lock #(
   `ifndef VERILATOR
   `ifndef XSIM
   // Default SVA reset
-  default disable iff (!rst_ni || flush_i);
+  default disable iff (!rst_ni || flush_i[0]);
   `endif
   `endif
   // pragma translate_on
@@ -133,86 +136,39 @@ module rr_arb_tree_lock #(
     localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
 
     /* verilator lint_off UNOPTFLAT */
-    idx_t    [2**NumLevels-2:0] index_nodes; // used to propagate the indices
+    idx_t    [2**NumLevels-2:0][REP-1:0] index_nodes; // used to propagate the indices
     DataType [2**NumLevels-2:0] data_nodes;  // used to propagate the data
     logic    [2**NumLevels-2:0] gnt_nodes;   // used to propagate the grant to masters
     logic    [2**NumLevels-2:0] req_nodes;   // used to propagate the requests to slave
     /* lint_off */
-    idx_t                       rr_q;
+    idx_t [REP-1:0]             rr_q;
     logic [NumIn-1:0]           req_d;
 
     // the final arbitration decision can be taken from the root of the tree
     assign req_o        = req_nodes[0];
     assign data_o       = data_nodes[0];
-    assign idx_o        = index_nodes[0];
+    assign idx_o        = index_nodes[0][0];
+
 
     if (ExtPrio) begin : gen_ext_rr
-      assign rr_q       = rr_i;
+      assign rr_q[0]    = rr_i;
       assign req_d      = req_i;
     end else begin : gen_int_rr
-      idx_t rr_d;
+      idx_t [REP-1:0] rr_d;
 
-      // lock arbiter decision in case we got at least one req and no acknowledge
-      if (LockIn) begin : gen_lock
-        logic  lock_d, lock_q;
-        logic [NumIn-1:0] req_q;
-
-        assign lock_d     = req_o & ~gnt_i;
-        assign req_d      = (lock_q) ? req_q : req_i;
-
-        always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
-          if (!rst_ni) begin
-            lock_q <= '0;
-          end else begin
-            if (flush_i) begin
-              lock_q <= '0;
-            end else begin
-              lock_q <= lock_d;
-            end
-          end
-        end
-
-        // pragma translate_off
-        `ifndef VERILATOR
-          lock: assert property(
-            @(posedge clk_i) LockIn |-> req_o && !gnt_i |=> idx_o == $past(idx_o)) else
-                $error (1, "Lock implies same arbiter decision in next cycle if output is not \
-                            ready.");
-
-          logic [NumIn-1:0] req_tmp;
-          assign req_tmp = req_q & req_i;
-          lock_req: assume property(
-            @(posedge clk_i) LockIn |-> lock_d |=> req_tmp == req_q) else
-                $error (1, "It is disallowed to deassert unserved request signals when LockIn is \
-                            enabled.");
-        `endif
-        // pragma translate_on
-
-        always_ff @(posedge clk_i or negedge rst_ni) begin : p_req_regs
-          if (!rst_ni) begin
-            req_q  <= '0;
-          end else begin
-            if (flush_i) begin
-              req_q  <= '0;
-            end else begin
-              req_q  <= req_d;
-            end
-          end
-        end
-      end else begin : gen_no_lock
-        assign req_d = req_i;
-      end
+      assign req_d = req_i;
 
       idx_t next_idx;
 
       if (FairArb) begin : gen_fair_arb
+
         logic [NumIn-1:0] upper_mask,  lower_mask;
         idx_t             upper_idx,   lower_idx;
         logic             upper_empty, lower_empty;
 
         for (genvar i = 0; i < NumIn; i++) begin : gen_mask
-          assign upper_mask[i] = (i >  rr_q) ? req_d[i] : 1'b0;
-          assign lower_mask[i] = (i <= rr_q) ? req_d[i] : 1'b0;
+          assign upper_mask[i] = (i >  rr_q[0]) ? req_d[i] : 1'b0;
+          assign lower_mask[i] = (i <= rr_q[0]) ? req_d[i] : 1'b0;
         end
 
         lzc #(
@@ -235,45 +191,52 @@ module rr_arb_tree_lock #(
 
         assign next_idx = upper_empty      ? lower_idx : upper_idx;
       end else begin : gen_unfair_arb
-        assign next_idx = ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1);
+        assign next_idx = ((rr_q[0] == idx_t'(NumIn-1)) ? '0 : rr_q[0] + 1'b1);
       end
 
-      always_comb begin
-        if (lock_rr_i) begin
-          rr_d = idx_o;
-        end else begin
-          if (gnt_i && req_o) begin
-            rr_d = next_idx;
+      idx_t [REP-1:0] voted_idx, voted_rr_q;
+      `VOTEXX(REP, index_nodes[0], voted_idx);
+      `VOTEXX(REP, rr_q, voted_rr_q);
+
+      for (genvar r = 0; r < REP; r++) begin: gen_rr
+        always_comb begin
+          if (lock_rr_i[r]) begin
+            rr_d[r] = voted_idx[r];
           end else begin
-              rr_d = rr_q;
+            if (gnt_i && req_o) begin
+              rr_d[r] = next_idx;
+            end else begin
+                rr_d[r] = voted_rr_q[r];
+            end
+          end
+        end
+
+        // this holds the highest priority
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
+          if (!rst_ni) begin
+            rr_q[r]   <= '0;
+          end else begin
+            if (flush_i[r]) begin
+              rr_q[r]   <= '0;
+            end else begin
+              rr_q[r]   <= rr_d[r];
+            end
           end
         end
       end
-
-      // this holds the highest priority
-      always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
-        if (!rst_ni) begin
-          rr_q   <= '0;
-        end else begin
-          if (flush_i) begin
-            rr_q   <= '0;
-          end else begin
-            rr_q   <= rr_d;
-          end
-        end
-      end
-
     end
 
-    logic lock_rr_q;
-    always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
-      if (!rst_ni) begin
-        lock_rr_q   <= '1;
-      end else begin
-        if (flush_i) begin
-          lock_rr_q   <= '0;
+    logic [REP-1:0] lock_rr_q;
+    for (genvar r = 0; r < REP; r++) begin: gen_lock_q
+      always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
+        if (!rst_ni) begin
+          lock_rr_q[r]   <= '1;
         end else begin
-          lock_rr_q   <= lock_rr_i;
+          if (flush_i[r]) begin
+            lock_rr_q[r]   <= '0;
+          end else begin
+            lock_rr_q[r]   <= lock_rr_i[r];
+          end
         end
       end
     end
@@ -284,7 +247,7 @@ module rr_arb_tree_lock #(
     for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : gen_levels
       for (genvar l = 0; l < 2**level; l++) begin : gen_level
         // local select signal
-        logic sel;
+        logic [REP-1:0] sel;
         // index calcs
         localparam int unsigned Idx0 = 2**level-1+l;// current node
         localparam int unsigned Idx1 = 2**(level+1)-1+l*2;
@@ -294,32 +257,34 @@ module rr_arb_tree_lock #(
           // if two successive indices are still in the vector...
           if (unsigned'(l) * 2 < NumIn-1) begin : gen_reduce
 
-            // arbitration: round robin
-            always_comb begin
-              if (lock_rr_q) begin
-                sel = rr_q[NumLevels-1-level];
-              end else begin
-                sel =  ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
+            for (genvar r = 0; r < REP; r++) begin: gen_select
+              // arbitration: round robin
+              always_comb begin
+                if (lock_rr_q[r]) begin
+                  sel[r] = rr_q[r][NumLevels-1-level];
+                end else begin
+                  sel[r] =  ~req_d[l*2] | req_d[l*2+1] & rr_q[0][NumLevels-1-level];
+                end
               end
+              assign index_nodes[Idx0][r] = idx_t'(sel[r]);
             end
 
-            assign index_nodes[Idx0] = idx_t'(sel);
-            assign req_nodes[Idx0]   = (sel) ? req_d[l*2+1] : req_d[l*2] ;
-            assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
-            assign gnt_o[l*2]        = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])   & ~sel;
-            assign gnt_o[l*2+1]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
+            assign req_nodes[Idx0]   = (sel[0]) ? req_d[l*2+1] : req_d[l*2] ;
+            assign data_nodes[Idx0]  = (sel[0]) ? data_i[l*2+1] : data_i[l*2];
+            assign gnt_o[l*2]        = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])   & ~sel[0];
+            assign gnt_o[l*2+1]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel[0];
           end
           // if only the first index is still in the vector...
           if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
             assign req_nodes[Idx0]   = req_d[l*2];
-            assign index_nodes[Idx0] = '0;// always zero in this case
+            assign index_nodes[Idx0] = '0;
             assign data_nodes[Idx0]  = data_i[l*2];
             assign gnt_o[l*2]        = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]);
           end
           // if index is out of range, fill up with zeros (will get pruned)
           if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
             assign req_nodes[Idx0]   = 1'b0;
-            assign index_nodes[Idx0] = idx_t'('0);
+            assign index_nodes[Idx0] = '0;
             assign data_nodes[Idx0]  = DataType'('0);
           end
         //////////////////////////////////////////////////////////////
@@ -327,22 +292,24 @@ module rr_arb_tree_lock #(
         end else begin : gen_other_levels
 
           // arbitration: round robin
-          always_comb begin
-            if (lock_rr_q) begin
-              sel = rr_q[NumLevels-1-level];
-            end else begin
-              sel =  ~req_nodes[Idx1] | req_nodes[Idx1+1] & rr_q[NumLevels-1-level];
+          for (genvar r = 0; r < REP; r++) begin: gen_select
+            always_comb begin
+              if (lock_rr_q[r]) begin
+                sel[r] = rr_q[r][NumLevels-1-level];
+              end else begin
+                sel[r] =  ~req_nodes[Idx1] | req_nodes[Idx1+1] & rr_q[0][NumLevels-1-level];
+              end
             end
+
+            assign index_nodes[Idx0][r] = (sel[r]) ?
+              idx_t'({1'b1, index_nodes[Idx1+1][r][NumLevels-unsigned'(level)-2:0]}) :
+              idx_t'({1'b0, index_nodes[Idx1][r][NumLevels-unsigned'(level)-2:0]});
           end
 
-          assign index_nodes[Idx0] = (sel) ?
-            idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]}) :
-            idx_t'({1'b0, index_nodes[Idx1][NumLevels-unsigned'(level)-2:0]});
-
-          assign req_nodes[Idx0]   = (sel) ? req_nodes[Idx1+1]  : req_nodes[Idx1];
-          assign data_nodes[Idx0]  = (sel) ? data_nodes[Idx1+1] : data_nodes[Idx1];
-          assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel;
-          assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel;
+          assign req_nodes[Idx0]   = (sel[0]) ? req_nodes[Idx1+1]  : req_nodes[Idx1];
+          assign data_nodes[Idx0]  = (sel[0]) ? data_nodes[Idx1+1] : data_nodes[Idx1];
+          assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel[0];
+          assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel[0];
         end
         //////////////////////////////////////////////////////////////
       end
@@ -354,8 +321,8 @@ module rr_arb_tree_lock #(
     initial begin : p_assert
       assert(NumIn)
         else $error(1, "Input must be at least one element wide.");
-      assert(!(LockIn && ExtPrio))
-        else $error(1,"Cannot use LockIn feature together with external ExtPrio.");
+      assert(!(ExtPrio && (REP > 1)))
+        else $error(1, "There is no reason to use REP > 1 with ExtPrio!");
     end
 
     hot_one : assert property(
@@ -379,7 +346,7 @@ module rr_arb_tree_lock #(
         else $error (1, "Req out implies req in.");
 
     lock2 : assert property(
-      @(posedge clk_i) disable iff (!rst_ni) lock_rr_q |-> idx_o == $past(idx_o))
+      @(posedge clk_i) disable iff (!rst_ni) lock_rr_q[0] |-> idx_o == $past(idx_o))
         else $error (1, "Lock means idx_o does not change.");
     `endif
     `endif
