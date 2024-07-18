@@ -227,12 +227,24 @@ module ecc_scrubber_out #(
     end
   end
 
-  always_ff @(posedge clk_i) begin
-    if(tag_rwdata_en) begin
-      tag_bank_add_q  <= tag_bank_add_o;
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      tag_bank_add_q  <= '0;
+    end else begin
+      if(tag_rwdata_en) begin
+        tag_bank_add_q  <= tag_bank_add_o;
+      end
     end
-    if(data_rwdata_en) begin
-      data_bank_add_q <= data_bank_add_o;
+  end
+
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      data_bank_add_q <= '0;
+    end else begin
+      if(data_rwdata_en) begin
+        data_bank_add_q <= data_bank_add_o;
+      end
     end
   end
 
