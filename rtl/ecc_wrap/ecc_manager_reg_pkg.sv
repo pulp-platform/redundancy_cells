@@ -6,6 +6,9 @@
 
 package ecc_manager_reg_pkg;
 
+  // Param list
+  parameter  OffsetStart = 'h100;
+
   // Address widths within the block
   parameter int BlockAw = 5;
 
