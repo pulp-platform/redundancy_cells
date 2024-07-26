@@ -165,7 +165,7 @@ module time_DMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // State machine to figure out handshake
 
-    typedef enum logic [0:0] {BASE, WAIT_FOR_READY} state_t;
+    typedef enum logic [1:0] {BASE, WAIT_FOR_READY} state_t;
     state_t [REP-1:0] state_b, state_v, state_d, state_q;
     logic [REP-1:0] valid_internal_v, lock_internal_v;
 

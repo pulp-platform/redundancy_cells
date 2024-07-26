@@ -3,6 +3,7 @@ module tb_time_tmr #(
     parameter IDSize = 4,
     parameter int LockTimeout = 4 * 12,
     parameter bit EarlyValidEnable = 0,
+    parameter bit EarlyReadyEnable = 0,
     parameter bit InternalRedundancy = 0,
 
     // TB Parameters
@@ -33,6 +34,7 @@ module tb_time_tmr #(
     time_TMR_start #(
         .DataType(data_t),
         .IDSize(IDSize),
+        .EarlyReadyEnable(EarlyReadyEnable),
         .InternalRedundancy(InternalRedundancy)
     ) dut_start (
         .clk_i(clk),

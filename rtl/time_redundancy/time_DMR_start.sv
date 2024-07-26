@@ -52,6 +52,10 @@ module time_DMR_start # (
     // As an estimate you can use log2(longest_pipeline) + 2.
     // Needs to match with time_TMR_end!
     parameter int unsigned IDSize = 1,
+    // If you want Ready to be set as early as possible, and store elements
+    // internally in redundant mode. Increases area but potentially stops
+    // upstream stalls.
+    parameter bit EarlyReadyEnable = 1,
     // Set to 1 if the id_i port should be used
     parameter bit UseExternalId = 0,
     // Determines if the internal state machines should
@@ -81,6 +85,8 @@ module time_DMR_start # (
     output logic valid_o,
     input logic ready_i
 );
+
+    if (EarlyReadyEnable) begin : gen_store_fsm
     // Redundant Output signals
     logic [REP-1:0][IDSize-1:0] next_id_ov;
     logic [REP-1:0] ready_ov;
@@ -186,4 +192,100 @@ module time_DMR_start # (
     `VOTEX1(REP, ready_ov, ready_o);
     `VOTEX1(REP, valid_ov, valid_o);
 
+    end else begin: gen_no_store_fsm
+        // Redundant Output signals
+        logic [REP-1:0][IDSize-1:0] next_id_ov;
+        logic [REP-1:0] ready_ov;
+
+        // State machine TLDR
+        // - Wait for valid and count number of ready cycles after valid is sent
+
+        // Next State Combinatorial Logic
+        typedef enum logic [1:0] {SEND, SEND_AND_CONSUME, SEND_NO_INCREMENT} state_t;
+        state_t [REP-1:0] state_b, state_v, state_d, state_q;
+        logic [REP-1:0][IDSize-1:0] id_b, id_v, id_d, id_q;
+
+        for (genvar r = 0; r < REP; r++) begin: gen_next_state
+            always_comb begin: gen_next_state_comb
+                // Default to staying in same state
+                state_v[r] = state_q[r];
+                id_v[r] = id_q[r];
+
+                if (UseExternalId == 1) begin
+                    next_id_ov[r] = id_i;
+                end else begin
+                    `INCREMENT_WITH_PARITY(id_q[r], next_id_ov[r]);
+                end
+
+                case (state_q[r])
+                    SEND:
+                        if (valid_i) begin
+                            id_v[r] = next_id_ov[r];
+
+                            if (ready_i) begin
+                                if (enable_i) begin
+                                    state_v[r] = SEND_AND_CONSUME;
+                                end else begin
+                                    state_v[r] = SEND;
+                                end
+                            end else begin
+                                state_v[r] = SEND_NO_INCREMENT;
+                            end
+                        end
+                    SEND_NO_INCREMENT:
+                        if (ready_i) begin
+                            if (enable_i) begin
+                                state_v[r] = SEND_AND_CONSUME;
+                            end else begin
+                                state_v[r] = SEND;
+                            end
+                        end
+                    SEND_AND_CONSUME:
+                        if (ready_i) begin
+                            state_v[r] = SEND;
+                        end
+                endcase
+            end
+        end
+
+        // State Voting Logic
+        `VOTEXX(REP, state_v, state_d);
+        `VOTEXX(REP, id_v, id_d);
+
+        // Generate default cases
+        for (genvar r = 0; r < REP; r++) begin: gen_default_state
+            assign state_b[r] = SEND;
+            assign id_b[r] = 0;
+        end
+
+        // State Storage
+        `FF(state_q, state_d, state_b);
+        `FF(id_q, id_d, id_b);
+
+        // Output Combinatorial Logic
+        for (genvar r = 0; r < REP; r++) begin: gen_output
+            always_comb begin : gen_output_comb
+                case (state_q[r])
+                    SEND: begin
+                        ready_ov[r] = ~enable_i & ready_i;
+                    end
+                    SEND_NO_INCREMENT: begin
+                        ready_ov[r] = ~enable_i & ready_i;
+                    end
+                    SEND_AND_CONSUME: begin
+                        ready_ov[r] = enable_i & ready_i;
+                    end
+                endcase
+            end
+        end
+
+        // Output Voting Logic
+        assign data_o = data_i;
+        assign valid_o = valid_i;
+        assign id_o = id_d[0];
+
+        `VOTEX1(REP, next_id_ov, next_id_o);
+        `VOTEX1(REP, ready_ov, ready_o);
+
+    end
 endmodule

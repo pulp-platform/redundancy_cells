@@ -57,14 +57,16 @@ call_vsim tb_retry_inorder
 for redundancy in 0 1; do
   call_vsim tb_redundancy_controller -GInternalRedundancy=$redundancy
   
-  for early_valid in 0 1; do
-    call_vsim tb_time_tmr -GEarlyValidEnable=$early_valid -GInternalRedundancy=$redundancy
-    call_vsim tb_time_tmr_lock -GEarlyValidEnable=$early_valid -GInternalRedundancy=$redundancy
-  done
+  for early_ready in 0 1; do
+    for early_valid in 0 1; do
+      call_vsim tb_time_tmr -GEarlyValidEnable=$early_valid -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+      call_vsim tb_time_tmr_lock -GEarlyValidEnable=$early_valid -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+    done
 
-  call_vsim tb_time_dmr -GInternalRedundancy=$redundancy
-  call_vsim tb_time_dmr_retry -GInternalRedundancy=$redundancy
-  call_vsim tb_time_dmr_retry_lock -voptargs="+acc" -GInternalRedundancy=$redundancy
+    call_vsim tb_time_dmr -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+    call_vsim tb_time_dmr_retry -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+    call_vsim tb_time_dmr_retry_lock -voptargs="+acc" -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+  done
 done
 
 for num in 1 4 7; do

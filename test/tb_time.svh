@@ -58,7 +58,7 @@ task  input_handshake_end();
     valid_in = 1'b1;
 
     # (AQUISITION_DELAY - APPLICATION_DELAY);
-    while (!ready_in) begin
+    while (!ready_in & rst_n) begin
         @(posedge clk);
         # AQUISITION_DELAY;
     end

@@ -3,6 +3,7 @@ module tb_time_dmr_retry #(
     parameter int IDSize = 4,
     parameter int LockTimeout = 4 * 12,
     parameter bit InternalRedundancy = 0,
+    parameter bit EarlyReadyEnable = 0,
 
     // TB Parameters
     parameter int unsigned TESTS = 10000,
@@ -65,6 +66,7 @@ module tb_time_dmr_retry #(
     time_DMR_start #(
         .DataType(tagged_data_t),
         .IDSize(IDSize),
+        .EarlyReadyEnable(EarlyReadyEnable),
         .UseExternalId(1),
         .InternalRedundancy(InternalRedundancy)
     ) dut_DMR_start (
