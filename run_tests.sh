@@ -50,3 +50,25 @@ call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
 call_vsim tb_ecc_scrubber
 call_vsim tb_voter_macros
+
+call_vsim tb_retry
+call_vsim tb_retry_inorder
+
+for redundancy in 0 1; do
+  call_vsim tb_redundancy_controller -GInternalRedundancy=$redundancy
+  
+  for early_ready in 0 1; do
+    for early_valid in 0 1; do
+      call_vsim tb_time_tmr -GEarlyValidEnable=$early_valid -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+      call_vsim tb_time_tmr_lock -GEarlyValidEnable=$early_valid -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+    done
+
+    call_vsim tb_time_dmr -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+    call_vsim tb_time_dmr_retry -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+    call_vsim tb_time_dmr_retry_lock -voptargs="+acc" -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+  done
+done
+
+for num in 1 4 7; do
+  call_vsim tb_rr_arb_tree_lock -GNumInp=$num -coverage -voptargs="+acc +cover=bcesfx" -suppress vsim-3009
+done
