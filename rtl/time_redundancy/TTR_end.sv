@@ -1,6 +1,6 @@
 // Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
 // Date: 25.04.2024
-// Description: time_TMR is a pair of modules that can be used to error correct
+// Description: TTR is a pair of modules that can be used to error correct
 // any transient fault in a (pipelined) combinatorial process. This is done by
 // repeating the element three times and comparing the results
 //
@@ -10,8 +10,8 @@
 // - A single fault in the accompanying ID.
 //
 // In order to propperly function:
-// - id_o of time_TMR_start needs to be passed paralelly to the combinatorial logic,
-//   using the same handshake and arrive at id_i of time_TMR_end.
+// - id_o of TTR_start needs to be passed paralelly to the combinatorial logic,
+//   using the same handshake and arrive at id_i of TTR_end.
 // - All operation tripplets in contact which each other have a unique ID.
 // - The module can only be enabled / disabled when the combinatorially process holds no valid data.
 //
@@ -25,10 +25,10 @@
 `include "redundancy_cells/voters.svh"
 `include "common_cells/registers.svh"
 
-module time_TMR_end # (
+module TTR_end # (
     // The data type you want to send through / replicate
     parameter type DataType  = logic,
-    // How long until the time_TMR module should abort listening for further copies
+    // How long until the TTR module should abort listening for further copies
     // of some data when they don't show up e.g. handshake failed
     // For an in-order process you should set this to 4
     // For an out-of-order process (with RR Arbitrator) you should set it to 5
@@ -40,7 +40,7 @@ module time_TMR_end # (
     // For an out of order process, it needs to be big enough so that the out-of-orderness can never
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
-    // Needs to match with time_TMR_start!
+    // Needs to match with TTR_start!
     parameter int unsigned IDSize = 1,
     // This parameter chooses the implementation of the internal state machine.
     // EarlyValidEnable = 1:

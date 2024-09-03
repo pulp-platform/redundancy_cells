@@ -1,4 +1,4 @@
-module tb_time_dmr_retry #(
+module tb_dtr_retry #(
     // DUT Parameters
     parameter int IDSize = 4,
     parameter int LockTimeout = 4 * 12,
@@ -37,10 +37,10 @@ module tb_time_dmr_retry #(
     logic needs_retry_detected;
 
     // Forward connection
-    time_DMR_interface #(
+    DTR_interface #(
         .IDSize(IDSize),
         .InternalRedundancy(InternalRedundancy)
-    ) dmr_connection ();
+    ) dtr_connection ();
 
     // Feedback connection
     retry_interface #(
@@ -72,7 +72,7 @@ module tb_time_dmr_retry #(
 
 
     // DUT Instances
-    time_DMR_start #(
+    DTR_start #(
         .DataType(tagged_data_t),
         .IDSize(IDSize),
         .EarlyReadyEnable(EarlyReadyEnable),
@@ -83,7 +83,7 @@ module tb_time_dmr_retry #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .dmr_interface(dmr_connection),
+        .dtr_interface(dtr_connection),
 
         // Upstream connection
         .data_i(data_detectable),
@@ -99,7 +99,7 @@ module tb_time_dmr_retry #(
     );
 
     // DUT Instances
-    time_DMR_end #(
+    DTR_end #(
         .DataType(tagged_data_t),
         .LockTimeout(LockTimeout),
         .IDSize(IDSize),
@@ -109,7 +109,7 @@ module tb_time_dmr_retry #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .dmr_interface(dmr_connection),
+        .dtr_interface(dtr_connection),
 
         // Upstream connection
         .data_i(data_redundant_faulty),

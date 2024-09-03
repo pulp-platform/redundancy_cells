@@ -1,7 +1,9 @@
-module tb_time_dmr #(
+module tb_ttr #(
     // DUT Parameters
     parameter IDSize = 4,
     parameter int LockTimeout = 4 * 12,
+    parameter bit EarlyValidEnable = 0,
+    parameter bit EarlyReadyEnable = 0,
     parameter bit InternalRedundancy = 0,
 
     // TB Parameters
@@ -12,7 +14,7 @@ module tb_time_dmr #(
 
 ) ( /* no ports on TB */ );
 
-   `include "tb_time.svh"
+    `include "tb_time.svh"
 
     //////////////////////////////////////////////////////////////////////////////////7
     // DUT (s)
@@ -20,33 +22,27 @@ module tb_time_dmr #(
 
     typedef logic [7:0] data_t;
 
-    data_t data_in, data_redundant,  data_fault,  data_redundant_faulty,  data_out;
+    // Input & Output
+    data_t data_in, data_out;
+
+    // Internal Connections
+    data_t data_redundant,  data_fault,  data_redundant_faulty;
     logic valid_redundant, valid_fault, valid_redundant_faulty;
     logic ready_redundant, ready_fault, ready_redundant_faulty;
-    logic [IDSize-1:0] id_redundant, id_fault, id_redundant_faulty, id_next;
+    logic [IDSize-1:0] id_redundant, id_fault, id_redundant_faulty;
 
-    // Forward connection
-    time_DMR_interface #(
-        .IDSize(IDSize),
-        .InternalRedundancy(InternalRedundancy)
-    ) dmr_interface ();
-
-    // DUT Instances
-    time_DMR_start #(
+    TTR_start #(
         .DataType(data_t),
         .IDSize(IDSize),
-        .UseExternalId(0),
+        .EarlyReadyEnable(EarlyReadyEnable),
         .InternalRedundancy(InternalRedundancy)
     ) dut_start (
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .dmr_interface(dmr_interface),
-
         // Upstream connection
         .data_i(data_in),
-        .id_i('0),
         .valid_i(valid_in),
         .ready_o(ready_in),
 
@@ -57,33 +53,31 @@ module tb_time_dmr #(
         .ready_i(ready_redundant_faulty)
     );
 
-    time_DMR_end #(
+    TTR_end #(
         .DataType(data_t),
         .LockTimeout(LockTimeout),
         .IDSize(IDSize),
+        .EarlyValidEnable(EarlyValidEnable),
         .InternalRedundancy(InternalRedundancy)
     ) dut_end (
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .dmr_interface(dmr_interface),
-
         // Upstream connection
         .data_i(data_redundant_faulty),
         .id_i(id_redundant_faulty),
         .valid_i(valid_redundant_faulty),
         .ready_o(ready_redundant),
-        .lock_o(/*Unused*/),
 
         // Downstream connection
         .data_o(data_out),
-        .id_o(/*Unused*/),
-        .needs_retry_o(needs_retry_out),
         .valid_o(valid_out),
         .ready_i(ready_out),
+        .lock_o(/*Unused*/),
 
-        .fault_detected_o(/*Unused*/)
+        // Flags
+        .fault_detected_o(/* Unused */)
     );
 
     //////////////////////////////////////////////////////////////////////////////////7
@@ -100,15 +94,12 @@ module tb_time_dmr #(
         end
     end
 
-
     //////////////////////////////////////////////////////////////////////////////////7
     // Data Output
     //////////////////////////////////////////////////////////////////////////////////7
     data_t data_golden, data_actual;
-    logic needs_retry_actual;
     logic error; // Helper signal so one can quickly scroll to errors in questa
     longint unsigned error_cnt = 0;
-    int fault_budget = 0;
 
     // Progress reporting
     task reset_metrics();
@@ -124,28 +115,15 @@ module tb_time_dmr #(
         forever begin
             output_handshake_start();
             data_actual = data_out;
-            needs_retry_actual = needs_retry_out;
             if (golden_queue.size() > 0) begin
                 data_golden = golden_queue.pop_front();
-
-                if (needs_retry_actual) begin
-                    fault_budget -= 1;
-                    if (fault_budget < 0) begin
-                        $error("[T=%t] More faults detected than injected!", $time);
-                        error = 1;
-                        error_cnt += 1;
-                    end
+                if (data_actual != data_golden) begin
+                    $error("[T=%t] Mismatch: Golden: %h, Actual: %h", $time, data_golden, data_actual);
+                    error = 1;
+                    error_cnt += 1;
                 end else begin
-                    if (data_actual != data_golden) begin
-                        $error("[T=%t] Mismatch: Golden: %h, Actual: %h", $time, data_golden, data_actual);
-                        error = 1;
-                        error_cnt += 1;
-                    end else begin
-                        fault_budget = 1;
-                        error = 0;
-                    end
+                    error = 0;
                 end
-
             end else begin
                 $display("[T=%t] Data %h Output when nothing was in golden queue", $time, data_actual);
                 error = 1;
@@ -159,8 +137,8 @@ module tb_time_dmr #(
     // Fault Injection
     //////////////////////////////////////////////////////////////////////////////////7
 
-    longint unsigned min_fault_delay = 12 * 4;
-    longint unsigned max_fault_delay = 12 * 4 + 20;
+    longint unsigned min_fault_delay = 12 * 3;
+    longint unsigned max_fault_delay = 12 * 3 + 20;
 
     // Signals to show what faults are going on
     enum {NONE, DATA_FAULT, VALID_FAULT, READY_FAULT, ID_FAULT} fault_type, fault_current;
@@ -189,13 +167,11 @@ module tb_time_dmr #(
         // Send wrong data
         fault_current = fault_type;
         case (fault_type)
-            DATA_FAULT: data_fault <= $random;
-            VALID_FAULT: valid_fault <= 1;
-            READY_FAULT: ready_fault <= 1;
-            ID_FAULT: id_fault <= (1 << $urandom_range(0,IDSize-1));
+            DATA_FAULT: data_fault = $random;
+            VALID_FAULT: valid_fault = 1;
+            READY_FAULT: ready_fault = 1;
+            ID_FAULT: id_fault = $random;
         endcase
-
-        fault_budget += 1;
 
         // Send correct data again
         @(posedge clk);
@@ -274,13 +250,14 @@ module tb_time_dmr #(
         enable = 1;
         repeat (TESTS) @(posedge clk);
         total_error_cnt += error_cnt;
-        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS /2, error_cnt);
-        if (TESTS /2 - out_hs_count > TESTS / 20) begin
+        $display("Ending Test with ecc enabled got a max throughtput of %d/%d and %d errors.", out_hs_count, TESTS/3, error_cnt);
+        if (TESTS / 3 - out_hs_count > TESTS / 20) begin
             $error("Stall detected with ecc enabled!");
         end
         reset_metrics();
         $display("Checked %0d tests of each type, found %0d mismatches.", TESTS, total_error_cnt);
         $finish(error_cnt);
     end
+
 
 endmodule

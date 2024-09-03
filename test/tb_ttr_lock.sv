@@ -1,6 +1,6 @@
 `include "common_cells/registers.svh"
 
-module tb_time_tmr_lock #(
+module tb_ttr_lock #(
     // DUT Parameters
     parameter int LockTimeout = 5 * 12,
     parameter int NumOpgroups = 3,
@@ -61,12 +61,12 @@ module tb_time_tmr_lock #(
     logic in_valid_redundant, in_ready_redundant;
     id_t in_id_redundant;
 
-    time_TMR_start #(
+    TTR_start #(
         .DataType(tmr_stacked_t),
         .IDSize (IDSize),
         .EarlyReadyEnable(EarlyReadyEnable),
         .InternalRedundancy(InternalRedundancy)
-    ) i_time_TMR_start (
+    ) i_TTR_start (
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
@@ -173,13 +173,13 @@ module tb_time_tmr_lock #(
     assign out_tmr_id = out_rr_stack.id;
     assign out_tmr_stack.data = out_rr_stack.data;
 
-    time_TMR_end #(
+    TTR_end #(
         .DataType(tmr_stacked_t),
         .LockTimeout(LockTimeout),
         .IDSize (IDSize),
         .EarlyValidEnable(EarlyValidEnable),
         .InternalRedundancy(InternalRedundancy)
-    ) i_time_TMR_end (
+    ) i_TTR_end (
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),

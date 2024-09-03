@@ -1,6 +1,6 @@
 `include "common_cells/registers.svh"
 
-module tb_time_dmr_retry_lock #(
+module tb_dtr_retry_lock #(
     // DUT Parameters
     parameter int LockTimeout = 5 * 12,
     parameter int NumOpgroups = 3,
@@ -64,10 +64,10 @@ module tb_time_dmr_retry_lock #(
     id_parity_t in_id_redundant;
 
     // Forward connection
-    time_DMR_interface #(
+    DTR_interface #(
         .IDSize(IDSize),
         .InternalRedundancy(InternalRedundancy)
-    ) dmr_connection ();
+    ) dtr_connection ();
 
     // Feedback connection
     retry_interface #(
@@ -109,18 +109,18 @@ module tb_time_dmr_retry_lock #(
     );
 
 
-    time_DMR_start #(
+    DTR_start #(
         .DataType(tmr_stacked_t),
         .IDSize (IDSize),
         .EarlyReadyEnable(EarlyReadyEnable),
         .UseExternalId(1),
         .InternalRedundancy(InternalRedundancy)
-    ) i_time_DMR_start (
+    ) i_DTR_start (
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .dmr_interface(dmr_connection),
+        .dtr_interface(dtr_connection),
 
         // Upstream connection
         .data_i(data_retry2dmr),
@@ -232,17 +232,17 @@ module tb_time_dmr_retry_lock #(
     logic valid_dmr2retry;
     logic ready_dmr2retry;
 
-    time_DMR_end #(
+    DTR_end #(
         .DataType(tmr_stacked_t),
         .LockTimeout(LockTimeout),
         .IDSize (IDSize),
         .InternalRedundancy(InternalRedundancy)
-    ) i_time_DMR_end (
+    ) i_DTR_end (
         .clk_i(clk),
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .dmr_interface(dmr_connection),
+        .dtr_interface(dtr_connection),
 
         // Upstream connection
         .data_i(out_tmr_stack),

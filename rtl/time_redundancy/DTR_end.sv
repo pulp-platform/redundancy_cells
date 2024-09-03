@@ -1,6 +1,6 @@
 // Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
 // Date: 25.04.2024
-// Description: time_DMR is a pair of modules that can be used to
+// Description: DTR is a pair of modules that can be used to
 // detect faults in any (pipelined) combinatorial process. This is
 // done by repeating each input twice and comparing the outputs.
 //
@@ -19,9 +19,9 @@
 // to recalculate in hardware, or invoke some recalculation or error on the software side.
 //
 // In order to propperly function:
-// - time_DMR_interface of time_DMR_start needs to be connected to time_DMR_interface of time_DMR_end.
-// - id_o of time_DMR_start needs to be passed paralelly to the combinatorial logic, using the same handshake
-//   and arrive at id_i of time_DMR_end.
+// - DTR_interface of DTR_start needs to be connected to DTR_interface of DTR_end.
+// - id_o of DTR_start needs to be passed paralelly to the combinatorial logic, using the same handshake
+//   and arrive at id_i of DTR_end.
 // - All operation pairs in contact with each other have a unique ID.
 // - The module can only be enabled / disabled when the combinatorially process holds no valid data.
 //
@@ -35,7 +35,7 @@
 `include "redundancy_cells/voters.svh"
 `include "common_cells/registers.svh"
 
-module time_DMR_end # (
+module DTR_end # (
     // The data type you want to send through / replicate
     parameter type DataType  = logic,
     // How long until the time_TMR module should abort listening for further copies
@@ -50,7 +50,7 @@ module time_DMR_end # (
     // For an out of order process, it needs to be big enough so that the out-of-orderness can never
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
-    // Needs to match with time_TMR_start!
+    // Needs to match with DTR_start!
     parameter int unsigned IDSize = 1,
     // Determines if the internal state machines should
     // be parallely redundant, meaning errors inside this module
@@ -65,7 +65,7 @@ module time_DMR_end # (
     input logic enable_i,
 
     // Direct connection
-    time_DMR_interface.reciever dmr_interface,
+    DTR_interface.reciever dtr_interface,
 
     // Upstream connection
     input DataType data_i,
@@ -298,8 +298,8 @@ module time_DMR_end # (
         always_comb begin: gen_deduplication_next_state_comb
             recently_seen_v[r] = recently_seen_q[r];
 
-            if (dmr_interface.sent[r]) begin
-                recently_seen_v[r][dmr_interface.id[r][IDSize-2:0]] = 0;
+            if (dtr_interface.sent[r]) begin
+                recently_seen_v[r][dtr_interface.id[r][IDSize-2:0]] = 0;
             end
 
             if (valid_internal_v[r] & ready_i & !id_q_fault) begin

@@ -1,8 +1,8 @@
 // Author: Maurus Item <itemm@student.ethz.ch>, ETH Zurich
 // Date: 09.09.2024
-// Description: Interface in between time_DMR modules to transmit which elements are valid
+// Description: Interface in between DTR modules to transmit which elements are valid
 
-interface time_DMR_interface #(
+interface DTR_interface #(
   parameter IDSize = 0,
   // Determines if the internal state machines should
   // be parallely redundant, meaning errors inside this module
