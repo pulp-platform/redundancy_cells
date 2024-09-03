@@ -27,7 +27,19 @@ module retry_start # (
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
     // Needs to match with retry_end!
-    parameter IDSize = 1
+    parameter IDSize = 1,
+    // Amount of bits from the ID which are defined externally and should not be incremented.
+    // This allows for seperating the ID spaces into multiple sections, which will behave and overwrite
+    // each other indefinitely. For example, if you set IDSize=3 and ExternalIDBits=1, then you will get 
+    // two sets of IDs which each cycle through the ID.
+    // Set 1: 000, 001, 010, 011
+    // Set 2: 100, 101, 110, 111
+    // You can use this to reduce storage space required if some operations take significantly longer in
+    // the pipelines than others. E.g. use Set 1 with operations done in 1 cycle, and Set 2 with operations 
+    // that take 10 cycles. Each subset must satisfy the required ID Size of log2(longest_pipeline) + 1, 
+    // excluding the bits used to distinguish the sets.
+    parameter ExternalIDBits = 0,
+    localparam NormalIDSize = IDSize - ExternalIDBits
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -36,6 +48,7 @@ module retry_start # (
     input DataType data_i,
     input logic valid_i,
     output logic ready_o,
+    input logic [ExternalIDBits-1:0] ext_id_bits_i,
 
     // Downstream connection
     output DataType data_o,
@@ -46,6 +59,7 @@ module retry_start # (
     // Retry Connection
     retry_interface.start retry
 );
+    
 
     //////////////////////////////////////////////////////////////////////
     // Register to store failed id for one cycle
@@ -78,7 +92,19 @@ module retry_start # (
 
     always_comb begin: gen_id_counter
         if ((failed_valid_q | valid_i) & ready_i) begin
-            counter_id_d = counter_id_q + 1;
+
+            // The topmost ID bits are not incremented but are controlled externally if 
+            // required to split the storage area into sections. In this case get if fron external
+            // or take it from the element to retry.
+            counter_id_d[NormalIDSize-1:0] = counter_id_q[NormalIDSize-1:0] + 1;
+            if (ExternalIDBits > 0) begin
+                if (failed_valid_q) begin
+                    counter_id_d[IDSize: NormalIDSize] = failed_id_q[IDSize: NormalIDSize];
+                end else begin
+                    counter_id_d[IDSize: NormalIDSize] = ext_id_bits_i;
+                end
+            end
+
         end else begin
             counter_id_d = counter_id_q;
         end
