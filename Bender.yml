@@ -27,6 +27,7 @@ sources:
   - rtl/hsiao_ecc/hsiao_ecc_cor.sv
   - rtl/time_redundancy/retry_interface.sv
   - rtl/time_redundancy/rr_arb_tree_lock.sv
+  - rtl/time_redundancy/time_DMR_interface.sv
   - rtl/TMR_voter.sv
   - rtl/TMR_voter_fail.sv
   - rtl/TMR_word_voter.sv
@@ -40,10 +41,10 @@ sources:
   - rtl/time_redundancy/retry_inorder_start.sv
   - rtl/time_redundancy/retry_inorder_end.sv
   - rtl/time_redundancy/retry_start.sv
-  - rtl/time_redundancy/time_TMR_end.sv
-  - rtl/time_redundancy/time_TMR_start.sv
   - rtl/time_redundancy/time_DMR_end.sv
   - rtl/time_redundancy/time_DMR_start.sv
+  - rtl/time_redundancy/time_TMR_end.sv
+  - rtl/time_redundancy/time_TMR_start.sv
 
   - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
     files:

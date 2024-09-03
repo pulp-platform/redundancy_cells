@@ -25,6 +25,12 @@ module tb_time_dmr #(
     logic ready_redundant, ready_fault, ready_redundant_faulty;
     logic [IDSize-1:0] id_redundant, id_fault, id_redundant_faulty, id_next;
 
+    // Forward connection
+    time_DMR_interface #(
+        .IDSize(IDSize),
+        .InternalRedundancy(InternalRedundancy)
+    ) dmr_interface ();
+
     // DUT Instances
     time_DMR_start #(
         .DataType(data_t),
@@ -36,7 +42,7 @@ module tb_time_dmr #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .next_id_o(id_next),
+        .dmr_interface(dmr_interface),
 
         // Upstream connection
         .data_i(data_in),
@@ -61,8 +67,7 @@ module tb_time_dmr #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .next_id_i(id_next),
-
+        .dmr_interface(dmr_interface),
 
         // Upstream connection
         .data_i(data_redundant_faulty),

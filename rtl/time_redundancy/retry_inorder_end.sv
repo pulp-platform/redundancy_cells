@@ -16,6 +16,12 @@
 
 module retry_inorder_end # (
     parameter type DataType  = logic,
+    // The size of the ID to use as an auxilliary signal
+    // For an in-order process, this can be set to 1.
+    // For an out of order process, it needs to be big enough so that the out-of-orderness can never
+    // rearange the elements with the same id next to each other
+    // As an estimate you can use log2(longest_pipeline) + 1
+    // Needs to match with retry_inorder_start!
     parameter int IDSize = 1
 ) (
     input logic clk_i,

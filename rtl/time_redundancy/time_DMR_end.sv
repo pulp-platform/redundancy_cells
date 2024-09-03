@@ -19,7 +19,7 @@
 // to recalculate in hardware, or invoke some recalculation or error on the software side.
 //
 // In order to propperly function:
-// - next_id_o of time_DMR_start needs to be directly connected to next_id_i of time_DMR_end.
+// - time_DMR_interface of time_DMR_start needs to be connected to time_DMR_interface of time_DMR_end.
 // - id_o of time_DMR_start needs to be passed paralelly to the combinatorial logic, using the same handshake
 //   and arrive at id_i of time_DMR_end.
 // - All operation pairs in contact with each other have a unique ID.
@@ -46,7 +46,7 @@ module time_DMR_end # (
     // multiply by the respective number of cycles
     parameter int unsigned LockTimeout = 4,
     // The size of the ID to use as an auxilliary signal
-    // For an in-order process, this can be set to 1
+    // For an in-order process, this can be set to 2.
     // For an out of order process, it needs to be big enough so that the out-of-orderness can never
     // rearange the elements with the same id next to each other
     // As an estimate you can use log2(longest_pipeline) + 1
@@ -64,8 +64,8 @@ module time_DMR_end # (
     input logic rst_ni,
     input logic enable_i,
 
-    // Direct connection to corresponding time_DMR_start module
-    input logic [IDSize-1:0] next_id_i,
+    // Direct connection
+    time_DMR_interface.reciever dmr_interface,
 
     // Upstream connection
     input DataType data_i,
@@ -78,7 +78,7 @@ module time_DMR_end # (
 
     // Downstream connection
     output DataType data_o,
-    output logic [IDSize-1:0] id_o,
+    output logic [IDSize-2:0] id_o,
     output logic needs_retry_o,
     output logic valid_o,
     input logic ready_i,
@@ -121,10 +121,10 @@ module time_DMR_end # (
         // If disabled just send out input
         if (!enable_i) begin
             data_o = data_i;
-            id_o = id_i;
+            id_o = id_i[IDSize-2:0];
         end else begin
             data_o = data_q;
-            id_o = id_q;
+            id_o = id_q[IDSize-2:0];
         end
 
         if (data_i == data_q) data_same_in = '1;
@@ -220,7 +220,7 @@ module time_DMR_end # (
                 endcase
 
                 case (state_q[r])
-                    BASE:           lock_internal_v[r] = !ready_i | !full_same[0];
+                    BASE:           lock_internal_v[r] = !valid_i | !full_same[0];
                     WAIT_FOR_READY: lock_internal_v[r] = !ready_i;
                 endcase
 
@@ -285,8 +285,12 @@ module time_DMR_end # (
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // Output deduplication based on ID and ID Faults
 
-    logic id_fault_q;
-    assign id_fault_q = ^id_q;
+    // Split ID signal into parts
+    logic id_q_fault;
+    logic [IDSize-2:0] id_q_noparity;
+
+    assign id_q_fault = ^id_q;
+    assign id_q_noparity = id_q[IDSize-2:0];
 
     logic [REP-1:0][2 ** (IDSize-1)-1:0] recently_seen_b, recently_seen_v, recently_seen_d, recently_seen_q;
 
@@ -294,10 +298,12 @@ module time_DMR_end # (
         always_comb begin: gen_deduplication_next_state_comb
             recently_seen_v[r] = recently_seen_q[r];
 
-            recently_seen_v[r][next_id_i[IDSize-2:0]] = 0;
+            if (dmr_interface.sent[r]) begin
+                recently_seen_v[r][dmr_interface.id[r][IDSize-2:0]] = 0;
+            end
 
-            if (valid_internal_v[r] & ready_i & !id_fault_q) begin
-                recently_seen_v[r][id_q[IDSize-2:0]] = 1;
+            if (valid_internal_v[r] & ready_i & !id_q_fault) begin
+                recently_seen_v[r][id_q_noparity] = 1;
             end
         end
     end
@@ -316,7 +322,7 @@ module time_DMR_end # (
     for (genvar r = 0; r < REP; r++) begin: gen_deduplication_output
         always_comb begin: gen_deduplication_output_comb
             if (enable_i) begin
-                if (id_fault_q | recently_seen_q[r][id_q[IDSize-2:0]] & valid_internal_v[r]) begin
+                if (id_q_fault | recently_seen_q[r][id_q_noparity] & valid_internal_v[r]) begin
                     valid_ov[r] = 0;
                 end else begin
                     valid_ov[r] = valid_internal_v[r];

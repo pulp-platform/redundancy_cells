@@ -14,14 +14,15 @@
 
 `include "common_cells/registers.svh"
 
-`define INCREMENT_WITH_PARITY(input_signal, output_signal) \
-begin \
-    output_signal[$bits(input_signal)-2:0] = input_signal[$bits(input_signal)-2:0] + 1; \
-    output_signal[$bits(input_signal)-1] = ^output_signal[$bits(input_signal)-2:0]; \
-end
 
 module retry_inorder_start # (
     parameter type DataType  = logic,
+    // The size of the ID to use as an auxilliary signal
+    // For an in-order process, this can be set to 1.
+    // For an out of order process, it needs to be big enough so that the out-of-orderness can never
+    // rearange the elements with the same id next to each other
+    // As an estimate you can use log2(longest_pipeline) + 1
+    // Needs to match with retry_inorder_end!
     parameter int IDSize = 1
 ) (
     input logic clk_i,
@@ -76,7 +77,7 @@ module retry_inorder_start # (
 
     always_comb begin: gen_id_counter
         if ((failed_valid_q | valid_i) & ready_i) begin
-            `INCREMENT_WITH_PARITY(counter_id_q, counter_id_d);
+            counter_id_d = counter_id_q + 1;
         end else begin
             counter_id_d = counter_id_q;
         end
@@ -87,14 +88,14 @@ module retry_inorder_start # (
     //////////////////////////////////////////////////////////////////////
     // General Element storage
 
-    logic [2 ** (IDSize-1)-1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
+    logic [2 ** IDSize -1:0][$bits(DataType)-1:0] data_storage_d, data_storage_q;
 
     always_comb begin: gen_failed_state
         // Keep data as is as abase
         data_storage_d = data_storage_q;
 
         if ((failed_valid_q | valid_i) & ready_i) begin
-            data_storage_d[counter_id_q[IDSize-2:0]] = data_o;
+            data_storage_d[counter_id_q] = data_o;
         end
     end
 
@@ -102,7 +103,7 @@ module retry_inorder_start # (
 
     always_comb begin: gen_output
         if (failed_valid_q & ready_i) begin
-            data_o = data_storage_q[failed_id_q[IDSize-2:0]];
+            data_o = data_storage_q[failed_id_q];
         end else begin
             data_o = data_i;
         end

@@ -11,6 +11,7 @@ redundancy_cells:
     lowrisc_ecc/prim_secded_72_64_enc.sv,
     rtl/time_redundancy/retry_interface.sv
     rtl/time_redundancy/rr_arb_tree_lock.sv
+    rtl/time_redundancy/time_DMR_interface.sv
     rtl/TMR_voter.sv,
     rtl/TMR_voter_fail.sv,
     rtl/TMR_word_voter,
@@ -35,10 +36,10 @@ redundancy_cells:
     rtl/time_redundancy/retry_inorder_start.sv
     rtl/time_redundancy/retry_inorder_end.sv
     rtl/time_redundancy/retry_start.sv
-    rtl/time_redundancy/time_TMR_end.sv
-    rtl/time_redundancy/time_TMR_start.sv
     rtl/time_redundancy/time_DMR_end.sv
     rtl/time_redundancy/time_DMR_start.sv
+    rtl/time_redundancy/time_TMR_end.sv
+    rtl/time_redundancy/time_TMR_start.sv
     rtl/TMR_voter_detect.sv,
     # Level 2
     rtl/bitwise_TMR_voter.sv,

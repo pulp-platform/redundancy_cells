@@ -63,10 +63,10 @@ task  input_handshake_end();
         # AQUISITION_DELAY;
     end
     @(posedge clk);
+    in_hs_count  = in_hs_count + 1;
+
     # APPLICATION_DELAY;
     valid_in = 1'b0; // This might get overwritten by next handshake
-
-    in_hs_count  = in_hs_count + 1;
 endtask
 
 task output_handshake_start();
@@ -94,10 +94,10 @@ endtask
 
 task output_handshake_end();
     @(posedge clk);
+    out_hs_count  = out_hs_count + 1;
+
     # APPLICATION_DELAY;
     ready_out = 1'b0; // This might get overwritten by next handshake
-
-    out_hs_count  = out_hs_count + 1;
 endtask
 
 //////////////////////////////////////////////////////////////////////////////////7

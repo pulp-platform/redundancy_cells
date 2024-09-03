@@ -32,16 +32,25 @@ module tb_time_dmr_retry #(
     tagged_data_t data_in,  data_detectable, data_redundant,  data_fault,  data_redundant_faulty,  data_detected, data_out;
     logic valid_detectable, valid_redundant, valid_fault, valid_redundant_faulty, valid_detected;
     logic ready_detectable, ready_redundant, ready_fault, ready_redundant_faulty, ready_detected;
-    logic [IDSize-1:0] id_detectable, id_redundant, id_fault, id_redundant_faulty, id_detected, next_id;
+    logic [IDSize-1:0] id_redundant, id_fault, id_redundant_faulty;
+    logic [IDSize-2:0] id_detectable, id_detected;
     logic needs_retry_detected;
 
+    // Forward connection
+    time_DMR_interface #(
+        .IDSize(IDSize),
+        .InternalRedundancy(InternalRedundancy)
+    ) dmr_connection ();
+
     // Feedback connection
-    retry_interface #(.IDSize(IDSize)) retry_connection ();
+    retry_interface #(
+        .IDSize(IDSize-1)
+    ) retry_connection ();
 
     // DUT Instances
     retry_start #(
         .DataType(tagged_data_t),
-        .IDSize(IDSize)
+        .IDSize(IDSize-1)
     ) dut_retry_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -74,7 +83,7 @@ module tb_time_dmr_retry #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .next_id_o(next_id),
+        .dmr_interface(dmr_connection),
 
         // Upstream connection
         .data_i(data_detectable),
@@ -100,7 +109,7 @@ module tb_time_dmr_retry #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .next_id_i(next_id),
+        .dmr_interface(dmr_connection),
 
         // Upstream connection
         .data_i(data_redundant_faulty),
@@ -122,7 +131,7 @@ module tb_time_dmr_retry #(
     // DUT Instances
     retry_end #(
         .DataType(tagged_data_t),
-        .IDSize(IDSize)
+        .IDSize(IDSize-1)
     ) dut_retry_end (
         .clk_i(clk),
         .rst_ni(rst_n),

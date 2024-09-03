@@ -64,9 +64,10 @@ for redundancy in 0 1; do
     done
 
     call_vsim tb_time_dmr -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
-    call_vsim tb_time_dmr_retry -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
-    call_vsim tb_time_dmr_retry_lock -voptargs="+acc" -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
   done
+
+  call_vsim tb_time_dmr_retry -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
+  call_vsim tb_time_dmr_retry_lock -voptargs="+acc" -GEarlyReadyEnable=$early_ready -GInternalRedundancy=$redundancy
 done
 
 for num in 1 4 7; do

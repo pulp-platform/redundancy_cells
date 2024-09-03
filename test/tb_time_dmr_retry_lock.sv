@@ -27,7 +27,8 @@ module tb_time_dmr_retry_lock #(
 
     typedef logic              [7:0] data_t;
     typedef logic [OpgroupWidth-1:0] operation_t;
-    typedef logic       [IDSize-1:0] id_t;
+    typedef logic       [IDSize-1:0] id_parity_t;
+    typedef logic       [IDSize-2:0] id_t;
     typedef logic [7:0] tag_t;
 
     typedef struct packed {
@@ -43,7 +44,7 @@ module tb_time_dmr_retry_lock #(
 
     // Typedef for stacked signal in TMR
     typedef struct packed {
-        id_t          id;
+        id_parity_t          id;
         tagged_data_t data;
     } rr_stacked_t;
 
@@ -55,16 +56,23 @@ module tb_time_dmr_retry_lock #(
     tagged_data_t  data_fault;
     logic valid_fault;
     logic  ready_fault;
-    id_t id_fault;
+    id_parity_t id_fault;
 
     // Signals for after TMR
     tmr_stacked_t in_tmr_stack_redundant;
     logic in_valid_redundant, in_ready_redundant;
-    id_t in_id_redundant;
+    id_parity_t in_id_redundant;
+
+    // Forward connection
+    time_DMR_interface #(
+        .IDSize(IDSize),
+        .InternalRedundancy(InternalRedundancy)
+    ) dmr_connection ();
 
     // Feedback connection
-    id_t next_id;
-    retry_interface #(.IDSize(IDSize)) retry_connection ();
+    retry_interface #(
+        .IDSize(IDSize-1)
+    ) retry_connection ();
 
     // Connection between retry and DMR
     tmr_stacked_t data_retry2dmr;
@@ -80,7 +88,7 @@ module tb_time_dmr_retry_lock #(
     // DUT Instances
     retry_start #(
         .DataType(tmr_stacked_t),
-        .IDSize(IDSize)
+        .IDSize(IDSize-1)
     ) i_retry_start (
         .clk_i(clk),
         .rst_ni(rst_n),
@@ -112,7 +120,7 @@ module tb_time_dmr_retry_lock #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .next_id_o(next_id),
+        .dmr_interface(dmr_connection),
 
         // Upstream connection
         .data_i(data_retry2dmr),
@@ -142,7 +150,7 @@ module tb_time_dmr_retry_lock #(
         tagged_data_t [0:NUM_REGS] pipe_data;
         logic         [0:NUM_REGS] pipe_valid;
         logic         [0:NUM_REGS] pipe_ready;
-        id_t          [0:NUM_REGS] pipe_id;
+        id_parity_t          [0:NUM_REGS] pipe_id;
 
         // Upstream Connection
         // Error Injection
@@ -167,7 +175,7 @@ module tb_time_dmr_retry_lock #(
             assign reg_ena = (pipe_ready[i] & pipe_valid[i]);  // | reg_ena_i[i];
             // Generate the pipeline registers within the stages, use enable-registers
             `FFLARN(pipe_data[i+1],      pipe_data[i],      reg_ena, tagged_data_t'('0), clk, rst_n)
-            `FFLARN(  pipe_id[i+1],      pipe_id[i],        reg_ena, id_t'('0), clk, rst_n)
+            `FFLARN(  pipe_id[i+1],      pipe_id[i],        reg_ena, id_parity_t'('0), clk, rst_n)
         end
 
         // Downstream connection
@@ -219,7 +227,7 @@ module tb_time_dmr_retry_lock #(
 
     // Connection between retry and DMR
     tmr_stacked_t data_dmr2retry;
-    logic [IDSize-1:0] id_dmr2retry;
+    id_t id_dmr2retry;
     logic needs_retry_dmr2retry;
     logic valid_dmr2retry;
     logic ready_dmr2retry;
@@ -234,7 +242,7 @@ module tb_time_dmr_retry_lock #(
         .rst_ni(rst_n),
         .enable_i(enable),
 
-        .next_id_i(next_id),
+        .dmr_interface(dmr_connection),
 
         // Upstream connection
         .data_i(out_tmr_stack),
@@ -258,7 +266,7 @@ module tb_time_dmr_retry_lock #(
 
     retry_end #(
         .DataType(tmr_stacked_t),
-        .IDSize(IDSize)
+        .IDSize(IDSize-1)
     ) i_retry_end (
         .clk_i(clk),
         .rst_ni(rst_n),
