@@ -35,6 +35,9 @@ module retry_inorder_start # (
     // that take 10 cycles. Each subset must satisfy the required ID Size of log2(longest_pipeline) + 1, 
     // excluding the bits used to distinguish the sets.
     parameter ExternalIDBits = 0,
+    // Physical width of the ID bits input so that the case of 0 is well defined
+    // Must be equal or greater than the ExternalIDBits that are actually used
+    parameter ExternalIDWidth = (ExternalIDBits == 0) ? 1 : ExternalIDBits, 
     localparam NormalIDSize = IDSize - ExternalIDBits
 ) (
     input logic clk_i,
@@ -44,7 +47,7 @@ module retry_inorder_start # (
     input DataType data_i,
     input logic valid_i,
     output logic ready_o,
-    input logic [ExternalIDBits-1:0] ext_id_bits_i,
+    input logic [ExternalIDWidth-1:0] ext_id_bits_i,
 
     // Downstream connection
     output DataType data_o,
@@ -55,6 +58,11 @@ module retry_inorder_start # (
     // Retry Connection
     retry_interface.start retry
 );
+
+    initial begin
+        assert (ExternalIDWidth >= ExternalIDBits) 
+            else $fatal("ExternalIDWidth must be at least as large as ExternalIDBits.");
+    end
 
     //////////////////////////////////////////////////////////////////////
     // Register to store failed id for one cycle
@@ -97,9 +105,9 @@ module retry_inorder_start # (
             counter_id_d[NormalIDSize-1:0] = counter_id_q[NormalIDSize-1:0] + 1;
             if (ExternalIDBits > 0) begin
                 if (failed_valid_q) begin
-                    counter_id_d[IDSize: NormalIDSize] = failed_id_q[IDSize: NormalIDSize];
+                    counter_id_d[IDSize-1: NormalIDSize] = failed_id_q[IDSize-1: NormalIDSize];
                 end else begin
-                    counter_id_d[IDSize: NormalIDSize] = ext_id_bits_i;
+                    counter_id_d[IDSize-1: NormalIDSize] = ext_id_bits_i[ExternalIDBits-1 :0];
                 end
             end
 
