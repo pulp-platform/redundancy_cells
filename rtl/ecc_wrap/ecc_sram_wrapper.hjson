@@ -9,6 +9,14 @@
   ],
 
   regwidth: "32",
+  param_list: [
+  { name: "OffsetStart",
+    desc: "Starting offset of this reg set",
+    type: "",
+    default: "'h100",
+    local: "true"
+  },
+  ],
 
   registers: [
     { name: "mismatch_count",
