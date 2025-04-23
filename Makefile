@@ -51,7 +51,7 @@ gen_ECC:
 bender:
 ifeq (,$(wildcard ./bender))
 	curl --proto '=https' --tlsv1.2 -sSf https://pulp-platform.github.io/bender/init \
-		| bash -s -- 0.27.1
+		| bash -s -- 0.28.2
 	touch bender
 endif
 
