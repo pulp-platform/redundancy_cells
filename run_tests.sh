@@ -50,3 +50,4 @@ call_vsim -GDataWidth=32 tb_ecc_secded
 call_vsim -GDataWidth=64 tb_ecc_secded
 call_vsim tb_ecc_scrubber
 call_vsim tb_voter_macros
+call_vsim tb_rel_fifo

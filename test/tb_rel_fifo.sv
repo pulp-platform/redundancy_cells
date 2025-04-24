@@ -9,7 +9,7 @@
 // specific language governing permissions and limitations under the License.
 
 // Testbench for generic FIFO
-module tb_rel_fifo #(
+module tb_rel_fifo_inst #(
     // FIFO parameters
     parameter bit           FALL_THROUGH,
     parameter int unsigned  DEPTH,
@@ -53,12 +53,12 @@ module tb_rel_fifo #(
         .Depth         ( DEPTH         ),
         .TmrStatus     ( 1'b1         ),
         .DataHasEcc    ( 1'b1         ),
-        .StatusFF      ( 1'b1         ),
+        .StatusFF      ( 1'b0         ),
         .TmrBeforeReg  ( 1'b0         )
     ) dut (
         .clk_i,
         .rst_ni,
-        .flush_i        ( flush         ),
+        .flush_i        ( {3{flush}}    ),
         .testmode_i     ( 1'b0          ),
         .full_o         ( tmr_full      ),
         .empty_o        ( tmr_empty     ),
@@ -168,7 +168,7 @@ module tb_rel_fifo #(
 endmodule
 
 // Testbench for different FIFO configurations
-module fifo_tb #(
+module tb_rel_fifo #(
     // TB parameters
     parameter int unsigned  N_CHECKS        = 100000,
     parameter time          TCLK            = 10ns,
@@ -186,7 +186,7 @@ module fifo_tb #(
         .rst_no   (rst_n)
     );
 
-    fifo_inst_tb #(
+    tb_rel_fifo_inst #(
         .FALL_THROUGH   (1'b0),
         .DEPTH          (8),
         .N_CHECKS       (N_CHECKS),
@@ -198,7 +198,7 @@ module fifo_tb #(
         .done_o (done[0])
     );
 
-    fifo_inst_tb #(
+    tb_rel_fifo_inst #(
         .FALL_THROUGH   (1'b1),
         .DEPTH          (8),
         .N_CHECKS       (N_CHECKS),
@@ -210,7 +210,7 @@ module fifo_tb #(
         .done_o (done[1])
     );
 
-    fifo_inst_tb #(
+    tb_rel_fifo_inst #(
         .FALL_THROUGH   (1'b0),
         .DEPTH          (1),
         .N_CHECKS       (N_CHECKS),
@@ -222,7 +222,7 @@ module fifo_tb #(
         .done_o (done[2])
     );
 
-    fifo_inst_tb #(
+    tb_rel_fifo_inst #(
         .FALL_THROUGH   (1'b1),
         .DEPTH          (1),
         .N_CHECKS       (N_CHECKS),
@@ -234,7 +234,7 @@ module fifo_tb #(
         .done_o (done[3])
     );
 
-    fifo_inst_tb #(
+    tb_rel_fifo_inst #(
         .FALL_THROUGH   (1'b0),
         .DEPTH          (9),
         .N_CHECKS       (N_CHECKS),
@@ -246,7 +246,7 @@ module fifo_tb #(
         .done_o (done[4])
     );
 
-    fifo_inst_tb #(
+    tb_rel_fifo_inst #(
         .FALL_THROUGH   (1'b1),
         .DEPTH          (9),
         .N_CHECKS       (N_CHECKS),
