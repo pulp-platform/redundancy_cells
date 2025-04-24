@@ -65,7 +65,8 @@ module rel_fifo #(
   // FIFO depth - handle the case of pass-through, synthesizer will do constant propagation
   localparam int unsigned FifoDepth = (Depth > 0) ? Depth : 1;
 
-  localparam type ecc_data_t = data_t; // DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
+  // TODO: DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
+  localparam type ecc_data_t = data_t;
 
   logic [5:0] tmr_faults;
   logic [FifoDepth-1:0][$bits(ecc_data_t)-1:0] data_tmr_faults;
@@ -74,7 +75,12 @@ module rel_fifo #(
   // clock gating control
   logic [FifoDepth-1:0][2:0] gate_clock;
   // pointer to the read and write section of the queue
-  logic [2:0][AddrDepth:0] read_pointer_n, read_pointer_q, write_pointer_n, write_pointer_q, status_cnt_n, status_cnt_q;
+  logic [2:0][AddrDepth:0] read_pointer_n,
+                           read_pointer_q,
+                           write_pointer_n,
+                           write_pointer_q,
+                           status_cnt_n,
+                           status_cnt_q;
   logic [2:0] full, empty;
 
   ecc_data_t data_in;
@@ -108,7 +114,7 @@ module rel_fifo #(
     //   end
     // end
   end else begin : gen_status_calc
-    for (genvar i = 0; i < 3; i++) begin
+    for (genvar i = 0; i < 3; i++) begin : gen_tmr_status
       assign status_cnt_q[i] = write_pointer_q[i] - read_pointer_q[i];
     end
   end
@@ -121,13 +127,14 @@ module rel_fifo #(
     assign full_o      = ~pop_i;
   end else begin : gen_fifo
     for (genvar i = 0; i < 3; i++) begin : gen_tmr_full_empty
-      if (StatusFF) begin
-        assign full[i]       = (status_cnt_q[i] == FifoDepth[AddrDepth:0]);
-        assign empty[i]      = (status_cnt_q[i] == 0) & ~(FallThrough & push_i[i]);
-      end else begin
-        assign full[i]       = (write_pointer_q[i][AddrDepth-1:0] == read_pointer_q[i][AddrDepth-1:0] &
-                                write_pointer_q[i][AddrDepth]     != read_pointer_q[i][AddrDepth]);
-        assign empty[i]      = (write_pointer_q[i]                == read_pointer_q[i]) & ~(FallThrough & push_i[i]);
+      if (StatusFF) begin : gen_full_empty_from_status
+        assign full[i]  = (status_cnt_q[i] == FifoDepth[AddrDepth:0]);
+        assign empty[i] = (status_cnt_q[i] == 0) & ~(FallThrough & push_i[i]);
+      end else begin : gen_full_empty_calc
+        assign full[i]  = (write_pointer_q[i][AddrDepth-1:0] == read_pointer_q[i][AddrDepth-1:0] &
+                           write_pointer_q[i][AddrDepth]     != read_pointer_q[i][AddrDepth]);
+        assign empty[i] = (write_pointer_q[i]                == read_pointer_q[i]) &
+                           ~(FallThrough & push_i[i]);
       end
     end
     if (TmrStatus) begin : gen_tmr_status
