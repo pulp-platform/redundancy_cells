@@ -90,7 +90,7 @@ module rel_rr_arb_tree #(
   /// Type for defining the arbitration priority and arbitrated index signal.
   parameter type         idx_t      = logic [IdxWidth-1:0],
   /// Dependent parameter, do **not** overwrite.
-  parameter int unsigend HsWidth    = TmrStatus ? 3 : 1
+  parameter int unsigned HsWidth    = TmrStatus ? 3 : 1
 ) (
   /// Clock, positive edge triggered.
   input  logic                clk_i,
@@ -141,13 +141,13 @@ module rel_rr_arb_tree #(
     logic [NumIn-1:0][2:0] req_in, gnt_out;
     logic            [2:0] req_out, gnt_in;
     idx_t            [2:0] idx_out;
-    if (TmrStatus) begin : req_in
+    if (TmrStatus) begin : gen_req_in
       assign req_in = req_i;
       assign req_o = req_out;
       assign gnt_o = gnt_out;
       assign gnt_in = gnt_i;
       assign idx_o = idx_out;
-    end else begin : req_in_triplicate
+    end else begin : gen_req_in_triplicate
       for (genvar i = 0; i < NumIn; i++) begin : gen_req_in
         assign req_in[i] = {3{req_i[i]}};
         `VOTE31F(gnt_out[i], gnt_o, TODO)
@@ -431,4 +431,4 @@ module rel_rr_arb_tree #(
     `endif
   end
 
-endmodule : rr_arb_tree
+endmodule
