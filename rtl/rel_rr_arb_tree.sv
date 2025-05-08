@@ -115,7 +115,9 @@ module rel_rr_arb_tree #(
   /// Output data.
   output DataType             data_o,
   /// Index from which input the data came from.
-  output idx_t               [HsWidth-1:0] idx_o
+  output idx_t               [HsWidth-1:0] idx_o,
+  /// Reliability error
+  output logic                             relerr_o
 );
 
   `ifndef SYNTHESIS
@@ -129,6 +131,8 @@ module rel_rr_arb_tree #(
   `endif
   `endif
 
+  logic [8+NumIn-1:0] tmr_errors;
+  assign relerr_o = |tmr_errors;
 
   // just pass through in this corner case
   if (NumIn == unsigned'(1)) begin : gen_pass_through
@@ -136,6 +140,7 @@ module rel_rr_arb_tree #(
     assign gnt_o[0] = gnt_i;
     assign data_o   = data_i[0];
     assign idx_o    = '0;
+    assign tmr_errors = '0;
   // non-degenerate cases
   end else begin : gen_arbiter
     logic [NumIn-1:0][2:0] req_in, gnt_out;
@@ -147,14 +152,15 @@ module rel_rr_arb_tree #(
       assign gnt_o = gnt_out;
       assign gnt_in = gnt_i;
       assign idx_o = idx_out;
+      assign tmr_errors[4:0] = '0;
     end else begin : gen_req_in_triplicate
       for (genvar i = 0; i < NumIn; i++) begin : gen_req_in
         assign req_in[i] = {3{req_i[i]}};
-        `VOTE31F(gnt_out[i], gnt_o, TODO)
+        `VOTE31F(gnt_out[i], gnt_o, tmr_errors[i])
       end
-      `VOTE31F(req_out, req_o, TODO)
+      `VOTE31F(req_out, req_o, tmr_errors[3])
       assign gnt_in = gnt_i;
-      `VOTE31F(idx_out, idx_o, TODO)
+      `VOTE31F(idx_out, idx_o, tmr_errors[4])
     end
 
     localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
@@ -172,7 +178,7 @@ module rel_rr_arb_tree #(
     assign req_out        = req_nodes[0];
     assign idx_out        = index_nodes[0];
     // assign data_o       = data_nodes[0];
-    `VOTE31F(data_nodes[0], data_i, TODO)
+    `VOTE31F(data_nodes[0], data_o, tmr_errors[5])
 
     if (ExtPrio) begin : gen_ext_rr
       assign rr_q       = {3{rr_i}};
@@ -187,14 +193,14 @@ module rel_rr_arb_tree #(
 
         assign lock_d     = req_out & ~gnt_in;
         for (genvar i = 0; i < NumIn; i++) begin : gen_req_d
-          for (genvar j = 0; j < 2; j++) begin : gen_req_d_tmr
+          for (genvar j = 0; j < 3; j++) begin : gen_req_d_tmr
             assign req_d[i][j] = (lock_q[j]) ? req_q[i][j] : req_in[i][j];
           end
         end
 
         if (TmrBeforeReg) begin : gen_lock_tmr_before_reg
           logic [2:0] lock_voted;
-          `VOTE33F(lock_d, lock_voted, TODO)
+          `VOTE33F(lock_d, lock_voted, tmr_errors[6])
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
               lock_q <= '0;
@@ -208,7 +214,7 @@ module rel_rr_arb_tree #(
           end
         end else begin : gen_lock_tmr_after_reg
           logic [2:0] lock_next;
-          `VOTE33F(lock_next, lock_q, TODO)
+          `VOTE33F(lock_next, lock_q, tmr_errors[6])
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
               lock_next <= '0;
@@ -244,7 +250,7 @@ module rel_rr_arb_tree #(
         if (TmrBeforeReg) begin : gen_req_tmr_before_reg
           logic [NumIn-1:0][2:0] req_voted;
           for (genvar i = 0; i < NumIn; i++) begin : vote_req
-            `VOTE33F(req_d[i], req_voted, TODO)
+            `VOTE33F(req_d[i], req_voted[i], tmr_errors[8+i])
           end
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
@@ -260,7 +266,7 @@ module rel_rr_arb_tree #(
         end else begin : gen_req_tmr_after_reg
           logic [NumIn-1:0][2:0] req_next;
           for (genvar i = 0; i < NumIn; i++) begin : vote_req
-            `VOTE33F(req_next, req_q, TODO)
+            `VOTE33F(req_next, req_q, tmr_errors[8+i])
           end
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
@@ -276,6 +282,7 @@ module rel_rr_arb_tree #(
         end
       end else begin : gen_no_lock
         assign req_d = req_in;
+        assign tmr_errors[7:6] = '0;
       end
 
       if (FairArb) begin : gen_fair_arb
@@ -318,8 +325,8 @@ module rel_rr_arb_tree #(
 
       // this holds the highest priority
       if (TmrBeforeReg) begin : gen_rr_tmr_before_reg
-        logic [2:0] rr_voted;
-        `VOTE33F(rr_d, rr_voted, TODO)
+        idx_t [2:0] rr_voted;
+        `VOTE33F(rr_d, rr_voted, tmr_errors[7])
         always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
           if (!rst_ni) begin
             rr_q   <= '0;
@@ -333,7 +340,7 @@ module rel_rr_arb_tree #(
         end
       end else begin : gen_rr_tmr_after_reg
         logic [2:0] rr_next;
-        `VOTE33F(rr_next, rr_q, TODO)
+        `VOTE33F(rr_next, rr_q, tmr_errors[7])
         always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
           if (!rst_ni) begin
             rr_next <= '0;
@@ -418,20 +425,27 @@ module rel_rr_arb_tree #(
         else $fatal(1,"Cannot use LockIn feature together with external ExtPrio.");
     end
 
+    logic [2:0][NumIn-1:0] gnt_o_trsp;
+    for (genvar i = 0; i < NumIn; i++) begin : gen_numin_trsps
+      for (genvar j = 0; j < 3; j++) begin : gen_tmr_trsp
+        assign gnt_o_trsp[j][i] = gnt_o[i][j];
+      end
+    end
+
     hot_one : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) $onehot0(gnt_o))
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) $onehot0(gnt_o_trsp[0]))
         else $fatal (1, "Grant signal must be hot1 or zero.");
 
     gnt0 : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) |gnt_o |-> gnt_i)
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) |gnt_o_trsp[0] |-> gnt_i[0])
         else $fatal (1, "Grant out implies grant in.");
 
     gnt1 : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o |-> gnt_i |-> |gnt_o)
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |-> gnt_i[0] |-> |gnt_o_trsp[0])
         else $fatal (1, "Req out and grant in implies grant out.");
 
     gnt_idx : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o |->  gnt_i |-> gnt_o[idx_o])
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |->  gnt_i[0] |-> gnt_o[idx_o[0]][0])
         else $fatal (1, "Idx_o / gnt_o do not match.");
 
     req0 : assert property(
