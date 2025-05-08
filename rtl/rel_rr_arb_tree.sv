@@ -165,7 +165,7 @@ module rel_rr_arb_tree #(
     logic    [2**NumLevels-2:0][2:0] gnt_nodes;   // used to propagate the grant to masters
     logic    [2**NumLevels-2:0][2:0] req_nodes;   // used to propagate the requests to slave
     /* lint_off */
-    idx_t                       rr_q;
+    idx_t            [2:0]      rr_q;
     logic [NumIn-1:0][2:0]      req_d;
 
     // the final arbitration decision can be taken from the root of the tree
@@ -178,7 +178,7 @@ module rel_rr_arb_tree #(
       assign rr_q       = {3{rr_i}};
       assign req_d      = req_in;
     end else begin : gen_int_rr
-      idx_t rr_d;
+      idx_t [2:0] rr_d;
 
       // lock arbiter decision in case we got at least one req and no acknowledge
       if (LockIn) begin : gen_lock
@@ -278,7 +278,6 @@ module rel_rr_arb_tree #(
         assign req_d = req_in;
       end
 
-      idx_t [2:0] rr_tmr;
       if (FairArb) begin : gen_fair_arb
         for (genvar j = 0; j < 3; j++) begin : gen_tmr_fair_arb
           logic [NumIn-1:0] upper_mask,  lower_mask;
@@ -286,8 +285,8 @@ module rel_rr_arb_tree #(
           logic             upper_empty, lower_empty;
 
           for (genvar i = 0; i < NumIn; i++) begin : gen_mask
-            assign upper_mask[i] = (i >  rr_q) ? req_d[i] : 1'b0;
-            assign lower_mask[i] = (i <= rr_q) ? req_d[i] : 1'b0;
+            assign upper_mask[i] = (i >  rr_q[j]) ? req_d[i][j] : 1'b0;
+            assign lower_mask[i] = (i <= rr_q[j]) ? req_d[i][j] : 1'b0;
           end
 
           lzc #(
@@ -309,25 +308,41 @@ module rel_rr_arb_tree #(
           );
 
           assign next_idx = upper_empty      ? lower_idx : upper_idx;
-          assign rr_tmr[j]     = (gnt_in[j] && req_out[j]) ? next_idx  : rr_q;
+          assign rr_d[j]     = (gnt_in[j] && req_out[j]) ? next_idx  : rr_q[j];
         end
       end else begin : gen_unfair_arb
         for (genvar j = 0; j < 3; j++) begin : gen_tmr_unfair_arb
-          assign rr_tmr[j] = (gnt_in[j] && req_out[j]) ? ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1) : rr_q;
+          assign rr_d[j] = (gnt_in[j] && req_out[j]) ? ((rr_q[j] == idx_t'(NumIn-1)) ? '0 : rr_q[j] + 1'b1) : rr_q[j];
         end
       end
-      `VOTE31F(rr_tmr, rr_d, TODO)
 
       // this holds the highest priority
-      // we don't need the priority reliable, as unfair in case of error is acceptable IMO
-      always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
-        if (!rst_ni) begin
-          rr_q   <= '0;
-        end else begin
-          if (flush_i) begin
+      if (TmrBeforeReg) begin : gen_rr_tmr_before_reg
+        logic [2:0] rr_voted;
+        `VOTE33F(rr_d, rr_voted, TODO)
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
+          if (!rst_ni) begin
             rr_q   <= '0;
           end else begin
-            rr_q   <= rr_d;
+            if (flush_i) begin
+              rr_q   <= '0;
+            end else begin
+              rr_q   <= rr_voted;
+            end
+          end
+        end
+      end else begin : gen_rr_tmr_after_reg
+        logic [2:0] rr_next;
+        `VOTE33F(rr_next, rr_q, TODO)
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
+          if (!rst_ni) begin
+            rr_next <= '0;
+          end else begin
+            if (flush_i) begin
+              rr_next <= '0;
+            end else begin
+              rr_next <= rr_d;
+            end
           end
         end
       end
@@ -352,7 +367,7 @@ module rel_rr_arb_tree #(
               assign req_nodes[Idx0][i]   = req_d[l*2][i] | req_d[l*2+1][i];
 
               // arbitration: round robin
-              assign sel =  ~req_d[l*2][i] | req_d[l*2+1][i] & rr_q[NumLevels-1-level];
+              assign sel =  ~req_d[l*2][i] | req_d[l*2+1][i] & rr_q[i][NumLevels-1-level];
 
               assign index_nodes[Idx0][i] = idx_t'(sel);
               assign data_nodes[Idx0][i]  = (sel) ? data_i[l*2+1] : data_i[l*2];
@@ -378,7 +393,7 @@ module rel_rr_arb_tree #(
             assign req_nodes[Idx0][i]   = req_nodes[Idx1][i] | req_nodes[Idx1+1][i];
 
             // arbitration: round robin
-            assign sel =  ~req_nodes[Idx1][i] | req_nodes[Idx1+1][i] & rr_q[NumLevels-1-level][i];
+            assign sel =  ~req_nodes[Idx1][i] | req_nodes[Idx1+1][i] & rr_q[i][NumLevels-1-level];
 
             assign index_nodes[Idx0][i] = (sel) ?
               idx_t'({1'b1, index_nodes[Idx1+1][i][NumLevels-unsigned'(level)-2:0]}) :
