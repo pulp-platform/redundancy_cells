@@ -117,7 +117,7 @@ module rel_rr_arb_tree #(
   /// Index from which input the data came from.
   output idx_t               [HsWidth-1:0] idx_o,
   /// Reliability error
-  output logic                             relerr_o
+  output logic                             fault_o
 );
 
   `ifndef SYNTHESIS
@@ -132,7 +132,7 @@ module rel_rr_arb_tree #(
   `endif
 
   logic [8+NumIn-1:0] tmr_errors;
-  assign relerr_o = |tmr_errors;
+  assign fault_o = |tmr_errors;
 
   // just pass through in this corner case
   if (NumIn == unsigned'(1)) begin : gen_pass_through
