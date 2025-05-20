@@ -143,8 +143,24 @@ module rel_fifo #(
       assign tmr_faults[1] = '0;
       assign tmr_faults[2] = '0;
     end else begin : gen_voted_status
-      `VOTE31F(full, full_o, tmr_faults[1])
-      `VOTE31F(empty, empty_o, tmr_faults[2])
+      TMR_voter_fail #(
+        .VoterType(1)
+      ) i_full_tmr_vote (
+        .a_i(full[0]),
+        .b_i(full[1]),
+        .c_i(full[2]),
+        .majority_o(full_o),
+        .fault_detected_o(tmr_faults[1])
+      );
+      TMR_voter_fail #(
+        .VoterType(1)
+      ) i_empty_tmr_vote (
+        .a_i(empty[0]),
+        .b_i(empty[1]),
+        .c_i(empty[2]),
+        .majority_o(empty_o),
+        .fault_detected_o(tmr_faults[2])
+      );
     end
 
   end

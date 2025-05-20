@@ -156,11 +156,35 @@ module rel_rr_arb_tree #(
     end else begin : gen_req_in_triplicate
       for (genvar i = 0; i < NumIn; i++) begin : gen_req_in
         assign req_in[i] = {3{req_i[i]}};
-        `VOTE31F(gnt_out[i], gnt_o, tmr_errors[i])
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_gnt_o_vote (
+          .a_i(gnt_out[i][0]),
+          .b_i(gnt_out[i][1]),
+          .c_i(gnt_out[i][2]),
+          .majority_o(gnt_o[i]),
+          .fault_detected_o(tmr_errors[i])
+        );
       end
-      `VOTE31F(req_out, req_o, tmr_errors[3])
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_req_o_vote (
+          .a_i(req_out[0]),
+          .b_i(req_out[1]),
+          .c_i(req_out[2]),
+          .majority_o(req_o),
+          .fault_detected_o(tmr_errors[3])
+        );
       assign gnt_in = gnt_i;
-      `VOTE31F(idx_out, idx_o, tmr_errors[4])
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_idx_o_vote (
+          .a_i(idx_out[0]),
+          .b_i(idx_out[1]),
+          .c_i(idx_out[2]),
+          .majority_o(idx_o),
+          .fault_detected_o(tmr_errors[4])
+        );
     end
 
     localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
@@ -178,7 +202,16 @@ module rel_rr_arb_tree #(
     assign req_out        = req_nodes[0];
     assign idx_out        = index_nodes[0];
     // assign data_o       = data_nodes[0];
-    `VOTE31F(data_nodes[0], data_o, tmr_errors[5])
+    bitwise_TMR_voter_fail #(
+      .DataWidth($bits(DataType)),
+      .VoterType(1)
+    ) i_data_vote (
+      .a_i        (data_nodes[0][0]),
+      .b_i        (data_nodes[0][1]),
+      .c_i        (data_nodes[0][2]),
+      .majority_o (data_o),
+      .fault_detected_o(tmr_errors[5])
+    );
 
     if (ExtPrio) begin : gen_ext_rr
       assign rr_q       = {3{rr_i}};
@@ -200,7 +233,33 @@ module rel_rr_arb_tree #(
 
         if (TmrBeforeReg) begin : gen_lock_tmr_before_reg
           logic [2:0] lock_voted;
-          `VOTE33F(lock_d, lock_voted, tmr_errors[6])
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_lock0_vote (
+            .a_i(lock_d[0]),
+            .b_i(lock_d[1]),
+            .c_i(lock_d[2]),
+            .majority_o(lock_voted[0]),
+            .fault_detected_o(tmr_errors[6])
+          );
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_lock1_vote (
+            .a_i(lock_d[0]),
+            .b_i(lock_d[1]),
+            .c_i(lock_d[2]),
+            .majority_o(lock_voted[1]),
+            .fault_detected_o()
+          );
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_lock2_vote (
+            .a_i(lock_d[0]),
+            .b_i(lock_d[1]),
+            .c_i(lock_d[2]),
+            .majority_o(lock_voted[2]),
+            .fault_detected_o()
+          );
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
               lock_q <= '0;
@@ -214,7 +273,33 @@ module rel_rr_arb_tree #(
           end
         end else begin : gen_lock_tmr_after_reg
           logic [2:0] lock_next;
-          `VOTE33F(lock_next, lock_q, tmr_errors[6])
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_lock0_vote (
+            .a_i(lock_next[0]),
+            .b_i(lock_next[1]),
+            .c_i(lock_next[2]),
+            .majority_o(lock_q[0]),
+            .fault_detected_o(tmr_errors[6])
+          );
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_lock1_vote (
+            .a_i(lock_next[0]),
+            .b_i(lock_next[1]),
+            .c_i(lock_next[2]),
+            .majority_o(lock_q[1]),
+            .fault_detected_o()
+          );
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_lock2_vote (
+            .a_i(lock_next[0]),
+            .b_i(lock_next[1]),
+            .c_i(lock_next[2]),
+            .majority_o(lock_q[2]),
+            .fault_detected_o()
+          );
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
               lock_next <= '0;
@@ -250,7 +335,33 @@ module rel_rr_arb_tree #(
         if (TmrBeforeReg) begin : gen_req_tmr_before_reg
           logic [NumIn-1:0][2:0] req_voted;
           for (genvar i = 0; i < NumIn; i++) begin : vote_req
-            `VOTE33F(req_d[i], req_voted[i], tmr_errors[8+i])
+            TMR_voter_fail #(
+              .VoterType(1)
+            ) i_req_d0_vote (
+              .a_i(req_d[i][0]),
+              .b_i(req_d[i][1]),
+              .c_i(req_d[i][2]),
+              .majority_o(req_voted[i][0]),
+              .fault_detected_o(tmr_errors[8+i])
+            );
+            TMR_voter_fail #(
+              .VoterType(1)
+            ) i_req_d1_vote (
+              .a_i(req_d[i][0]),
+              .b_i(req_d[i][1]),
+              .c_i(req_d[i][2]),
+              .majority_o(req_voted[i][1]),
+              .fault_detected_o()
+            );
+            TMR_voter_fail #(
+              .VoterType(1)
+            ) i_req_d2_vote (
+              .a_i(req_d[i][0]),
+              .b_i(req_d[i][1]),
+              .c_i(req_d[i][2]),
+              .majority_o(req_voted[i][2]),
+              .fault_detected_o()
+            );
           end
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
@@ -266,7 +377,33 @@ module rel_rr_arb_tree #(
         end else begin : gen_req_tmr_after_reg
           logic [NumIn-1:0][2:0] req_next;
           for (genvar i = 0; i < NumIn; i++) begin : vote_req
-            `VOTE33F(req_next, req_q, tmr_errors[8+i])
+            TMR_voter_fail #(
+              .VoterType(1)
+            ) i_req_next0_vote (
+              .a_i(req_next[i][0]),
+              .b_i(req_next[i][1]),
+              .c_i(req_next[i][2]),
+              .majority_o(req_q[i][0]),
+              .fault_detected_o(tmr_errors[8+i])
+            );
+            TMR_voter_fail #(
+              .VoterType(1)
+            ) i_req_next1_vote (
+              .a_i(req_next[i][0]),
+              .b_i(req_next[i][1]),
+              .c_i(req_next[i][2]),
+              .majority_o(req_q[i][1]),
+              .fault_detected_o()
+            );
+            TMR_voter_fail #(
+              .VoterType(1)
+            ) i_req_next2_vote (
+              .a_i(req_next[i][0]),
+              .b_i(req_next[i][1]),
+              .c_i(req_next[i][2]),
+              .majority_o(req_q[i][2]),
+              .fault_detected_o()
+            );
           end
           always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
             if (!rst_ni) begin
@@ -326,7 +463,36 @@ module rel_rr_arb_tree #(
       // this holds the highest priority
       if (TmrBeforeReg) begin : gen_rr_tmr_before_reg
         idx_t [2:0] rr_voted;
-        `VOTE33F(rr_d, rr_voted, tmr_errors[7])
+        bitwise_TMR_voter_fail #(
+          .DataWidth(IdxWidth),
+          .VoterType(1)
+        ) i_rr_d0_vote (
+          .a_i(rr_d[0]),
+          .b_i(rr_d[1]),
+          .c_i(rr_d[2]),
+          .majority_o(rr_voted[0]),
+          .fault_detected_o(tmr_errors[7])
+        );
+        bitwise_TMR_voter_fail #(
+          .DataWidth(IdxWidth),
+          .VoterType(1)
+        ) i_rr_d1_vote (
+          .a_i(rr_d[0]),
+          .b_i(rr_d[1]),
+          .c_i(rr_d[2]),
+          .majority_o(rr_voted[1]),
+          .fault_detected_o()
+        );
+        bitwise_TMR_voter_fail #(
+          .DataWidth(IdxWidth),
+          .VoterType(1)
+        ) i_rr_d2_vote (
+          .a_i(rr_d[0]),
+          .b_i(rr_d[1]),
+          .c_i(rr_d[2]),
+          .majority_o(rr_voted[2]),
+          .fault_detected_o()
+        );
         always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
           if (!rst_ni) begin
             rr_q   <= '0;
@@ -340,7 +506,33 @@ module rel_rr_arb_tree #(
         end
       end else begin : gen_rr_tmr_after_reg
         logic [2:0] rr_next;
-        `VOTE33F(rr_next, rr_q, tmr_errors[7])
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_rr_next0_vote (
+          .a_i(rr_next[0]),
+          .b_i(rr_next[1]),
+          .c_i(rr_next[2]),
+          .majority_o(rr_q[0]),
+          .fault_detected_o(tmr_errors[7])
+        );
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_rr_next1_vote (
+          .a_i(rr_next[0]),
+          .b_i(rr_next[1]),
+          .c_i(rr_next[2]),
+          .majority_o(rr_q[1]),
+          .fault_detected_o()
+        );
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_rr_next2_vote (
+          .a_i(rr_next[0]),
+          .b_i(rr_next[1]),
+          .c_i(rr_next[2]),
+          .majority_o(rr_q[2]),
+          .fault_detected_o()
+        );
         always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
           if (!rst_ni) begin
             rr_next <= '0;
