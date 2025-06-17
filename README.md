@@ -88,6 +88,15 @@ All availabe voters are:
 | `VOTEXX`   | `replicas, input_signal[REP:0][K:0], output_signal[REP:0][K:0]`                   | replicas -> replicas Voters                      |
 | `VOTEXXF`  | `replicas, input_signal[REP:0][K:0], output_signal[REP:0][K:0], fault_any`        | replicas -> replicas Voters with fault detection |
 
+## `rel_*` blocks
+
+The following modules are based on IPs in `common_cells`, but leverage TMR and ECC for reliability.
+
+| Module | Description | Reliability |
+|---|---|---|
+| `rel_fifo` | FIFO | Optional TMR on control signals, ECC on data, internal TMR and voters |
+| `rel_rr_arb_tree` | Round-robin arbiter | Optional TMR on control signals, ECC assumed on data, internal TMR and voters |
+
 ## Testing
 To run tests, execute the following command:
 ```bash
