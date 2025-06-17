@@ -319,22 +319,22 @@ module rel_rr_arb_tree #(
           lock: assert property(
             @(posedge clk_i) disable iff (!rst_ni || flush_i)
                 LockIn |-> req_o[0] && (!gnt_i[0] && !flush_i) |=> idx_o[0] == $past(idx_o[0])) else
-                $fatal (1, "Lock implies same arbiter decision in next cycle if output is not \
-                            ready.");
+                $fatal (1, {"Lock implies same arbiter decision in next cycle if output is not ",
+                            "ready."});
 
           logic [NumIn-1:0][2:0] req_tmp;
           assign req_tmp = req_q & req_in;
           lock_req: assume property(
             @(posedge clk_i) disable iff (!rst_ni || flush_i)
                 LockIn |-> lock_d[0] |=> req_tmp == req_q) else
-                $fatal (1, "It is disallowed to deassert unserved request signals when LockIn is \
-                            enabled.");
+                $fatal (1, {"It is disallowed to deassert unserved request signals when LockIn is ",
+                            "enabled."});
         `endif
         `endif
 
         if (TmrBeforeReg) begin : gen_req_tmr_before_reg
           logic [NumIn-1:0][2:0] req_voted;
-          for (genvar i = 0; i < NumIn; i++) begin : vote_req
+          for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
             TMR_voter_fail #(
               .VoterType(1)
             ) i_req_d0_vote (
@@ -376,7 +376,7 @@ module rel_rr_arb_tree #(
           end
         end else begin : gen_req_tmr_after_reg
           logic [NumIn-1:0][2:0] req_next;
-          for (genvar i = 0; i < NumIn; i++) begin : vote_req
+          for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
             TMR_voter_fail #(
               .VoterType(1)
             ) i_req_next0_vote (
@@ -456,7 +456,8 @@ module rel_rr_arb_tree #(
         end
       end else begin : gen_unfair_arb
         for (genvar j = 0; j < 3; j++) begin : gen_tmr_unfair_arb
-          assign rr_d[j] = (gnt_in[j] && req_out[j]) ? ((rr_q[j] == idx_t'(NumIn-1)) ? '0 : rr_q[j] + 1'b1) : rr_q[j];
+          assign rr_d[j] = (gnt_in[j] && req_out[j]) ?
+                           ((rr_q[j] == idx_t'(NumIn-1)) ? '0 : rr_q[j] + 1'b1) : rr_q[j];
         end
       end
 
@@ -570,15 +571,15 @@ module rel_rr_arb_tree #(
 
               assign index_nodes[Idx0][i] = idx_t'(sel);
               assign data_nodes[Idx0][i]  = (sel) ? data_i[l*2+1] : data_i[l*2];
-              assign gnt_out[l*2][i]        = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2][i])   & ~sel;
-              assign gnt_out[l*2+1][i]      = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2+1][i]) & sel;
+              assign gnt_out[l*2][i]   = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2][i])  & ~sel;
+              assign gnt_out[l*2+1][i] = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2+1][i]) & sel;
             end
             // if only the first index is still in the vector...
             if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
               assign req_nodes[Idx0][i]   = req_d[l*2][i];
               assign index_nodes[Idx0][i] = '0;// always zero in this case
               assign data_nodes[Idx0][i]  = data_i[l*2];
-              assign gnt_out[l*2][i]        = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2][i]);
+              assign gnt_out[l*2][i]      = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2][i]);
             end
             // if index is out of range, fill up with zeros (will get pruned)
             if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
@@ -637,7 +638,8 @@ module rel_rr_arb_tree #(
         else $fatal (1, "Req out and grant in implies grant out.");
 
     gnt_idx : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |->  gnt_i[0] |-> gnt_o[idx_o[0]][0])
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |->
+                                                        gnt_i[0] |-> gnt_o[idx_o[0]][0])
         else $fatal (1, "Idx_o / gnt_o do not match.");
 
     req0 : assert property(
