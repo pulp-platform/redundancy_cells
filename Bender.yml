@@ -33,6 +33,8 @@ sources:
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
+  - rtl/rel_fifo.sv
+  - rtl/rel_rr_arb_tree.sv
 
   - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
     files:
@@ -92,6 +94,7 @@ sources:
       - test/tb_ecc_scrubber.sv
       - test/tb_ecc_secded.sv
       - test/tb_ecc_sram.sv
+      - test/tb_rel_fifo.sv
       - test/tb_tmr_voter.sv
       - test/tb_tmr_voter_fail.sv
       - test/tb_tmr_voter_detect.sv
