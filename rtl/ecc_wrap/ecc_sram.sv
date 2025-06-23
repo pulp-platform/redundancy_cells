@@ -148,6 +148,7 @@ module ecc_sram #(
 
   end else begin : gen_ecc_input
 
+    assign ecc_error = '0;
     logic [  ProtectedWidth-1:0] lns_wdata;
     logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
 
