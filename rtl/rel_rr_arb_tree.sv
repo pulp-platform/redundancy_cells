@@ -419,7 +419,8 @@ module rel_rr_arb_tree #(
         end
       end else begin : gen_no_lock
         assign req_d = req_in;
-        assign tmr_errors[7:6] = '0;
+        assign tmr_errors[6] = '0;
+        assign tmr_errors[8+:NumIn] = '0;
       end
 
       if (FairArb) begin : gen_fair_arb
