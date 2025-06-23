@@ -68,6 +68,7 @@ module ecc_sram #(
   end
 `endif
 
+  logic                      internal_we;
   logic                      bank_req;
   logic                      bank_we;
   logic [ BankAddrWidth-1:0] bank_addr;
@@ -148,6 +149,7 @@ module ecc_sram #(
 
   end else begin : gen_ecc_input
 
+    assign ecc_error = '0;
     logic [  ProtectedWidth-1:0] lns_wdata;
     logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
 
@@ -184,18 +186,26 @@ module ecc_sram #(
 
   end
 
+  // It might happen (especially with HWPEs driving part of the byte enable to zero) that sometimes
+  // a write happens with be_i = '0 but with a non-zero data on the wdata_i bus. In this particular
+  // case, the following FSM will still detect a RMW case, leading to either write of unproer data
+  // into the TCDM, or to deadlock conditions. We thus introduce a new signal that makes the write
+  // enable bus asserted only if the be_i is not all zero during a write operation, and use this to
+  // decide if we need to make a RMW or not.
+  assign internal_we = we_i & (be_i != '0);
+
   always_comb begin
     store_state_d  = NORMAL;
     gnt_o          = 1'b1;
     bank_addr      = addr_i;
-    bank_we        = we_i;
+    bank_we        = internal_we;
     input_buffer_d = wdata_i;
     addr_buffer_d  = addr_i;
     be_buffer_d    = be_i;
     bank_req       = req_i;
     rmw_count_d    = rmw_count_q;
     if (store_state_q == NORMAL) begin
-      if (req_i & (be_i != {ByteEnWidth{1'b1}}) & we_i) begin
+      if (req_i & (be_i != {ByteEnWidth{1'b1}}) & internal_we) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
         rmw_count_d   = rmw_count_t'(NumRMWCuts);
