@@ -33,13 +33,13 @@ module rel_spill_register #(
     assign data_o  = data_i;
     assign fault_o = 1'b0; // No fault in bypass mode
   end else begin : gen_spill_reg
-    logic [2:0] faults;
+    logic [8:0] faults;
     assign fault_o = |faults;
 
     // The A register.
     T a_data_d, a_data_q;
     T [2:0] a_data_d_tmr;
-    logic [2:0] a_full_q;
+    logic [2:0] a_full_q, a_full_q_tmr;
     logic [2:0] a_fill, a_drain;
 
     for (genvar i = 0; i < 3; i++) begin : gen_a_data_tmr
@@ -67,16 +67,26 @@ module rel_spill_register #(
     for (genvar i = 0; i < 3; i++) begin : gen_a_full_q
       always_ff @(posedge clk_i or negedge rst_ni) begin : ps_a_full
         if (!rst_ni)
-          a_full_q[i] <= '0;
+          a_full_q_tmr[i] <= '0;
         else if (a_fill[i] || a_drain[i])
-          a_full_q[i] <= a_fill[i];
+          a_full_q_tmr[i] <= a_fill[i];
       end
+
+      TMR_voter_fail #(
+        .VoterType ( 0 ) // Classical_MV
+      ) i_a_full_tmr (
+        .a_i              ( a_full_q_tmr[0] ),
+        .b_i              ( a_full_q_tmr[1] ),
+        .c_i              ( a_full_q_tmr[2] ),
+        .majority_o       ( a_full_q[i]     ),
+        .fault_detected_o ( faults[1+i]     )
+      );
     end
 
     // The B register.
     T b_data_d, b_data_q;
     T [2:0] b_data_d_tmr;
-    logic [2:0] b_full_q;
+    logic [2:0] b_full_q, b_full_q_tmr;
     logic [2:0] b_fill, b_drain;
 
     for (genvar i = 0; i < 3; i++) begin : gen_b_data_tmr
@@ -91,7 +101,7 @@ module rel_spill_register #(
       .b_i              ( b_data_d_tmr[1] ),
       .c_i              ( b_data_d_tmr[2] ),
       .majority_o       ( b_data_d        ),
-      .fault_detected_o ( faults[1]       )
+      .fault_detected_o ( faults[4]       )
     );
 
     always_ff @(posedge clk_i or negedge rst_ni) begin : ps_b_data
@@ -104,10 +114,20 @@ module rel_spill_register #(
     for (genvar i = 0; i < 3; i++) begin : gen_b_full_q
       always_ff @(posedge clk_i or negedge rst_ni) begin : ps_b_full
         if (!rst_ni)
-          b_full_q[i] <= '0;
+          b_full_q_tmr[i] <= '0;
         else if (b_fill[i] || b_drain[i])
-          b_full_q[i] <= b_fill[i];
+          b_full_q_tmr[i] <= b_fill[i];
       end
+
+      TMR_voter_fail #(
+        .VoterType ( 0 ) // Classical_MV
+      ) i_b_full_tmr (
+        .a_i              ( b_full_q_tmr[0] ),
+        .b_i              ( b_full_q_tmr[1] ),
+        .c_i              ( b_full_q_tmr[2] ),
+        .majority_o       ( b_full_q[i]     ),
+        .fault_detected_o ( faults[5+i]     )
+      );
     end
 
     T [2:0] data_o_tmr;
@@ -144,10 +164,8 @@ module rel_spill_register #(
       .b_i              ( data_o_tmr[1] ),
       .c_i              ( data_o_tmr[2] ),
       .majority_o       ( data_o        ),
-      .fault_detected_o ( faults[2]     )
+      .fault_detected_o ( faults[8]     )
     );
-
-
   end
 
 endmodule
