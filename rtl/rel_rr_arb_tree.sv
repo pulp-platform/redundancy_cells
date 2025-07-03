@@ -131,7 +131,7 @@ module rel_rr_arb_tree #(
   `endif
   `endif
 
-  logic [8+NumIn-1:0] tmr_errors;
+  logic [8:0] tmr_errors;
   assign fault_o = |tmr_errors;
 
   // just pass through in this corner case
@@ -143,25 +143,33 @@ module rel_rr_arb_tree #(
     assign tmr_errors = '0;
   // non-degenerate cases
   end else begin : gen_arbiter
-    logic [NumIn-1:0][2:0] req_in, gnt_out;
-    logic            [2:0] req_out, gnt_in;
-    idx_t            [2:0] idx_out;
+    logic [2:0][NumIn-1:0] req_in, gnt_out;
+    logic [2:0]            req_out, gnt_in;
+    idx_t [2:0]            idx_out;
     if (TmrStatus) begin : gen_req_in
-      assign req_in = req_i;
+      for (genvar i = 0; i < NumIn; i++) begin : gen_req_in_single
+        assign req_in[0][i] = req_i[i][0];
+        assign req_in[1][i] = req_i[i][1];
+        assign req_in[2][i] = req_i[i][2];
+        assign gnt_o[i][0] = gnt_out[0][i];
+        assign gnt_o[i][1] = gnt_out[1][i];
+        assign gnt_o[i][2] = gnt_out[2][i];
+      end
       assign req_o = req_out;
-      assign gnt_o = gnt_out;
       assign gnt_in = gnt_i;
       assign idx_o = idx_out;
       assign tmr_errors[4:0] = '0;
     end else begin : gen_req_in_triplicate
       for (genvar i = 0; i < NumIn; i++) begin : gen_req_in
-        assign req_in[i] = {3{req_i[i]}};
+        assign req_in[0][i] = req_i[i];
+        assign req_in[1][i] = req_i[i];
+        assign req_in[2][i] = req_i[i];
         TMR_voter_fail #(
           .VoterType(1)
         ) i_gnt_o_vote (
-          .a_i(gnt_out[i][0]),
-          .b_i(gnt_out[i][1]),
-          .c_i(gnt_out[i][2]),
+          .a_i(gnt_out[0][i]),
+          .b_i(gnt_out[1][i]),
+          .c_i(gnt_out[2][i]),
           .majority_o(gnt_o[i]),
           .fault_detected_o(tmr_errors[i])
         );
@@ -187,426 +195,68 @@ module rel_rr_arb_tree #(
         );
     end
 
-    localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
-
     /* verilator lint_off UNOPTFLAT */
-    idx_t    [2**NumLevels-2:0][2:0] index_nodes; // used to propagate the indices
-    DataType [2**NumLevels-2:0][2:0] data_nodes;  // used to propagate the data
-    logic    [2**NumLevels-2:0][2:0] gnt_nodes;   // used to propagate the grant to masters
-    logic    [2**NumLevels-2:0][2:0] req_nodes;   // used to propagate the requests to slave
+    DataType [2:0] data_nodes_0;  // used to propagate the data
     /* lint_off */
-    idx_t            [2:0]      rr_q;
-    logic [NumIn-1:0][2:0]      req_d;
+    // idx_t            [2:0]      rr_q;
+    // logic [NumIn-1:0][2:0]      req_d;
 
     // the final arbitration decision can be taken from the root of the tree
-    assign req_out        = req_nodes[0];
-    assign idx_out        = index_nodes[0];
-    // assign data_o       = data_nodes[0];
     bitwise_TMR_voter_fail #(
       .DataWidth($bits(DataType)),
       .VoterType(1)
     ) i_data_vote (
-      .a_i        (data_nodes[0][0]),
-      .b_i        (data_nodes[0][1]),
-      .c_i        (data_nodes[0][2]),
+      .a_i        (data_nodes_0[0]),
+      .b_i        (data_nodes_0[1]),
+      .c_i        (data_nodes_0[2]),
       .majority_o (data_o),
       .fault_detected_o(tmr_errors[5])
     );
 
-    if (ExtPrio) begin : gen_ext_rr
-      assign rr_q       = {3{rr_i}};
-      assign req_d      = req_in;
-    end else begin : gen_int_rr
-      idx_t [2:0] rr_d;
+    logic [2:0] lock_sync;
+    logic [2:0][1:0] alt_lock_sync;
+    logic [2:0][NumIn-1:0] req_d_sync;
+    logic [2:0][1:0][NumIn-1:0] alt_req_d_sync;
+    idx_t [2:0] rr_d_sync;
+    idx_t [2:0][1:0] alt_rr_d_sync;
 
-      // lock arbiter decision in case we got at least one req and no acknowledge
-      if (LockIn) begin : gen_lock
-        logic [2:0] lock_d, lock_q;
-        logic [NumIn-1:0][2:0] req_q;
-
-        assign lock_d     = req_out & ~gnt_in;
-        for (genvar i = 0; i < NumIn; i++) begin : gen_req_d
-          for (genvar j = 0; j < 3; j++) begin : gen_req_d_tmr
-            assign req_d[i][j] = (lock_q[j]) ? req_q[i][j] : req_in[i][j];
-          end
-        end
-
-        if (TmrBeforeReg) begin : gen_lock_tmr_before_reg
-          logic [2:0] lock_voted;
-          TMR_voter_fail #(
-            .VoterType(1)
-          ) i_lock0_vote (
-            .a_i(lock_d[0]),
-            .b_i(lock_d[1]),
-            .c_i(lock_d[2]),
-            .majority_o(lock_voted[0]),
-            .fault_detected_o(tmr_errors[6])
-          );
-          TMR_voter_fail #(
-            .VoterType(1)
-          ) i_lock1_vote (
-            .a_i(lock_d[0]),
-            .b_i(lock_d[1]),
-            .c_i(lock_d[2]),
-            .majority_o(lock_voted[1]),
-            .fault_detected_o()
-          );
-          TMR_voter_fail #(
-            .VoterType(1)
-          ) i_lock2_vote (
-            .a_i(lock_d[0]),
-            .b_i(lock_d[1]),
-            .c_i(lock_d[2]),
-            .majority_o(lock_voted[2]),
-            .fault_detected_o()
-          );
-          always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
-            if (!rst_ni) begin
-              lock_q <= '0;
-            end else begin
-              if (flush_i) begin
-                lock_q <= '0;
-              end else begin
-                lock_q <= lock_voted;
-              end
-            end
-          end
-        end else begin : gen_lock_tmr_after_reg
-          logic [2:0] lock_next;
-          TMR_voter_fail #(
-            .VoterType(1)
-          ) i_lock0_vote (
-            .a_i(lock_next[0]),
-            .b_i(lock_next[1]),
-            .c_i(lock_next[2]),
-            .majority_o(lock_q[0]),
-            .fault_detected_o(tmr_errors[6])
-          );
-          TMR_voter_fail #(
-            .VoterType(1)
-          ) i_lock1_vote (
-            .a_i(lock_next[0]),
-            .b_i(lock_next[1]),
-            .c_i(lock_next[2]),
-            .majority_o(lock_q[1]),
-            .fault_detected_o()
-          );
-          TMR_voter_fail #(
-            .VoterType(1)
-          ) i_lock2_vote (
-            .a_i(lock_next[0]),
-            .b_i(lock_next[1]),
-            .c_i(lock_next[2]),
-            .majority_o(lock_q[2]),
-            .fault_detected_o()
-          );
-          always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
-            if (!rst_ni) begin
-              lock_next <= '0;
-            end else begin
-              if (flush_i) begin
-                lock_next <= '0;
-              end else begin
-                lock_next <= lock_d;
-              end
-            end
-          end
-        end
-
-
-        `ifndef SYNTHESIS
-        `ifndef COMMON_CELLS_ASSERTS_OFF
-          lock: assert property(
-            @(posedge clk_i) disable iff (!rst_ni || flush_i)
-                LockIn |-> req_o[0] && (!gnt_i[0] && !flush_i) |=> idx_o[0] == $past(idx_o[0])) else
-                $fatal (1, {"Lock implies same arbiter decision in next cycle if output is not ",
-                            "ready."});
-
-          logic [NumIn-1:0][2:0] req_tmp;
-          assign req_tmp = req_q & req_in;
-          lock_req: assume property(
-            @(posedge clk_i) disable iff (!rst_ni || flush_i)
-                LockIn |-> lock_d[0] |=> req_tmp == req_q) else
-                $fatal (1, {"It is disallowed to deassert unserved request signals when LockIn is ",
-                            "enabled."});
-        `endif
-        `endif
-
-        if (TmrBeforeReg) begin : gen_req_tmr_before_reg
-          logic [NumIn-1:0][2:0] req_voted;
-          for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
-            TMR_voter_fail #(
-              .VoterType(1)
-            ) i_req_d0_vote (
-              .a_i(req_d[i][0]),
-              .b_i(req_d[i][1]),
-              .c_i(req_d[i][2]),
-              .majority_o(req_voted[i][0]),
-              .fault_detected_o(tmr_errors[8+i])
-            );
-            TMR_voter_fail #(
-              .VoterType(1)
-            ) i_req_d1_vote (
-              .a_i(req_d[i][0]),
-              .b_i(req_d[i][1]),
-              .c_i(req_d[i][2]),
-              .majority_o(req_voted[i][1]),
-              .fault_detected_o()
-            );
-            TMR_voter_fail #(
-              .VoterType(1)
-            ) i_req_d2_vote (
-              .a_i(req_d[i][0]),
-              .b_i(req_d[i][1]),
-              .c_i(req_d[i][2]),
-              .majority_o(req_voted[i][2]),
-              .fault_detected_o()
-            );
-          end
-          always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
-            if (!rst_ni) begin
-              req_q <= '0;
-            end else begin
-              if (flush_i) begin
-                req_q <= '0;
-              end else begin
-                req_q <= req_voted;
-              end
-            end
-          end
-        end else begin : gen_req_tmr_after_reg
-          logic [NumIn-1:0][2:0] req_next;
-          for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
-            TMR_voter_fail #(
-              .VoterType(1)
-            ) i_req_next0_vote (
-              .a_i(req_next[i][0]),
-              .b_i(req_next[i][1]),
-              .c_i(req_next[i][2]),
-              .majority_o(req_q[i][0]),
-              .fault_detected_o(tmr_errors[8+i])
-            );
-            TMR_voter_fail #(
-              .VoterType(1)
-            ) i_req_next1_vote (
-              .a_i(req_next[i][0]),
-              .b_i(req_next[i][1]),
-              .c_i(req_next[i][2]),
-              .majority_o(req_q[i][1]),
-              .fault_detected_o()
-            );
-            TMR_voter_fail #(
-              .VoterType(1)
-            ) i_req_next2_vote (
-              .a_i(req_next[i][0]),
-              .b_i(req_next[i][1]),
-              .c_i(req_next[i][2]),
-              .majority_o(req_q[i][2]),
-              .fault_detected_o()
-            );
-          end
-          always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
-            if (!rst_ni) begin
-              req_next <= '0;
-            end else begin
-              if (flush_i) begin
-                req_next <= '0;
-              end else begin
-                req_next <= req_d;
-              end
-            end
-          end
-        end
-      end else begin : gen_no_lock
-        assign req_d = req_in;
-        assign tmr_errors[6] = '0;
-        assign tmr_errors[8+:NumIn] = '0;
+    for (genvar i = 0; i < 3; i++) begin : gen_in_rr_tmr
+      for (genvar j = 0; j < 2; j++) begin: gen_sync
+        assign alt_lock_sync[i][j] = lock_sync[(i+j+1) % 3];
+        assign alt_req_d_sync[i][j] = req_d_sync[(i+j+1) % 3];
+        assign alt_rr_d_sync[i][j] = rr_d_sync[(i+j+1) % 3];
       end
-
-      if (FairArb) begin : gen_fair_arb
-        for (genvar j = 0; j < 3; j++) begin : gen_tmr_fair_arb
-          logic [NumIn-1:0] upper_mask,  lower_mask;
-          idx_t             upper_idx,   lower_idx,   next_idx;
-          logic             upper_empty, lower_empty;
-
-          for (genvar i = 0; i < NumIn; i++) begin : gen_mask
-            assign upper_mask[i] = (i >  rr_q[j]) ? req_d[i][j] : 1'b0;
-            assign lower_mask[i] = (i <= rr_q[j]) ? req_d[i][j] : 1'b0;
-          end
-
-          lzc #(
-            .WIDTH ( NumIn ),
-            .MODE  ( 1'b0  )
-          ) i_lzc_upper (
-            .in_i    ( upper_mask  ),
-            .cnt_o   ( upper_idx   ),
-            .empty_o ( upper_empty )
-          );
-
-          lzc #(
-            .WIDTH ( NumIn ),
-            .MODE  ( 1'b0  )
-          ) i_lzc_lower (
-            .in_i    ( lower_mask  ),
-            .cnt_o   ( lower_idx   ),
-            .empty_o ( /*unused*/  )
-          );
-
-          assign next_idx = upper_empty      ? lower_idx : upper_idx;
-          assign rr_d[j]     = (gnt_in[j] && req_out[j]) ? next_idx  : rr_q[j];
-        end
-      end else begin : gen_unfair_arb
-        for (genvar j = 0; j < 3; j++) begin : gen_tmr_unfair_arb
-          assign rr_d[j] = (gnt_in[j] && req_out[j]) ?
-                           ((rr_q[j] == idx_t'(NumIn-1)) ? '0 : rr_q[j] + 1'b1) : rr_q[j];
-        end
-      end
-
-      // this holds the highest priority
-      if (TmrBeforeReg) begin : gen_rr_tmr_before_reg
-        idx_t [2:0] rr_voted;
-        bitwise_TMR_voter_fail #(
-          .DataWidth(IdxWidth),
-          .VoterType(1)
-        ) i_rr_d0_vote (
-          .a_i(rr_d[0]),
-          .b_i(rr_d[1]),
-          .c_i(rr_d[2]),
-          .majority_o(rr_voted[0]),
-          .fault_detected_o(tmr_errors[7])
-        );
-        bitwise_TMR_voter_fail #(
-          .DataWidth(IdxWidth),
-          .VoterType(1)
-        ) i_rr_d1_vote (
-          .a_i(rr_d[0]),
-          .b_i(rr_d[1]),
-          .c_i(rr_d[2]),
-          .majority_o(rr_voted[1]),
-          .fault_detected_o()
-        );
-        bitwise_TMR_voter_fail #(
-          .DataWidth(IdxWidth),
-          .VoterType(1)
-        ) i_rr_d2_vote (
-          .a_i(rr_d[0]),
-          .b_i(rr_d[1]),
-          .c_i(rr_d[2]),
-          .majority_o(rr_voted[2]),
-          .fault_detected_o()
-        );
-        always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
-          if (!rst_ni) begin
-            rr_q   <= '0;
-          end else begin
-            if (flush_i) begin
-              rr_q   <= '0;
-            end else begin
-              rr_q   <= rr_voted;
-            end
-          end
-        end
-      end else begin : gen_rr_tmr_after_reg
-        logic [2:0] rr_next;
-        TMR_voter_fail #(
-          .VoterType(1)
-        ) i_rr_next0_vote (
-          .a_i(rr_next[0]),
-          .b_i(rr_next[1]),
-          .c_i(rr_next[2]),
-          .majority_o(rr_q[0]),
-          .fault_detected_o(tmr_errors[7])
-        );
-        TMR_voter_fail #(
-          .VoterType(1)
-        ) i_rr_next1_vote (
-          .a_i(rr_next[0]),
-          .b_i(rr_next[1]),
-          .c_i(rr_next[2]),
-          .majority_o(rr_q[1]),
-          .fault_detected_o()
-        );
-        TMR_voter_fail #(
-          .VoterType(1)
-        ) i_rr_next2_vote (
-          .a_i(rr_next[0]),
-          .b_i(rr_next[1]),
-          .c_i(rr_next[2]),
-          .majority_o(rr_q[2]),
-          .fault_detected_o()
-        );
-        always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
-          if (!rst_ni) begin
-            rr_next <= '0;
-          end else begin
-            if (flush_i) begin
-              rr_next <= '0;
-            end else begin
-              rr_next <= rr_d;
-            end
-          end
-        end
-      end
-    end
-
-    assign gnt_nodes[0] = gnt_in;
-
-    // arbiter tree
-    for (genvar i = 0; i < 3; i++) begin : gen_tmr_arb_tree
-      for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : gen_levels
-        for (genvar l = 0; l < 2**level; l++) begin : gen_level
-          // local select signal
-          logic sel;
-          // index calcs
-          localparam int unsigned Idx0 = 2**level-1+l;// current node
-          localparam int unsigned Idx1 = 2**(level+1)-1+l*2;
-          //////////////////////////////////////////////////////////////
-          // uppermost level where data is fed in from the inputs
-          if (unsigned'(level) == NumLevels-1) begin : gen_first_level
-            // if two successive indices are still in the vector...
-            if (unsigned'(l) * 2 < NumIn-1) begin : gen_reduce
-              assign req_nodes[Idx0][i]   = req_d[l*2][i] | req_d[l*2+1][i];
-
-              // arbitration: round robin
-              assign sel =  ~req_d[l*2][i] | req_d[l*2+1][i] & rr_q[i][NumLevels-1-level];
-
-              assign index_nodes[Idx0][i] = idx_t'(sel);
-              assign data_nodes[Idx0][i]  = (sel) ? data_i[l*2+1] : data_i[l*2];
-              assign gnt_out[l*2][i]   = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2][i])  & ~sel;
-              assign gnt_out[l*2+1][i] = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2+1][i]) & sel;
-            end
-            // if only the first index is still in the vector...
-            if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
-              assign req_nodes[Idx0][i]   = req_d[l*2][i];
-              assign index_nodes[Idx0][i] = '0;// always zero in this case
-              assign data_nodes[Idx0][i]  = data_i[l*2];
-              assign gnt_out[l*2][i]      = gnt_nodes[Idx0][i] & (AxiVldRdy | req_d[l*2][i]);
-            end
-            // if index is out of range, fill up with zeros (will get pruned)
-            if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
-              assign req_nodes[Idx0][i]   = 1'b0;
-              assign index_nodes[Idx0][i] = idx_t'('0);
-              assign data_nodes[Idx0][i]  = DataType'('0);
-            end
-          //////////////////////////////////////////////////////////////
-          // general case for other levels within the tree
-          end else begin : gen_other_levels
-            assign req_nodes[Idx0][i]   = req_nodes[Idx1][i] | req_nodes[Idx1+1][i];
-
-            // arbitration: round robin
-            assign sel =  ~req_nodes[Idx1][i] | req_nodes[Idx1+1][i] & rr_q[i][NumLevels-1-level];
-
-            assign index_nodes[Idx0][i] = (sel) ?
-              idx_t'({1'b1, index_nodes[Idx1+1][i][NumLevels-unsigned'(level)-2:0]}) :
-              idx_t'({1'b0, index_nodes[Idx1][i][NumLevels-unsigned'(level)-2:0]});
-
-            assign data_nodes[Idx0][i]  = (sel) ? data_nodes[Idx1+1][i] : data_nodes[Idx1][i];
-            assign gnt_nodes[Idx1][i]   = gnt_nodes[Idx0][i] & ~sel;
-            assign gnt_nodes[Idx1+1][i] = gnt_nodes[Idx0][i] & sel;
-          end
-          //////////////////////////////////////////////////////////////
-        end
-      end
+      rel_rr_arb_tree_tmr_part #(
+        .NumIn        ( NumIn ),
+        .DataWidth    ( DataWidth ),
+        .DataType     ( DataType ),
+        .ExtPrio      ( ExtPrio ),
+        .AxiVldRdy    ( AxiVldRdy ),
+        .LockIn       ( LockIn ),
+        .FairArb      ( FairArb ),
+        .TmrBeforeReg ( TmrBeforeReg ),
+        .IdxWidth     ( IdxWidth ),
+        .idx_t        ( idx_t )
+      ) rel_rr_arb_tree_tmr_part (
+        .clk_i          ( clk_i ),
+        .rst_ni         ( rst_ni ),
+        .flush_i        ( flush_i ),
+        .rr_i           ( rr_i ),
+        .req_in         ( req_in[i] ),
+        .gnt_out        ( gnt_out[i] ),
+        .req_out        ( req_out[i] ),
+        .gnt_in         ( gnt_in[i] ),
+        .idx_out        ( idx_out[i] ),
+        .data_i         ( data_i ),
+        .data_nodes_0   ( data_nodes_0[i] ),
+        .alt_lock_sync  ( alt_lock_sync[i] ),
+        .lock_sync      ( lock_sync[i] ),
+        .alt_req_d_sync ( alt_req_d_sync[i] ),
+        .req_d_sync     ( req_d_sync[i] ),
+        .alt_rr_d_sync  ( alt_rr_d_sync[i] ),
+        .rr_d_sync      ( rr_d_sync[i] ),
+        .tmr_error      ( tmr_errors[6+i] )
+      );
     end
 
     `ifndef SYNTHESIS
@@ -619,28 +269,21 @@ module rel_rr_arb_tree #(
         else $fatal(1,"Cannot use LockIn feature together with external ExtPrio.");
     end
 
-    logic [2:0][NumIn-1:0] gnt_o_trsp;
-    for (genvar i = 0; i < NumIn; i++) begin : gen_numin_trsps
-      for (genvar j = 0; j < 3; j++) begin : gen_tmr_trsp
-        assign gnt_o_trsp[j][i] = gnt_o[i][j];
-      end
-    end
-
     hot_one : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) $onehot0(gnt_o_trsp[0]))
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) $onehot0(gnt_out[0]))
         else $fatal (1, "Grant signal must be hot1 or zero.");
 
     gnt0 : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) |gnt_o_trsp[0] |-> gnt_i[0])
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) |gnt_out[0] |-> gnt_i[0])
         else $fatal (1, "Grant out implies grant in.");
 
     gnt1 : assert property(
-      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |-> gnt_i[0] |-> |gnt_o_trsp[0])
+      @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |-> gnt_i[0] |-> |gnt_out[0])
         else $fatal (1, "Req out and grant in implies grant out.");
 
     gnt_idx : assert property(
       @(posedge clk_i) disable iff (!rst_ni || flush_i) req_o[0] |->
-                                                        gnt_i[0] |-> gnt_o[idx_o[0]][0])
+                                                        gnt_i[0] |-> gnt_out[0][idx_o[0]])
         else $fatal (1, "Idx_o / gnt_o do not match.");
 
     req0 : assert property(
@@ -654,5 +297,347 @@ module rel_rr_arb_tree #(
     `endif
     `endif
   end
+
+endmodule
+
+(* no_ungroup *)
+(* no_boundary_optimization *)
+module rel_rr_arb_tree_tmr_part #(
+  parameter int unsigned NumIn        = 64,
+  parameter int unsigned DataWidth    = 32,
+  parameter type         DataType     = logic [DataWidth-1:0],
+  parameter bit          ExtPrio      = 1'b0,
+  parameter bit          AxiVldRdy    = 1'b0,
+  parameter bit          LockIn       = 1'b0,
+  parameter bit          FairArb      = 1'b1,
+  parameter bit          TmrBeforeReg = 1'b1,
+  parameter int unsigned IdxWidth     = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
+  parameter type         idx_t        = logic [IdxWidth-1:0]
+) (
+  input  logic                  clk_i,
+  input  logic                  rst_ni,
+  input  logic                  flush_i,
+  input  idx_t                  rr_i,
+  input  logic      [NumIn-1:0] req_in,
+  output logic      [NumIn-1:0] gnt_out,
+  output logic                  req_out,
+  input  logic                  gnt_in,
+  output idx_t                  idx_out,
+  input  DataType   [NumIn-1:0] data_i,
+  output DataType               data_nodes_0,
+  input  logic [1:0]            alt_lock_sync,
+  output logic                  lock_sync,
+  input  logic [1:0][NumIn-1:0] alt_req_d_sync,
+  output logic      [NumIn-1:0] req_d_sync,
+  input  idx_t [1:0]            alt_rr_d_sync,
+  output idx_t                  rr_d_sync,
+  output logic                  tmr_error
+);
+
+  localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
+
+  idx_t rr_q;
+  logic [NumIn-1:0] req_d;
+
+  logic [2+NumIn-1:0]    tmr_errors;
+  assign tmr_error = |tmr_errors;
+
+  if (ExtPrio) begin : gen_ext_rr
+    assign rr_q = rr_i;
+    assign req_d = req_in;
+    assign tmr_errors = '0;
+    assign lock_sync = '0;
+    assign req_d_sync = '0;
+    assign rr_d_sync = '0;
+  end else begin : gen_int_rr
+    idx_t rr_d;
+
+    if (LockIn) begin : gen_lock
+      logic lock_d, lock_q;
+      logic [NumIn-1:0] req_q;
+
+      assign lock_d = req_out & ~gnt_in;
+      assign req_d = (lock_q) ? req_q : req_in;
+
+      if (TmrBeforeReg) begin : gen_lock_tmr_before_reg
+        logic lock_voted;
+        assign lock_sync = lock_d;
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_lock_vote (
+          .a_i(lock_d),
+          .b_i(alt_lock_sync[0]),
+          .c_i(alt_lock_sync[1]),
+          .majority_o(lock_voted),
+          .fault_detected_o(tmr_errors[0])
+        );
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
+          if (!rst_ni) begin
+            lock_q <= '0;
+          end else begin
+            if (flush_i) begin
+              lock_q <= '0;
+            end else begin
+              lock_q <= lock_voted;
+            end
+          end
+        end
+      end else begin : gen_lock_tmr_after_reg
+        logic lock_next;
+        assign lock_sync = lock_next;
+        TMR_voter_fail #(
+          .VoterType(1)
+        ) i_lock_vote (
+          .a_i(lock_next),
+          .b_i(alt_lock_sync[0]),
+          .c_i(alt_lock_sync[1]),
+          .majority_o(lock_q),
+          .fault_detected_o(tmr_errors[0])
+        );
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
+          if (!rst_ni) begin
+            lock_next <= '0;
+          end else begin
+            if (flush_i) begin
+              lock_next <= '0;
+            end else begin
+              lock_next <= lock_d;
+            end
+          end
+        end
+      end
+
+      `ifndef SYNTHESIS
+      `ifndef COMMON_CELLS_ASSERTS_OFF
+        lock: assert property(
+          @(posedge clk_i) disable iff (!rst_ni || flush_i)
+              LockIn |-> req_out && (!gnt_in && !flush_i) |=> idx_out == $past(idx_out)) else
+              $fatal (1, {"Lock implies same arbiter decision in next cycle if output is not ",
+                          "ready."});
+
+        logic [NumIn-1:0] req_tmp;
+        assign req_tmp = req_q & req_in;
+        lock_req: assume property(
+          @(posedge clk_i) disable iff (!rst_ni || flush_i)
+              LockIn |-> lock_d |=> req_tmp == req_q) else
+              $fatal (1, {"It is disallowed to deassert unserved request signals when LockIn is ",
+                          "enabled."});
+      `endif
+      `endif
+
+      if (TmrBeforeReg) begin : gen_req_tmr_before_reg
+        logic [NumIn-1:0] req_voted;
+        assign req_d_sync = req_d;
+        for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_req_d_vote (
+            .a_i(req_d[i]),
+            .b_i(alt_req_d_sync[0][i]),
+            .c_i(alt_req_d_sync[1][i]),
+            .majority_o(req_voted[i]),
+            .fault_detected_o(tmr_errors[2+i])
+          );
+        end
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
+          if (!rst_ni) begin
+            req_q <= '0;
+          end else begin
+            if (flush_i) begin
+              req_q <= '0;
+            end else begin
+              req_q <= req_voted;
+            end
+          end
+        end
+      end else begin : gen_req_tmr_after_reg
+        logic [NumIn-1:0] req_next;
+        assign req_d_sync = req_next;
+        for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
+          TMR_voter_fail #(
+            .VoterType(1)
+          ) i_req_next_vote (
+            .a_i(req_next[i]),
+            .b_i(alt_req_d_sync[0][i]),
+            .c_i(alt_req_d_sync[1][i]),
+            .majority_o(req_q[i]),
+            .fault_detected_o(tmr_errors[2+i])
+          );
+        end
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_lock_reg
+          if (!rst_ni) begin
+            req_next <= '0;
+          end else begin
+            if (flush_i) begin
+              req_next <= '0;
+            end else begin
+              req_next <= req_d;
+            end
+          end
+        end
+      end
+    end else begin : gen_no_lock
+      assign req_d = req_in;
+      assign tmr_errors[0] = '0;
+      assign tmr_errors[2:NumIn+1] = '0;
+      assign lock_sync = '0;
+      assign req_d_sync = '0;
+    end
+
+
+    if (FairArb) begin : gen_fair_arb
+      logic [NumIn-1:0] upper_mask,  lower_mask;
+      idx_t             upper_idx,   lower_idx,   next_idx;
+      logic             upper_empty, lower_empty;
+
+      for (genvar i = 0; i < NumIn; i++) begin : gen_mask
+        assign upper_mask[i] = (i >  rr_q) ? req_d[i] : 1'b0;
+        assign lower_mask[i] = (i <= rr_q) ? req_d[i] : 1'b0;
+      end
+
+      lzc #(
+        .WIDTH ( NumIn ),
+        .MODE  ( 1'b0  )
+      ) i_lzc_upper (
+        .in_i    ( upper_mask  ),
+        .cnt_o   ( upper_idx   ),
+        .empty_o ( upper_empty )
+      );
+
+      lzc #(
+        .WIDTH ( NumIn ),
+        .MODE  ( 1'b0  )
+      ) i_lzc_lower (
+        .in_i    ( lower_mask  ),
+        .cnt_o   ( lower_idx   ),
+        .empty_o ( /*unused*/  )
+      );
+
+      assign next_idx = upper_empty      ? lower_idx : upper_idx;
+      assign rr_d     = (gnt_in && req_out) ? next_idx  : rr_q;
+
+    end else begin : gen_unfair_arb
+      assign rr_d = (gnt_in && req_out) ?
+                    ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1) : rr_q;
+    end
+
+    if (TmrBeforeReg) begin : gen_rr_tmr_before_reg
+      idx_t rr_voted;
+      assign rr_d_sync = rr_d;
+      bitwise_TMR_voter_fail #(
+        .DataWidth(IdxWidth),
+        .VoterType(1)
+      ) i_rr_d_vote (
+        .a_i(rr_d),
+        .b_i(alt_rr_d_sync[0]),
+        .c_i(alt_rr_d_sync[1]),
+        .majority_o(rr_voted),
+        .fault_detected_o(tmr_errors[1])
+      );
+      always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
+        if (!rst_ni) begin
+          rr_q <= '0;
+        end else begin
+          if (flush_i) begin
+            rr_q <= '0;
+          end else begin
+            rr_q <= rr_voted;
+          end
+        end
+      end
+    end else begin : gen_rr_tmr_after_reg
+      logic rr_next;
+      assign rr_d_sync = rr_next;
+      bitwise_TMR_voter_fail #(
+        .DataWidth(IdxWidth),
+        .VoterType(1)
+      ) i_rr_next_vote (
+        .a_i(rr_next),
+        .b_i(alt_rr_d_sync[0]),
+        .c_i(alt_rr_d_sync[1]),
+        .majority_o(rr_q),
+        .fault_detected_o(tmr_errors[1])
+      );
+      always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr_regs
+        if (!rst_ni) begin
+          rr_next <= '0;
+        end else begin
+          if (flush_i) begin
+            rr_next <= '0;
+          end else begin    
+            rr_next <= rr_d;
+          end
+        end
+      end
+    end
+  end
+
+  /* verilator lint_off UNOPTFLAT */
+  logic    [2**NumLevels-2:0] req_nodes;
+  logic    [2**NumLevels-2:0] gnt_nodes;
+  DataType [2**NumLevels-2:0] data_nodes;  // used to propagate the data
+  idx_t    [2**NumLevels-2:0] index_nodes; // used to propagate the indices
+  /* lint_off */
+
+  assign req_out = req_nodes[0];
+  assign gnt_nodes[0] = gnt_in;
+  assign data_nodes_0 = data_nodes[0];
+  assign idx_out = index_nodes[0];
+
+  for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : gen_levels
+    for (genvar l = 0; l < 2**level; l++) begin : gen_level
+      // local select signal
+      logic sel;
+      // index calcs
+      localparam int unsigned Idx0 = 2**level-1+l;// current node
+      localparam int unsigned Idx1 = 2**(level+1)-1+l*2;
+      //////////////////////////////////////////////////////////////
+      // uppermost level where data is fed in from the inputs
+      if (unsigned'(level) == NumLevels-1) begin : gen_first_level
+        // if two successive indices are still in the vector...
+        if (unsigned'(l) * 2 < NumIn-1) begin : gen_reduce
+          assign req_nodes[Idx0]   = req_d[l*2] | req_d[l*2+1];
+
+          // arbitration: round robin
+          assign sel =  ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
+
+          assign index_nodes[Idx0] = idx_t'(sel);
+          assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
+          assign gnt_out[l*2]   = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])  & ~sel;
+          assign gnt_out[l*2+1] = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
+        end
+        // if only the first index is still in the vector...
+        if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
+          assign req_nodes[Idx0]   = req_d[l*2];
+          assign index_nodes[Idx0] = '0;// always zero in this case
+          assign data_nodes[Idx0]  = data_i[l*2];
+          assign gnt_out[l*2]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]);
+        end
+        // if index is out of range, fill up with zeros (will get pruned)
+        if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
+          assign req_nodes[Idx0]   = 1'b0;
+          assign index_nodes[Idx0] = idx_t'('0);
+          assign data_nodes[Idx0]  = DataType'('0);
+        end
+      //////////////////////////////////////////////////////////////
+      // general case for other levels within the tree
+      end else begin : gen_other_levels
+        assign req_nodes[Idx0]   = req_nodes[Idx1] | req_nodes[Idx1+1];
+
+        // arbitration: round robin
+        assign sel =  ~req_nodes[Idx1] | req_nodes[Idx1+1] & rr_q[NumLevels-1-level];
+
+        assign index_nodes[Idx0] = (sel) ?
+          idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]}) :
+          idx_t'({1'b0, index_nodes[Idx1][NumLevels-unsigned'(level)-2:0]});
+
+        assign data_nodes[Idx0]  = (sel) ? data_nodes[Idx1+1] : data_nodes[Idx1];
+        assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel;
+        assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel;
+      end
+      //////////////////////////////////////////////////////////////
+    end
+  end
+
 
 endmodule
