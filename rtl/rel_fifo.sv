@@ -19,8 +19,6 @@ module rel_fifo #(
   parameter int unsigned DataWidth   = 32,
   /// depth can be arbitrary from 0 to 2**32
   parameter int unsigned Depth       = 8,
-  /// custom data type, overrides DataWidth parameter
-  parameter type         data_t      = logic [DataWidth-1:0],
   /// Status and control signals are triplicated
   parameter bit          TmrStatus   = 1'b0,
   /// Input data has ECC (setting to 0 will add ecc encoders and decoders and assume simple logic vector, currently unimplemented)
@@ -50,12 +48,12 @@ module rel_fifo #(
   output logic [AddrDepth-1:0] usage_o,
   /// as long as the queue is not full we can push new data
   /// data to push into the queue
-  input  data_t                data_i,
+  input  logic [DataWidth-1:0] data_i,
   /// data is valid and can be pushed to the queue
   input  logic [  HsWidth-1:0] push_i,
   /// as long as the queue is not empty we can pop new elements
   /// output data
-  output data_t                data_o,
+  output logic [DataWidth-1:0] data_o,
   /// pop head from queue
   input  logic [  HsWidth-1:0] pop_i,
   /// tmr fault output signal
@@ -66,14 +64,14 @@ module rel_fifo #(
   localparam int unsigned FifoDepth = (Depth > 0) ? Depth : 1;
 
   // TODO: DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
-  localparam type ecc_data_t = data_t;
+  localparam int unsigned EccDataWidth = DataWidth;
 
-  logic [5:0] tmr_faults;
-  logic [FifoDepth-1:0][$bits(ecc_data_t)-1:0] data_tmr_faults;
+  logic [9:0] tmr_faults;
+  logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
   assign fault_o = |tmr_faults;
 
   // clock gating control
-  logic [FifoDepth-1:0][2:0] gate_clock;
+  logic [2:0][FifoDepth-1:0][EccDataWidth-1:0] gate_clock;
   // pointer to the read and write section of the queue
   logic [2:0][AddrDepth:0] read_pointer_n,
                            read_pointer_q,
@@ -81,13 +79,13 @@ module rel_fifo #(
                            write_pointer_q,
                            status_cnt_n,
                            status_cnt_q;
-  logic [2:0] full, empty;
+  logic [2:0] full, empty, push, pop, flush;
 
-  ecc_data_t data_in;
-  ecc_data_t [2:0] data_out;
+  logic      [EccDataWidth-1:0] data_in;
+  logic [2:0][EccDataWidth-1:0] data_out;
 
   // actual memory
-  ecc_data_t [FifoDepth-1:0] mem_q;
+  logic [FifoDepth-1:0][EccDataWidth-1:0] mem_q;
 
   if (!DataHasEcc) begin : gen_ecc_encode
     $error("unimplemented");
@@ -98,196 +96,99 @@ module rel_fifo #(
     `VOTE31F(data_out, data_o, tmr_faults[0])
   end
 
-  if (StatusFF) begin : gen_status_ff
-    $error("unimplemented");
-    // logic [2:0][AddrDepth:0] status_cnt_d;
+  logic [2:0][AddrDepth:0] read_pointer_n_sync,
+                           write_pointer_n_sync;
+  logic [2:0][1:0][AddrDepth:0] alt_read_pointer_n_sync,
+                                alt_write_pointer_n_sync;
 
-    // always_comb begin
-    //   if ()
-    // end
+  if (TmrStatus) begin : gen_tmr_status
+    assign full_o = full;
+    assign empty_o = empty;
+    assign push = push_i;
+    assign pop = pop_i;
+    assign flush = flush_i;
+    assign tmr_faults[1] = '0;
+    assign tmr_faults[2] = '0;
+  end else begin : gen_voted_status
+    assign push = {push_i, push_i, push_i};
+    assign pop = {pop_i, pop_i, pop_i};
+    assign flush = {flush_i, flush_i, flush_i};
+    TMR_voter_fail #(
+      .VoterType(1)
+    ) i_full_tmr_vote (
+      .a_i(full[0]),
+      .b_i(full[1]),
+      .c_i(full[2]),
+      .majority_o(full_o),
+      .fault_detected_o(tmr_faults[1])
+    );
+    TMR_voter_fail #(
+      .VoterType(1)
+    ) i_empty_tmr_vote (
+      .a_i(empty[0]),
+      .b_i(empty[1]),
+      .c_i(empty[2]),
+      .majority_o(empty_o),
+      .fault_detected_o(tmr_faults[2])
+    );
+  end
 
-    // always_ff @(posedge clk_i or negedge rst_ni) begin : proc_status_cnt
-    //   if(!rst_ni) begin
-    //     status_cnt_q <= '0;
-    //   end else begin
-    //     status_cnt_q <= status_cnt_d;
-    //   end
-    // end
-  end else begin : gen_status_calc
-    for (genvar i = 0; i < 3; i++) begin : gen_tmr_status
-      assign status_cnt_q[i] = write_pointer_q[i] - read_pointer_q[i];
+  for (genvar i = 0; i < 3; i++) begin : gen_tmr_parts
+    for (genvar j = 0; j < 2; j++) begin : gen_alt_sync
+      assign alt_read_pointer_n_sync[i][j]  = read_pointer_n_sync[(i+j+1) % 3];
+      assign alt_write_pointer_n_sync[i][j] = write_pointer_n_sync[(i+j+1) % 3];
     end
+    (* dont_touch *)
+    rel_fifo_tmr_part #(
+      .FallThrough(FallThrough),
+      .EccDataWidth(EccDataWidth),
+      .Depth(Depth),
+      .FifoDepth(FifoDepth),
+      .AddrDepth(AddrDepth),
+      .StatusFF(StatusFF),
+      .TmrBeforeReg(TmrBeforeReg)
+    ) i_rel_fifo_tmr_part (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
+      .flush_i(flush[i]),
+      .full(full[i]),
+      .empty(empty[i]),
+      .push_i(push[i]),
+      .pop_i(pop[i]),
+      .gate_clock(gate_clock[i]),
+      .data_out(data_out[i]),
+      .data_in(data_in),
+      .status_cnt_q(status_cnt_q[i]),
+      .read_pointer_q(read_pointer_q[i]),
+      .write_pointer_q(write_pointer_q[i]),
+      .status_cnt_n(status_cnt_n[i]),
+      .read_pointer_n(read_pointer_n[i]),
+      .write_pointer_n(write_pointer_n[i]),
+      .mem_q(mem_q),
+      .alt_read_pointer_n_sync(alt_read_pointer_n_sync[i]),
+      .read_pointer_n_sync(read_pointer_n_sync[i]),
+      .alt_write_pointer_n_sync(alt_write_pointer_n_sync[i]),
+      .write_pointer_n_sync(write_pointer_n_sync[i]),
+      .tmr_faults(tmr_faults[5+(2*i):4+(2*i)])
+    );
   end
 
   assign usage_o = status_cnt_q[0][AddrDepth-1:0];
 
-  // status flags
-  if (Depth == 0) begin : gen_pass_through
-    assign empty_o     = ~push_i;
-    assign full_o      = ~pop_i;
-  end else begin : gen_fifo
-    for (genvar i = 0; i < 3; i++) begin : gen_tmr_full_empty
-      if (StatusFF) begin : gen_full_empty_from_status
-        assign full[i]  = (status_cnt_q[i] == FifoDepth[AddrDepth:0]);
-        assign empty[i] = (status_cnt_q[i] == 0) & ~(FallThrough & push_i[i]);
-      end else begin : gen_full_empty_calc
-        assign full[i]  = (write_pointer_q[i][AddrDepth-1:0] == read_pointer_q[i][AddrDepth-1:0] &
-                           write_pointer_q[i][AddrDepth]     != read_pointer_q[i][AddrDepth]);
-        assign empty[i] = (write_pointer_q[i]                == read_pointer_q[i]) &
-                           ~(FallThrough & push_i[i]);
-      end
-    end
-    if (TmrStatus) begin : gen_tmr_status
-      assign full_o = full;
-      assign empty_o = empty;
-      assign tmr_faults[1] = '0;
-      assign tmr_faults[2] = '0;
-    end else begin : gen_voted_status
-      TMR_voter_fail #(
-        .VoterType(1)
-      ) i_full_tmr_vote (
-        .a_i(full[0]),
-        .b_i(full[1]),
-        .c_i(full[2]),
-        .majority_o(full_o),
-        .fault_detected_o(tmr_faults[1])
-      );
-      TMR_voter_fail #(
-        .VoterType(1)
-      ) i_empty_tmr_vote (
-        .a_i(empty[0]),
-        .b_i(empty[1]),
-        .c_i(empty[2]),
-        .majority_o(empty_o),
-        .fault_detected_o(tmr_faults[2])
-      );
-    end
-
-  end
-
-  // read and write queue logic
-  always_comb begin : read_write_comb
-    // default assignment
-    read_pointer_n  = read_pointer_q;
-    write_pointer_n = write_pointer_q;
-    status_cnt_n    = status_cnt_q;
-    data_out [0]    = (Depth == 0) ? data_in : mem_q[read_pointer_q[0][AddrDepth-1:0]];
-    data_out [1]    = (Depth == 0) ? data_in : mem_q[read_pointer_q[1][AddrDepth-1:0]];
-    data_out [2]    = (Depth == 0) ? data_in : mem_q[read_pointer_q[2][AddrDepth-1:0]];
-    gate_clock      = {FifoDepth{3'b111}};
-
-    // For reliability we vote at the end and handle streams individually
-    for (int i = 0; i < 3; i++) begin
-
-      // For reliability each data bit handled individually
-      for (int j = 0; j < $bits(ecc_data_t); j++) begin
-
-        // push a new element to the queue
-        if (push_i[i] && ~full[i]) begin
-          // un-gate the clock, we want to write something
-          gate_clock[write_pointer_q[i][AddrDepth-1:0]][i] = 1'b0;
-          // increment the write counter
-          // this is dead code when DEPTH is a power of two
-          if (write_pointer_q[i][AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
-              write_pointer_n[i][AddrDepth-1:0] = '0;
-              write_pointer_n[i][AddrDepth] = ~write_pointer_q[i][AddrDepth];
-          end else begin
-              write_pointer_n[i] = write_pointer_q[i] + 1;
-          end
-          if (StatusFF) begin
-            // increment the overall counter
-            status_cnt_n[i]    = status_cnt_q[i] + 1;
-          end
-        end
-
-        // pop an element from the queue
-        if (pop_i[i] && ~empty[i]) begin
-          // read from the queue is a default assignment
-          // but increment the read pointer...
-          // this is dead code when DEPTH is a power of two
-          if (read_pointer_q[i][AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
-              read_pointer_n[i][AddrDepth-1:0] = '0;
-              read_pointer_n[i][AddrDepth] = ~read_pointer_q[i][AddrDepth];
-          end else begin
-              read_pointer_n[i] = read_pointer_q[i] + 1;
-          end
-          // ... and decrement the overall count
-          if (StatusFF) begin
-            status_cnt_n[i]   = status_cnt_q[i] - 1;
-          end
-        end
-
-        // keep the count pointer stable if we push and pop at the same time
-        if (StatusFF) begin
-          if (push_i[i] && pop_i[i] &&  ~full[i] && ~empty[i])
-            status_cnt_n   = status_cnt_q;
-        end
-
-        // FIFO is in pass through mode -> do not change the pointers
-        if (FallThrough && (write_pointer_q[i] == read_pointer_q[i]) && push_i[i]) begin
-          data_out[i] = data_in;
-          if (pop_i[i]) begin
-            status_cnt_n[i] = status_cnt_q[i];
-            read_pointer_n[i] = read_pointer_q[i];
-            write_pointer_n[i] = write_pointer_q[i];
-          end
-        end
-      end
-    end
-  end
-
-  if (TmrBeforeReg) begin : gen_tmr_before_reg
-    logic [2:0][AddrDepth:0] read_pointer_voted, write_pointer_voted;
-
-    `VOTE33F(read_pointer_n, read_pointer_voted, tmr_faults[4])
-    `VOTE33F(write_pointer_n, write_pointer_voted, tmr_faults[5])
-
-    for (genvar i = 0; i < 3; i++) begin : gen_pointer_ffs
-      always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(!rst_ni) begin
-          read_pointer_q[i]  <= '0;
-          write_pointer_q[i] <= '0;
-        end else begin
-          if (flush_i[i]) begin
-            read_pointer_q[i] <= '0;
-            write_pointer_q[i] <= '0;
-          end else begin
-            read_pointer_q[i]  <= read_pointer_voted[i];
-            write_pointer_q[i] <= write_pointer_voted[i];
-          end
-        end
-      end
-    end
-  end else begin : gen_tmr_after_reg
-    logic [2:0][AddrDepth:0] read_pointer_next, write_pointer_next;
-
-    `VOTE33F(read_pointer_next,  read_pointer_q, tmr_faults[4])
-    `VOTE33F(write_pointer_next, write_pointer_q, tmr_faults[5])
-
-    for (genvar i = 0; i < 3; i++) begin : gen_pointer_ffs
-      always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(!rst_ni) begin
-          read_pointer_next[i]  <= '0;
-          write_pointer_next[i] <= '0;
-        end else begin
-          if (flush_i) begin
-            read_pointer_next[i]  <= '0;
-            write_pointer_next[i] <= '0;
-          end else begin
-            read_pointer_next[i]  <= read_pointer_n[i];
-            write_pointer_next[i] <= write_pointer_n[i];
-          end
-        end
-      end
-    end
-  end
-
   assign tmr_faults[3] = |data_tmr_faults;
 
   for (genvar i = 0; i < FifoDepth; i++) begin : gen_mem_ffs_depth
-    for (genvar j = 0; j < $bits(ecc_data_t); j++) begin : gen_mem_ffs
+    for (genvar j = 0; j < EccDataWidth; j++) begin : gen_mem_ffs
       logic gate_clock_local;
-      `VOTE31F(gate_clock[i], gate_clock_local, data_tmr_faults[i][j])
+      TMR_voter_fail #(
+        .VoterType(1)
+      ) i_gate_clock_vote (
+        .a_i(gate_clock[0][i][j]),
+        .b_i(gate_clock[1][i][j]),
+        .c_i(gate_clock[2][i][j]),
+        .majority_o(gate_clock_local),
+        .fault_detected_o(data_tmr_faults[i][j])
+      );
       always_ff @(posedge clk_i or negedge rst_ni) begin
         if(~rst_ni) begin
           mem_q[i][j] <= '0;
@@ -314,4 +215,211 @@ module rel_fifo #(
 `endif
 // pragma translate_on
 
+endmodule
+
+(* no_ungroup *)
+(* no_boundary_optimization *)
+module rel_fifo_tmr_part #(
+  parameter bit          FallThrough = 1'b0,
+  parameter int unsigned EccDataWidth = 39,
+  parameter int unsigned Depth       = 8,
+  parameter int unsigned FifoDepth   = 8,
+  parameter int unsigned AddrDepth = 8,
+  parameter bit          StatusFF   = 1'b0,
+  parameter bit          TmrBeforeReg = 1'b1
+) (
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic flush_i,
+  output logic full,
+  output logic empty,
+  input  logic push_i,
+  input  logic pop_i,
+  output logic [FifoDepth-1:0][EccDataWidth-1:0] gate_clock,
+  output logic [EccDataWidth-1:0] data_out,
+  input  logic [EccDataWidth-1:0] data_in,
+  output logic [AddrDepth:0] status_cnt_q,
+  output logic [AddrDepth:0] read_pointer_q,
+  output logic [AddrDepth:0] write_pointer_q,
+  output logic [AddrDepth:0] status_cnt_n,
+  output logic [AddrDepth:0] read_pointer_n,
+  output logic [AddrDepth:0] write_pointer_n,
+  input  logic [FifoDepth-1:0][EccDataWidth-1:0] mem_q,
+  input  logic [1:0][AddrDepth:0] alt_read_pointer_n_sync,
+  output logic      [AddrDepth:0] read_pointer_n_sync,
+  input  logic [1:0][AddrDepth:0] alt_write_pointer_n_sync,
+  output logic      [AddrDepth:0] write_pointer_n_sync,
+  output logic [1:0] tmr_faults
+);
+
+  if (StatusFF) begin : gen_status_ff
+    $error("unimplemented");
+    // logic [2:0][AddrDepth:0] status_cnt_d;
+
+    // always_comb begin
+    //   if ()
+    // end
+
+    // always_ff @(posedge clk_i or negedge rst_ni) begin : proc_status_cnt
+    //   if(!rst_ni) begin
+    //     status_cnt_q <= '0;
+    //   end else begin
+    //     status_cnt_q <= status_cnt_d;
+    //   end
+    // end
+  end else begin : gen_status_calc
+    assign status_cnt_q = write_pointer_q - read_pointer_q;
+  end
+
+  if (Depth == 0) begin : gen_pass_through
+    assign empty = push_i;
+    assign full = pop_i;
+  end else begin : gen_fifo
+    if (StatusFF) begin : gen_full_empty_from_status
+      assign full  = (status_cnt_q == FifoDepth[AddrDepth:0]);
+      assign empty = (status_cnt_q == 0) & ~(FallThrough & push_i);
+    end else begin : gen_full_empty_calc
+      assign full  = (write_pointer_q[AddrDepth-1:0] == read_pointer_q[AddrDepth-1:0] &
+                          write_pointer_q[AddrDepth]     != read_pointer_q[AddrDepth]);
+      assign empty = (write_pointer_q                == read_pointer_q) &
+                          ~(FallThrough & push_i);
+    end
+  end
+
+  // read and write queue logic
+  always_comb begin : read_write_comb
+    // default assignment
+    read_pointer_n  = read_pointer_q;
+    write_pointer_n = write_pointer_q;
+    status_cnt_n    = status_cnt_q;
+    data_out        = mem_q[read_pointer_q[AddrDepth-1:0]];
+    gate_clock      = {FifoDepth{{EccDataWidth{1'b1}}}};
+
+    // push a new element to the queue
+    if (push_i && ~full) begin
+      // un-gate the clock, we want to write something
+      gate_clock[write_pointer_q[AddrDepth-1:0]] = {EccDataWidth{1'b0}};
+      // increment the write counter
+      // this is dead code when DEPTH is a power of two
+      if (write_pointer_q[AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
+          write_pointer_n[AddrDepth-1:0] = '0;
+          write_pointer_n[AddrDepth] = ~write_pointer_q[AddrDepth];
+      end else begin
+          write_pointer_n = write_pointer_q + 1;
+      end
+      if (StatusFF) begin
+        // increment the overall counter
+        status_cnt_n    = status_cnt_q + 1;
+      end
+    end
+
+    // pop an element from the queue
+    if (pop_i && ~empty) begin
+      // read from the queue is a default assignment
+      // but increment the read pointer...
+      // this is dead code when DEPTH is a power of two
+      if (read_pointer_q[AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
+          read_pointer_n[AddrDepth-1:0] = '0;
+          read_pointer_n[AddrDepth] = ~read_pointer_q[AddrDepth];
+      end else begin
+          read_pointer_n = read_pointer_q + 1;
+      end
+      // ... and decrement the overall count
+      if (StatusFF) begin
+        status_cnt_n   = status_cnt_q - 1;
+      end
+    end
+
+    // keep the count pointer stable if we push and pop at the same time
+    if (StatusFF) begin
+      if (push_i && pop_i &&  ~full && ~empty)
+        status_cnt_n   = status_cnt_q;
+    end
+
+    // FIFO is in pass through mode -> do not change the pointers
+    if (FallThrough && (write_pointer_q == read_pointer_q) && push_i) begin
+      data_out = data_in;
+      if (pop_i) begin
+        status_cnt_n = status_cnt_q;
+        read_pointer_n = read_pointer_q;
+        write_pointer_n = write_pointer_q;
+      end
+    end
+  end
+
+  if (TmrBeforeReg) begin : gen_tmr_before_reg
+    logic [AddrDepth:0] read_pointer_voted, write_pointer_voted;
+    assign read_pointer_n_sync  = read_pointer_n;
+    assign write_pointer_n_sync = write_pointer_n;
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth+1)
+    ) i_read_pointer_vote (
+      .a_i(read_pointer_n),
+      .b_i(alt_read_pointer_n_sync[0]),
+      .c_i(alt_read_pointer_n_sync[1]),
+      .majority_o(read_pointer_voted),
+      .fault_detected_o(tmr_faults[0])
+    );
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth+1)
+    ) i_write_pointer_vote (
+      .a_i(write_pointer_n),
+      .b_i(alt_write_pointer_n_sync[0]),
+      .c_i(alt_write_pointer_n_sync[1]),
+      .majority_o(write_pointer_voted),
+      .fault_detected_o(tmr_faults[1])
+    );
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if(!rst_ni) begin
+        read_pointer_q  <= '0;
+        write_pointer_q <= '0;
+      end else begin
+        if (flush_i) begin
+          read_pointer_q <= '0;
+          write_pointer_q <= '0;
+        end else begin
+          read_pointer_q  <= read_pointer_voted;
+          write_pointer_q <= write_pointer_voted;
+        end
+      end
+    end
+  end else begin : gen_tmr_after_reg
+    logic [AddrDepth:0] read_pointer_next, write_pointer_next;
+    assign read_pointer_n_sync  = read_pointer_next;
+    assign write_pointer_n_sync = write_pointer_next;
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth+1)
+    ) i_read_pointer_vote (
+      .a_i(read_pointer_next),
+      .b_i(alt_read_pointer_n_sync[0]),
+      .c_i(alt_read_pointer_n_sync[1]),
+      .majority_o(read_pointer_q),
+      .fault_detected_o(tmr_faults[0])
+    );
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth+1)
+    ) i_write_pointer_vote (
+      .a_i(write_pointer_next),
+      .b_i(alt_write_pointer_n_sync[0]),
+      .c_i(alt_write_pointer_n_sync[1]),
+      .majority_o(write_pointer_q),
+      .fault_detected_o(tmr_faults[1])
+    );
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if(!rst_ni) begin
+        read_pointer_next  <= '0;
+        write_pointer_next <= '0;
+      end else begin
+        if (flush_i) begin
+          read_pointer_next  <= '0;
+          write_pointer_next <= '0;
+        end else begin
+          read_pointer_next  <= read_pointer_n;
+          write_pointer_next <= write_pointer_n;
+        end
+      end
+    end
+  end
 endmodule
