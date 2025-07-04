@@ -226,6 +226,7 @@ module rel_rr_arb_tree #(
         assign alt_req_d_sync[i][j] = req_d_sync[(i+j+1) % 3];
         assign alt_rr_d_sync[i][j] = rr_d_sync[(i+j+1) % 3];
       end
+      (* dont_touch *)
       rel_rr_arb_tree_tmr_part #(
         .NumIn        ( NumIn ),
         .DataWidth    ( DataWidth ),
