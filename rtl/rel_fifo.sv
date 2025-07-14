@@ -25,8 +25,6 @@ module rel_fifo #(
   parameter bit          DataHasEcc  = 1'b1,
   /// Use dedicated registers for status_cnt_q (better timing, higher area, likely to be optimized away, currently unimplemented)
   parameter bit          StatusFF    = 1'b0,
-  /// Have the TMR before the register, otherwise after.
-  parameter bit          TmrBeforeReg = 1'b1,
   // DO NOT OVERWRITE THESE PARAMETERS
   parameter int unsigned AddrDepth   = cf_math_pkg::idx_width(Depth),
   parameter int unsigned HsWidth     = TmrStatus ? 3 : 1
@@ -81,8 +79,8 @@ module rel_fifo #(
                            status_cnt_q;
   logic [2:0] full, empty, push, pop, flush;
 
-  logic      [EccDataWidth-1:0] data_in;
-  logic [2:0][EccDataWidth-1:0] data_out;
+  logic [EccDataWidth-1:0] data_in;
+  logic [EccDataWidth-1:0] data_out;
 
   // actual memory
   logic [FifoDepth-1:0][EccDataWidth-1:0] mem_q;
@@ -93,13 +91,46 @@ module rel_fifo #(
     // TODO ecc decoding of data_out into data_o
   end else begin : gen_ecc_passthrough
     assign data_in = data_i;
-    `VOTE31F(data_out, data_o, tmr_faults[0])
+    assign data_o = data_out;
   end
 
   logic [2:0][AddrDepth:0] read_pointer_n_sync,
                            write_pointer_n_sync;
   logic [2:0][1:0][AddrDepth:0] alt_read_pointer_n_sync,
                                 alt_write_pointer_n_sync;
+
+  logic [2:0][EccDataWidth-1:0][AddrDepth:0] read_pointer_next;
+  logic [2:0][EccDataWidth-1:0] use_fallthrough;
+
+  logic [EccDataWidth-1:0] data_out_faults;
+  assign tmr_faults[0] = |data_out_faults;
+
+  for (genvar i = 0; i < EccDataWidth; i++) begin : gen_data_out_mux
+    logic [AddrDepth:0] read_pointer_next_local;
+    logic use_fallthrough_local;
+    logic [1:0] local_faults;
+    assign data_out_faults[i] = |local_faults;
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth+1)
+    ) i_read_pointer_next_vote (
+      .a_i(read_pointer_next[0][i]),
+      .b_i(read_pointer_next[1][i]),
+      .c_i(read_pointer_next[2][i]),
+      .majority_o(read_pointer_next_local),
+      .fault_detected_o(local_faults[0])
+    );
+    TMR_voter_fail #(
+      .VoterType(1)
+    ) i_use_fallthrough_vote (
+      .a_i(use_fallthrough[0][i]),
+      .b_i(use_fallthrough[1][i]),
+      .c_i(use_fallthrough[2][i]),
+      .majority_o(use_fallthrough_local),
+      .fault_detected_o(local_faults[1])
+    );
+    assign data_out[i] = use_fallthrough_local ?
+                         data_in[i] : mem_q[read_pointer_next_local[AddrDepth-1:0]][i];
+  end
 
   if (TmrStatus) begin : gen_tmr_status
     assign full_o = full;
@@ -138,16 +169,14 @@ module rel_fifo #(
       assign alt_read_pointer_n_sync[i][j]  = read_pointer_n_sync[(i+j+1) % 3];
       assign alt_write_pointer_n_sync[i][j] = write_pointer_n_sync[(i+j+1) % 3];
     end
-    (* dont_touch *)
     rel_fifo_tmr_part #(
       .FallThrough(FallThrough),
       .EccDataWidth(EccDataWidth),
       .Depth(Depth),
       .FifoDepth(FifoDepth),
       .AddrDepth(AddrDepth),
-      .StatusFF(StatusFF),
-      .TmrBeforeReg(TmrBeforeReg)
-    ) i_rel_fifo_tmr_part (
+      .StatusFF(StatusFF)
+    ) i_tmr_part (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
       .flush_i(flush[i]),
@@ -156,15 +185,14 @@ module rel_fifo #(
       .push_i(push[i]),
       .pop_i(pop[i]),
       .gate_clock(gate_clock[i]),
-      .data_out(data_out[i]),
-      .data_in(data_in),
+      .read_pointer_next_multi(read_pointer_next[i]),
+      .use_fallthrough_o(use_fallthrough[i]),
       .status_cnt_q(status_cnt_q[i]),
       .read_pointer_q(read_pointer_q[i]),
       .write_pointer_q(write_pointer_q[i]),
       .status_cnt_n(status_cnt_n[i]),
       .read_pointer_n(read_pointer_n[i]),
       .write_pointer_n(write_pointer_n[i]),
-      .mem_q(mem_q),
       .alt_read_pointer_n_sync(alt_read_pointer_n_sync[i]),
       .read_pointer_n_sync(read_pointer_n_sync[i]),
       .alt_write_pointer_n_sync(alt_write_pointer_n_sync[i]),
@@ -225,8 +253,7 @@ module rel_fifo_tmr_part #(
   parameter int unsigned Depth       = 8,
   parameter int unsigned FifoDepth   = 8,
   parameter int unsigned AddrDepth = 8,
-  parameter bit          StatusFF   = 1'b0,
-  parameter bit          TmrBeforeReg = 1'b1
+  parameter bit          StatusFF   = 1'b0
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -236,21 +263,27 @@ module rel_fifo_tmr_part #(
   input  logic push_i,
   input  logic pop_i,
   output logic [FifoDepth-1:0][EccDataWidth-1:0] gate_clock,
-  output logic [EccDataWidth-1:0] data_out,
-  input  logic [EccDataWidth-1:0] data_in,
+  output logic [EccDataWidth-1:0][AddrDepth:0] read_pointer_next_multi,
+  output logic [EccDataWidth-1:0] use_fallthrough_o,
   output logic [AddrDepth:0] status_cnt_q,
   output logic [AddrDepth:0] read_pointer_q,
   output logic [AddrDepth:0] write_pointer_q,
   output logic [AddrDepth:0] status_cnt_n,
   output logic [AddrDepth:0] read_pointer_n,
   output logic [AddrDepth:0] write_pointer_n,
-  input  logic [FifoDepth-1:0][EccDataWidth-1:0] mem_q,
   input  logic [1:0][AddrDepth:0] alt_read_pointer_n_sync,
   output logic      [AddrDepth:0] read_pointer_n_sync,
   input  logic [1:0][AddrDepth:0] alt_write_pointer_n_sync,
   output logic      [AddrDepth:0] write_pointer_n_sync,
   output logic [1:0] tmr_faults
 );
+
+  logic [AddrDepth:0] read_pointer_next, write_pointer_next;
+
+  for (genvar i = 0; i < EccDataWidth; i++) begin : gen_read_write_next
+    assign read_pointer_next_multi[i]  = read_pointer_next;
+    assign use_fallthrough_o[i] = FallThrough && (read_pointer_next == write_pointer_next) && push_i;
+  end
 
   if (StatusFF) begin : gen_status_ff
     $error("unimplemented");
@@ -292,7 +325,6 @@ module rel_fifo_tmr_part #(
     read_pointer_n  = read_pointer_q;
     write_pointer_n = write_pointer_q;
     status_cnt_n    = status_cnt_q;
-    data_out        = mem_q[read_pointer_q[AddrDepth-1:0]];
     gate_clock      = {FifoDepth{{EccDataWidth{1'b1}}}};
 
     // push a new element to the queue
@@ -337,8 +369,7 @@ module rel_fifo_tmr_part #(
     end
 
     // FIFO is in pass through mode -> do not change the pointers
-    if (FallThrough && (write_pointer_q == read_pointer_q) && push_i) begin
-      data_out = data_in;
+    if (FallThrough && (write_pointer_next == read_pointer_next) && push_i) begin
       if (pop_i) begin
         status_cnt_n = status_cnt_q;
         read_pointer_n = read_pointer_q;
@@ -347,45 +378,6 @@ module rel_fifo_tmr_part #(
     end
   end
 
-  if (TmrBeforeReg) begin : gen_tmr_before_reg
-    logic [AddrDepth:0] read_pointer_voted, write_pointer_voted;
-    assign read_pointer_n_sync  = read_pointer_n;
-    assign write_pointer_n_sync = write_pointer_n;
-    bitwise_TMR_voter_fail #(
-      .DataWidth(AddrDepth+1)
-    ) i_read_pointer_vote (
-      .a_i(read_pointer_n),
-      .b_i(alt_read_pointer_n_sync[0]),
-      .c_i(alt_read_pointer_n_sync[1]),
-      .majority_o(read_pointer_voted),
-      .fault_detected_o(tmr_faults[0])
-    );
-    bitwise_TMR_voter_fail #(
-      .DataWidth(AddrDepth+1)
-    ) i_write_pointer_vote (
-      .a_i(write_pointer_n),
-      .b_i(alt_write_pointer_n_sync[0]),
-      .c_i(alt_write_pointer_n_sync[1]),
-      .majority_o(write_pointer_voted),
-      .fault_detected_o(tmr_faults[1])
-    );
-
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-      if(!rst_ni) begin
-        read_pointer_q  <= '0;
-        write_pointer_q <= '0;
-      end else begin
-        if (flush_i) begin
-          read_pointer_q <= '0;
-          write_pointer_q <= '0;
-        end else begin
-          read_pointer_q  <= read_pointer_voted;
-          write_pointer_q <= write_pointer_voted;
-        end
-      end
-    end
-  end else begin : gen_tmr_after_reg
-    logic [AddrDepth:0] read_pointer_next, write_pointer_next;
     assign read_pointer_n_sync  = read_pointer_next;
     assign write_pointer_n_sync = write_pointer_next;
     bitwise_TMR_voter_fail #(
@@ -421,5 +413,4 @@ module rel_fifo_tmr_part #(
         end
       end
     end
-  end
 endmodule
