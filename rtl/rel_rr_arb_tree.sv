@@ -203,21 +203,53 @@ module rel_rr_arb_tree #(
         );
     end
 
+    localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
+    logic [2:0][$bits(DataType)-1:0][2**NumLevels-2:0] data_nodes_sel;
+
     for (genvar i = 0; i < $bits(DataType); i++) begin : gen_data_out_mux
-      idx_t local_index;
+      logic [2**NumLevels-2:0] local_sel;
+      logic [2**NumLevels-2:0] data_nodes;
       logic local_fault;
       if (i == 0) assign tmr_errors[5] = local_fault;
       bitwise_TMR_voter_fail #(
-        .DataWidth($bits(idx_t)),
+        .DataWidth(2**NumLevels-1),
         .VoterType(1)
       ) i_idx_vote (
-        .a_i(idx_data_out[0][i]),
-        .b_i(idx_data_out[1][i]),
-        .c_i(idx_data_out[2][i]),
-        .majority_o(local_index),
+        .a_i(data_nodes_sel[0][i]),
+        .b_i(data_nodes_sel[1][i]),
+        .c_i(data_nodes_sel[2][i]),
+        .majority_o(local_sel),
         .fault_detected_o(local_fault)
       );
-      assign data_o[i] = data_in[local_index][i];
+      assign data_o[i] = data_nodes[0];
+      // assign data_o[i] = data_in[local_index][i];
+      for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : gen_levels
+        for (genvar l = 0; l < 2**level; l++) begin : gen_level
+          // index calcs
+          localparam int unsigned Idx0 = 2**level-1+l;// current node
+          localparam int unsigned Idx1 = 2**(level+1)-1+l*2;
+          //////////////////////////////////////////////////////////////
+          // uppermost level where data is fed in from the inputs
+          if (unsigned'(level) == NumLevels-1) begin : gen_first_level
+            // if two successive indices are still in the vector...
+            if (unsigned'(l) * 2 < NumIn-1) begin : gen_reduce
+              assign data_nodes[Idx0]  = (local_sel[Idx0]) ? data_in[l*2+1][i] : data_in[l*2][i];
+            end
+            // if only the first index is still in the vector...
+            if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
+              assign data_nodes[Idx0]  = data_in[l*2][i];
+            end
+            // if index is out of range, fill up with zeros (will get pruned)
+            if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
+              assign data_nodes[Idx0]  = '0;
+            end
+          //////////////////////////////////////////////////////////////
+          // general case for other levels within the tree
+          end else begin : gen_other_levels
+            assign data_nodes[Idx0]  = (local_sel[Idx0]) ? data_nodes[Idx1+1] : data_nodes[Idx1];
+          end
+        end
+      end
     end
 
     /* verilator lint_off UNOPTFLAT */
@@ -279,6 +311,7 @@ module rel_rr_arb_tree #(
         .req_d_sync     ( req_d_sync[i] ),
         .alt_rr_d_sync  ( alt_rr_d_sync[i] ),
         .rr_d_sync      ( rr_d_sync[i] ),
+        .data_nodes_sel ( data_nodes_sel[i] ),
         .tmr_error      ( tmr_errors[6+i] )
       );
     end
@@ -336,7 +369,8 @@ module rel_rr_arb_tree_tmr_part #(
   parameter bit          FairArb      = 1'b1,
   parameter bit          TmrBeforeReg = 1'b0,
   parameter int unsigned IdxWidth     = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
-  parameter type         idx_t        = logic [IdxWidth-1:0]
+  parameter type         idx_t        = logic [IdxWidth-1:0],
+  localparam int unsigned NumLevels = unsigned'($clog2(NumIn))
 ) (
   input  logic                  clk_i,
   input  logic                  rst_ni,
@@ -354,10 +388,9 @@ module rel_rr_arb_tree_tmr_part #(
   output logic      [NumIn-1:0] req_d_sync,
   input  idx_t [1:0]            alt_rr_d_sync,
   output idx_t                  rr_d_sync,
+  output logic [$bits(DataType)-1:0][2**NumLevels-2:0] data_nodes_sel,
   output logic                  tmr_error
 );
-
-  localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
 
   idx_t rr_q;
   logic [NumIn-1:0] req_d;
@@ -367,6 +400,8 @@ module rel_rr_arb_tree_tmr_part #(
 
   for (genvar i = 0; i < $bits(DataType); i++) begin : gen_idx_data_out
     assign idx_data_out[i] = idx_out;
+    if (i != 0)
+      assign data_nodes_sel[i] = data_nodes_sel[0];
   end
 
   if (ExtPrio) begin : gen_ext_rr
@@ -629,6 +664,7 @@ module rel_rr_arb_tree_tmr_part #(
           assign sel =  ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
 
           assign index_nodes[Idx0] = idx_t'(sel);
+          assign data_nodes_sel[0][Idx0] = sel;
           // assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
           assign gnt_out[l*2]   = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])  & ~sel;
           assign gnt_out[l*2+1] = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
@@ -637,6 +673,7 @@ module rel_rr_arb_tree_tmr_part #(
         if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
           assign req_nodes[Idx0]   = req_d[l*2];
           assign index_nodes[Idx0] = '0;// always zero in this case
+          assign data_nodes_sel[0][Idx0] = 1'b0;
           // assign data_nodes[Idx0]  = data_i[l*2];
           assign gnt_out[l*2]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]);
         end
@@ -644,6 +681,7 @@ module rel_rr_arb_tree_tmr_part #(
         if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
           assign req_nodes[Idx0]   = 1'b0;
           assign index_nodes[Idx0] = idx_t'('0);
+          assign data_nodes_sel[0][Idx0] = '0;
           // assign data_nodes[Idx0]  = DataType'('0);
         end
       //////////////////////////////////////////////////////////////
@@ -658,6 +696,7 @@ module rel_rr_arb_tree_tmr_part #(
           idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]}) :
           idx_t'({1'b0, index_nodes[Idx1][NumLevels-unsigned'(level)-2:0]});
 
+        assign data_nodes_sel[0][Idx0] = sel;
         // assign data_nodes[Idx0]  = (sel) ? data_nodes[Idx1+1] : data_nodes[Idx1];
         assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel;
         assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel;
