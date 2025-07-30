@@ -14,7 +14,12 @@
 package hsiao_ecc_pkg;
 
   function automatic int unsigned min_ecc(int unsigned data_width);
-    min_ecc = $clog2(data_width)+2;
+    for (int unsigned i = 0; i < 10; i++) begin
+      if (2**i >= data_width + i + 1) begin
+        return i + 1;
+      end
+    end
+    // min_ecc = $clog2(data_width)+2;
   endfunction
 
   /// Static parameters for synthesizability (avoiding dynamic arrays)
