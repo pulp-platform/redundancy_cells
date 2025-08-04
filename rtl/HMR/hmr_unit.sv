@@ -89,8 +89,8 @@ module hmr_unit #(
   output logic                    redundancy_enable_o,
 
   // Rapid recovery buses
-  output rapid_recovery_t [NumSysCores-1:0] rapid_recovery_o,
-  input  core_backup_t    [NumCores-1:0]    core_backup_i,
+  output rapid_recovery_t [NumCores-1:0] rapid_recovery_o,
+  input  core_backup_t    [NumCores-1:0] core_backup_i,
 
   // Boot address is handled apart from other signals
   input  logic                              [SysDataWidth-1:0] sys_bootaddress_i,
@@ -207,6 +207,10 @@ module hmr_unit #(
 
   logic [NumCores-1:0] sp_store_is_zero;
   logic [NumCores-1:0] sp_store_will_be_zero;
+
+  assign tmr_failure_o = |tmr_failure;
+  assign tmr_error_o = |tmr_error;
+  assign dmr_failure_o = |dmr_failure;
 
   assign redundancy_enable_o = (|core_in_dmr) | (|core_in_tmr);
 
@@ -859,11 +863,11 @@ module hmr_unit #(
         if (i >= NumTMRCores) begin
           core_setback_o [i] = '0;
         end
-        if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
-          core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
-        end else begin : independent_mode
-          core_inputs_o[i] = sys_inputs_i[i];
-        end
+      end
+      if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
+        assign core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
+      end else begin : independent_mode
+        assign core_inputs_o[i] = sys_inputs_i[i];
       end
     end
 

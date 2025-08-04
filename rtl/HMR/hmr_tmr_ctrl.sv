@@ -133,7 +133,7 @@ module hmr_tmr_ctrl #(
 
         // If error detected, do resynchronization
         if (tmr_single_mismatch_i) begin
-          $display("[HMR-triple] %t - mismatch detected", $realtime);
+          // $display("[HMR-triple] %t - mismatch detected", $realtime);
           if (tmr_error_i[0]) tmr_incr_mismatches_o[0] = 1'b1;
           if (tmr_error_i[1]) tmr_incr_mismatches_o[1] = 1'b1;
           if (tmr_error_i[2]) tmr_incr_mismatches_o[2] = 1'b1;
@@ -161,7 +161,7 @@ module hmr_tmr_ctrl #(
       TMR_RELOAD: begin
         // If reload complete, finish (or reset if error happens during reload)
         if (sp_store_is_zero) begin
-          $display("[HMR-triple] %t - mismatch restored", $realtime);
+          // $display("[HMR-triple] %t - mismatch restored", $realtime);
           tmr_red_mode_d = TMR_RUN;
         end else begin
           if ((tmr_single_mismatch_i || tmr_failure_i) && tmr_reg2hw.tmr_config.setback.q &&
@@ -175,7 +175,7 @@ module hmr_tmr_ctrl #(
       TMR_RAPID: begin
         recovery_request_o = 1'b1;
         if (recovery_finished_i) begin
-          $display("[HMR-triple] %t - mismatch restored", $realtime);
+          // $display("[HMR-triple] %t - mismatch restored", $realtime);
           tmr_red_mode_d = TMR_RUN;
         end
       end
@@ -234,5 +234,20 @@ module hmr_tmr_ctrl #(
       cores_synch_q <= cores_synch_i;
     end
   end
+
+  `ifdef TARGET_SIMULATION
+  // Debug prints
+  always @(posedge clk_i) begin
+    if (tmr_red_mode_q == TMR_RUN && tmr_single_mismatch_i) begin
+      $display("[HMR-triple] %t - mismatch detected", $realtime);
+    end
+    if (tmr_red_mode_q == TMR_RELOAD && sp_store_is_zero) begin
+      $display("[HMR-triple] %t - mismatch restored", $realtime);
+    end
+    if (tmr_red_mode_q == TMR_RAPID && recovery_finished_i) begin
+      $display("[HMR-triple] %t - mismatch restored", $realtime);
+    end
+  end
+  `endif
 
 endmodule
