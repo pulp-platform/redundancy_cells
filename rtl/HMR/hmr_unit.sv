@@ -37,10 +37,12 @@ module hmr_unit #(
   parameter  type         all_inputs_t = logic,
   /// General core outputs wrapping struct
   parameter  type         nominal_outputs_t = logic,
+  parameter  nominal_outputs_t DefaultNominalOutputs = '{ default: '0 },
   /// Cores' backup output bus
   parameter  type         core_backup_t  = logic,
   /// Bus outputs wrapping struct
   parameter  type         bus_outputs_t  = logic,
+  parameter  bus_outputs_t DefaultBusOutputs = '{ default: '0 },
   /// Register bus types
   parameter  type         reg_req_t      = logic,
   parameter  type         reg_rsp_t      = logic,
@@ -460,6 +462,12 @@ module hmr_unit #(
             .error_cba_o( tmr_error_data    [            i    ][j] )
           );
         end
+      end else begin : gen_no_data_voter
+        for (genvar j = 0; j < NumBusVoters; j++) begin
+          assign tmr_bus_outputs[i][j] = DefaultBusOutputs;
+          assign tmr_failure_data[i][j] = '0;
+          assign tmr_error_data[i][j] = '0;
+        end
       end
     end
   end else begin : gen_no_tmr_voted
@@ -469,8 +477,8 @@ module hmr_unit #(
     assign tmr_failure_main = '0;
     assign tmr_failure_data = '0;
     assign tmr_failure      = '0;
-    assign tmr_nominal_outputs = '0;
-    assign tmr_bus_outputs     = '0;
+    assign tmr_nominal_outputs = DefaultNominalOutputs;
+    assign tmr_bus_outputs     = DefaultBusOutputs;
     assign top_register_resps[3].rdata = '0;
     assign top_register_resps[3].error = 1'b1;
     assign top_register_resps[3].ready = 1'b1;
@@ -593,7 +601,7 @@ module hmr_unit #(
           );
         end
       end else begin: gen_no_data_checker
-        assign dmr_bus_outputs  [i] = '0;
+        assign dmr_bus_outputs  [i] = DefaultBusOutputs;
         assign dmr_failure_data [i] = '0;
       end
 
@@ -670,8 +678,8 @@ module hmr_unit #(
     assign dmr_failure_data = '0;
     assign dmr_failure      = '0;
     assign dmr_incr_mismatches = '0;
-    assign dmr_nominal_outputs = '0;
-    assign dmr_bus_outputs     = '0;
+    assign dmr_nominal_outputs = DefaultNominalOutputs;
+    assign dmr_bus_outputs     = DefaultBusOutputs;
     assign top_register_resps[2].rdata = '0;
     assign top_register_resps[2].error = 1'b1;
     assign top_register_resps[2].ready = 1'b1;
@@ -785,8 +793,8 @@ module hmr_unit #(
             sys_nominal_outputs_o[i] = tmr_nominal_outputs[TMRCoreIndex];
             sys_bus_outputs_o[i] = tmr_bus_outputs[TMRCoreIndex];
           end else begin : disable_core // Assign disable
-            sys_nominal_outputs_o[i] = '0;
-            sys_bus_outputs_o[i]     = '0;
+            sys_nominal_outputs_o[i] = DefaultNominalOutputs;
+            sys_bus_outputs_o[i]     = DefaultBusOutputs;
           end
         end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
           if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
@@ -795,8 +803,8 @@ module hmr_unit #(
               sys_bus_outputs_o[i][j] = dmr_bus_outputs[DMRCoreIndex][j];
             end
           end else begin : disable_core // Assign disable
-            sys_nominal_outputs_o[i] = '0;
-            sys_bus_outputs_o[i]     = '0;
+            sys_nominal_outputs_o[i] = DefaultNominalOutputs;
+            sys_bus_outputs_o[i]     = DefaultBusOutputs;
           end
         end else begin : independent_mode
             sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
@@ -852,8 +860,8 @@ module hmr_unit #(
                 sys_nominal_outputs_o[i] = tmr_nominal_outputs[CoreCoreIndex];
                 sys_bus_outputs_o    [i] = tmr_bus_outputs    [CoreCoreIndex];
               end else begin : disable_core // Assign disable
-                sys_nominal_outputs_o[i] = '0;
-                sys_bus_outputs_o    [i] = '0;
+                sys_nominal_outputs_o[i] = DefaultNominalOutputs;
+                sys_bus_outputs_o    [i] = DefaultBusOutputs;
               end
             end else begin : independent_mode
               sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
@@ -916,8 +924,8 @@ module hmr_unit #(
                 sys_nominal_outputs_o[i] = dmr_nominal_outputs[CoreCoreIndex];
                 sys_bus_outputs_o    [i] = dmr_bus_outputs    [CoreCoreIndex];
               end else begin : disable_core // Assign disable
-                sys_nominal_outputs_o[i] = '0;
-                sys_bus_outputs_o    [i] = '0;
+                sys_nominal_outputs_o[i] = DefaultNominalOutputs;
+                sys_bus_outputs_o    [i] = DefaultBusOutputs;
               end
             end else begin : independent_mode
               sys_nominal_outputs_o[i] = core_nominal_outputs_i[i];
