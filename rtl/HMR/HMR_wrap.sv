@@ -1839,7 +1839,7 @@ module HMR_wrap
     end // gen_core_inputs
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = DMRFixed ? i : dmr_group_id(i);
+      localparam int unsigned CoreCoreIndex = DMRFixed ? i : dmr_group_id(i);
       if (DMRFixed && i < NumDMRGroups) begin : gen_fixed_dmr
         // CTRL
         assign sys_core_busy_o     [i] = dmr_core_busy_out[CoreCoreIndex];
