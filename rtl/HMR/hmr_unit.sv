@@ -24,29 +24,32 @@ module hmr_unit #(
   parameter  bit          TMRFixed       = 1'b0,
   /// Interleave DMR/TMR cores, alternatively with sequential grouping
   parameter  bit          InterleaveGrps = 1'b1,
-  /// rapid recovery - tbd
-  parameter  bit          RapidRecovery  = 1'b0,
-  /// Separates voters and checkers for data, which are then only checked if data request is valid
-  parameter  bit          SeparateData   = 1'b1,
-  /// Number of separate voters/checkers for individual buses
-  parameter  int unsigned NumBusVoters   = 1,
-  /// Address width of the core register file (in RISC-V it should be always 6)
-  parameter  int unsigned RfAddrWidth    = 6,
-  parameter  int unsigned SysDataWidth   = 32,
   /// General core inputs wrapping struct
   parameter  type         all_inputs_t = logic,
   /// General core outputs wrapping struct
   parameter  type         nominal_outputs_t = logic,
+  /// Default nominal outputs when output ports are disabled
   parameter  nominal_outputs_t DefaultNominalOutputs = '{ default: '0 },
-  /// Cores' backup output bus
-  parameter  type         core_backup_t  = logic,
-  /// Bus outputs wrapping struct
+  /// Separates voters and checkers for data, which are then only checked if data request is valid
+  parameter  bit          SeparateData   = 1'b0,
+  /// Number of separate voters/checkers for individual buses (requires SeparateData)
+  parameter  int unsigned NumBusVoters   = 1,
+  /// Bus outputs wrapping struct (requires SeparateData)
   parameter  type         bus_outputs_t  = logic,
+  /// Default bus outputs when output ports are disabled (requires SeparateData)
   parameter  bus_outputs_t DefaultBusOutputs = '{ default: '0 },
   /// Register bus types
   parameter  type         reg_req_t      = logic,
   parameter  type         reg_rsp_t      = logic,
-  /// Rapid recovery structure
+  /// Enables rapid recovery feature
+  parameter  bit          RapidRecovery  = 1'b0,
+  /// Address width of the core register file (in RISC-V it should be always 6) (requires RapidRecovery)
+  parameter  int unsigned RfAddrWidth    = 6,
+  /// System data width for boot address and checkpoint address (in RISC-V it should be generally be 32) (requires RapidRecovery)
+  parameter  int unsigned SysDataWidth   = 32,
+  /// Cores' backup output bus (requires RapidRecovery)
+  parameter  type         core_backup_t  = logic,
+  /// Rapid recovery structure (requires RapidRecovery)
   parameter  type         rapid_recovery_t = logic,
   // Local parameters depending on the above ones
   /// Number of TMR groups (virtual TMR cores)
@@ -67,21 +70,27 @@ module hmr_unit #(
   input  logic      clk_i ,
   input  logic      rst_ni,
 
-  // Port to configuration unit
+  /// Port to configuration unit
   input  reg_req_t  reg_request_i ,
   output reg_rsp_t  reg_response_o,
 
-  // TMR signals
+  /// TMR signals
+  /// Indicates if the TMR group has multiple mismatches
   output logic [NumTMRGroups-1:0] tmr_failure_o    ,
-  output logic [ NumSysCores-1:0] tmr_error_o      , // Should this not be NumTMRCores? or NumCores?
-  output logic [NumTMRGroups-1:0] tmr_resynch_req_o,
+  /// Indicates if the TMR group has a single mismatch
+  output logic [NumTMRGroups-1:0] tmr_error_o      ,
+  /// Resynchronization request interrupt per core, trigger software resynchronization
+  output logic [    NumCores-1:0] tmr_resynch_req_o,
+  /// Software synchronization request per core, trigger software to lock independent cores together
   output logic [    NumCores-1:0] tmr_sw_synch_req_o,
+  /// External hardware to indicate the cores are synchronized and ready to lock together
   input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
 
-  // DMR signals
+  /// DMR signals
+  /// Indicates if the DMR group has multiple mismatches
   output logic [NumDMRGroups-1:0] dmr_failure_o    ,
-  output logic [ NumSysCores-1:0] dmr_error_o      , // Should this not be NumDMRCores? or NumCores?
-  output logic [NumDMRGroups-1:0] dmr_resynch_req_o,
+
+  output logic [    NumCores-1:0] dmr_resynch_req_o,
   output logic [    NumCores-1:0] dmr_sw_synch_req_o,
   input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
   output logic                    redundancy_enable_o,
@@ -342,7 +351,7 @@ module hmr_unit #(
 
     reg_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
     reg_rsp_t [NumTMRGroups-1:0] tmr_register_resps;
-    logic [NumTMRGroups-1:0] tmr_sw_synch_req;
+    logic [NumTMRGroups-1:0] tmr_sw_resynch_req, tmr_sw_synch_req;
 
     localparam TMRSelWidth = $clog2(NumTMRGroups);
 
@@ -371,6 +380,7 @@ module hmr_unit #(
     for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign tmr_incr_mismatches[i] = '0;
       assign tmr_sw_synch_req_o[i] = '0;
+      assign tmr_resynch_req_o[i] = '0;
     end
 
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
@@ -403,7 +413,7 @@ module hmr_unit #(
         .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
 
         .setback_o            ( tmr_setback_q[i] ),
-        .sw_resynch_req_o     ( tmr_resynch_req_o[i] ),
+        .sw_resynch_req_o     ( tmr_sw_resynch_req[i] ),
         .sw_synch_req_o       ( tmr_sw_synch_req[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
         .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
@@ -424,6 +434,9 @@ module hmr_unit #(
       assign tmr_sw_synch_req_o[tmr_core_id(i, 0)] = tmr_sw_synch_req[i];
       assign tmr_sw_synch_req_o[tmr_core_id(i, 1)] = tmr_sw_synch_req[i];
       assign tmr_sw_synch_req_o[tmr_core_id(i, 2)] = tmr_sw_synch_req[i];
+      assign tmr_resynch_req_o[tmr_core_id(i, 0)] = tmr_sw_resynch_req[i];
+      assign tmr_resynch_req_o[tmr_core_id(i, 1)] = tmr_sw_resynch_req[i];
+      assign tmr_resynch_req_o[tmr_core_id(i, 2)] = tmr_sw_resynch_req[i];
 
       always_comb begin
         tmr_failure[i] = tmr_failure_main[i];
@@ -501,6 +514,7 @@ module hmr_unit #(
     reg_req_t  [NumDMRGroups-1:0] dmr_register_reqs;
     reg_rsp_t [NumDMRGroups-1:0] dmr_register_resps;
     logic [NumDMRGroups-1:0] dmr_sw_synch_req;
+    logic [NumDMRGroups-1:0] dmr_sw_resynch_req;
 
     localparam DMRSelWidth = $clog2(NumDMRGroups);
 
@@ -529,6 +543,7 @@ module hmr_unit #(
     for (genvar i = NumDMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
       assign dmr_incr_mismatches[i] = '0;
       assign dmr_sw_synch_req_o[i] = '0;
+      assign dmr_resynch_req_o[i] = '0;
     end
 
     for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_groups
@@ -556,7 +571,7 @@ module hmr_unit #(
         .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.force_recovery.qe ),
 
         .setback_o             ( dmr_setback_q         [i] ),
-        .sw_resynch_req_o      ( dmr_resynch_req_o     [i] ),
+        .sw_resynch_req_o      ( dmr_sw_resynch_req    [i] ),
         .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
         .checkpoint_o          ( checkpoint_reg_q      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
@@ -573,6 +588,8 @@ module hmr_unit #(
 
       assign dmr_sw_synch_req_o[dmr_core_id(i, 0)] = dmr_sw_synch_req[i];
       assign dmr_sw_synch_req_o[dmr_core_id(i, 1)] = dmr_sw_synch_req[i];
+      assign dmr_resynch_req_o[dmr_core_id(i, 0)] = dmr_sw_resynch_req[i];
+      assign dmr_resynch_req_o[dmr_core_id(i, 1)] = dmr_sw_resynch_req[i];
 
       /*********************
        * DMR Core Checkers *
@@ -684,6 +701,7 @@ module hmr_unit #(
     assign top_register_resps[2].error = 1'b1;
     assign top_register_resps[2].ready = 1'b1;
     assign dmr_sw_synch_req_o = '0;
+    assign dmr_resynch_req_o = '0;
     assign dmr_grp_in_independent = '1;
   end
 
@@ -879,8 +897,6 @@ module hmr_unit #(
     if (DMRFixed && NumCores % 2 != 0) $warning("Extra cores added not properly handled! :)");
     // Binding DMR outputs to zero for now
     assign dmr_failure_o     = '0;
-    assign dmr_error_o       = '0;
-    // assign dmr_resynch_req_o = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
