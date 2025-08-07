@@ -229,6 +229,7 @@ module rel_fifo #(
 
 // pragma translate_off
 `ifndef VERILATOR
+`ifndef RED_CELLS_ASSERTS_OFF
   initial begin
     assert (Depth > 0)             else $error("Depth must be greater than 0.");
   end
@@ -240,6 +241,7 @@ module rel_fifo #(
   empty_read : assert property(
     @(posedge clk_i) disable iff (~rst_ni) (empty_o |-> ~pop_i))
     else $fatal (1, "Trying to pop data although the FIFO is empty.");
+`endif
 `endif
 // pragma translate_on
 

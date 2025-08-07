@@ -317,7 +317,7 @@ module rel_rr_arb_tree #(
     end
 
     `ifndef SYNTHESIS
-    `ifndef COMMON_CELLS_ASSERTS_OFF
+    `ifndef RED_CELLS_ASSERTS_OFF
     `ifndef XSIM
     initial begin : p_assert
       assert(NumIn)
@@ -470,12 +470,12 @@ module rel_rr_arb_tree_tmr_part #(
       end
 
       `ifndef SYNTHESIS
-      `ifndef COMMON_CELLS_ASSERTS_OFF
+      `ifndef RED_CELLS_ASSERTS_OFF
         lock: assert property(
           @(posedge clk_i) disable iff (!rst_ni || flush_i)
-              LockIn |-> req_out_o && (!gnt_in_i && !flush_i) |=> idx_out_o == $past(idx_out_o)) else
-              $fatal (1, {"Lock implies same arbiter decision in next cycle if output is not ",
-                          "ready."});
+            LockIn |-> req_out_o && (!gnt_in_i && !flush_i) |=> idx_out_o == $past(idx_out_o)) else
+            $fatal (1, {"Lock implies same arbiter decision in next cycle if output is not ",
+                        "ready."});
 
         logic [NumIn-1:0] req_tmp;
         assign req_tmp = req_q & req_in_i;
