@@ -295,24 +295,24 @@ module rel_rr_arb_tree #(
         .IdxWidth     ( IdxWidth ),
         .idx_t        ( idx_t )
       ) i_tmr_part (
-        .clk_i          ( clk_i ),
-        .rst_ni         ( rst_ni ),
-        .flush_i        ( flush_i ),
-        .rr_i           ( rr_i ),
-        .req_in         ( req_in[i] ),
-        .gnt_out        ( gnt_out[i] ),
-        .req_out        ( req_out[i] ),
-        .gnt_in         ( gnt_in[i] ),
-        .idx_out        ( idx_out[i] ),
-        .idx_data_out    ( idx_data_out[i] ),
-        .alt_lock_sync  ( alt_lock_sync[i] ),
-        .lock_sync      ( lock_sync[i] ),
-        .alt_req_d_sync ( alt_req_d_sync[i] ),
-        .req_d_sync     ( req_d_sync[i] ),
-        .alt_rr_d_sync  ( alt_rr_d_sync[i] ),
-        .rr_d_sync      ( rr_d_sync[i] ),
-        .data_nodes_sel ( data_nodes_sel[i] ),
-        .tmr_error      ( tmr_errors[6+i] )
+        .clk_i            ( clk_i ),
+        .rst_ni           ( rst_ni ),
+        .flush_i          ( flush_i ),
+        .rr_i             ( rr_i ),
+        .req_in_i         ( req_in[i] ),
+        .gnt_out_o        ( gnt_out[i] ),
+        .req_out_o        ( req_out[i] ),
+        .gnt_in_i         ( gnt_in[i] ),
+        .idx_out_o        ( idx_out[i] ),
+        .idx_data_out_o   ( idx_data_out[i] ),
+        .alt_lock_sync_i  ( alt_lock_sync[i] ),
+        .lock_sync_o      ( lock_sync[i] ),
+        .alt_req_d_sync_i ( alt_req_d_sync[i] ),
+        .req_d_sync_o     ( req_d_sync[i] ),
+        .alt_rr_d_sync_i  ( alt_rr_d_sync[i] ),
+        .rr_d_sync_o      ( rr_d_sync[i] ),
+        .data_nodes_sel_o ( data_nodes_sel[i] ),
+        .tmr_error_o      ( tmr_errors[6+i] )
       );
     end
 
@@ -376,41 +376,41 @@ module rel_rr_arb_tree_tmr_part #(
   input  logic                  rst_ni,
   input  logic                  flush_i,
   input  idx_t                  rr_i,
-  input  logic      [NumIn-1:0] req_in,
-  output logic      [NumIn-1:0] gnt_out,
-  output logic                  req_out,
-  input  logic                  gnt_in,
-  output idx_t                  idx_out,
-  output idx_t [$bits(DataType)-1:0]  idx_data_out,
-  input  logic [1:0]            alt_lock_sync,
-  output logic                  lock_sync,
-  input  logic [1:0][NumIn-1:0] alt_req_d_sync,
-  output logic      [NumIn-1:0] req_d_sync,
-  input  idx_t [1:0]            alt_rr_d_sync,
-  output idx_t                  rr_d_sync,
-  output logic [$bits(DataType)-1:0][2**NumLevels-2:0] data_nodes_sel,
-  output logic                  tmr_error
+  input  logic      [NumIn-1:0] req_in_i,
+  output logic      [NumIn-1:0] gnt_out_o,
+  output logic                  req_out_o,
+  input  logic                  gnt_in_i,
+  output idx_t                  idx_out_o,
+  output idx_t [$bits(DataType)-1:0]  idx_data_out_o,
+  input  logic [1:0]            alt_lock_sync_i,
+  output logic                  lock_sync_o,
+  input  logic [1:0][NumIn-1:0] alt_req_d_sync_i,
+  output logic      [NumIn-1:0] req_d_sync_o,
+  input  idx_t [1:0]            alt_rr_d_sync_i,
+  output idx_t                  rr_d_sync_o,
+  output logic [$bits(DataType)-1:0][2**NumLevels-2:0] data_nodes_sel_o,
+  output logic                  tmr_error_o
 );
 
   idx_t rr_q;
   logic [NumIn-1:0] req_d;
 
   logic [2+NumIn-1:0]    tmr_errors;
-  assign tmr_error = |tmr_errors;
+  assign tmr_error_o = |tmr_errors;
 
   for (genvar i = 0; i < $bits(DataType); i++) begin : gen_idx_data_out
-    assign idx_data_out[i] = idx_out;
+    assign idx_data_out_o[i] = idx_out_o;
     if (i != 0)
-      assign data_nodes_sel[i] = data_nodes_sel[0];
+      assign data_nodes_sel_o[i] = data_nodes_sel_o[0];
   end
 
   if (ExtPrio) begin : gen_ext_rr
     assign rr_q = rr_i;
-    assign req_d = req_in;
+    assign req_d = req_in_i;
     assign tmr_errors = '0;
-    assign lock_sync = '0;
-    assign req_d_sync = '0;
-    assign rr_d_sync = '0;
+    assign lock_sync_o = '0;
+    assign req_d_sync_o = '0;
+    assign rr_d_sync_o = '0;
   end else begin : gen_int_rr
     idx_t rr_d;
 
@@ -418,18 +418,18 @@ module rel_rr_arb_tree_tmr_part #(
       logic lock_d, lock_q;
       logic [NumIn-1:0] req_q;
 
-      assign lock_d = req_out & ~gnt_in;
-      assign req_d = (lock_q) ? req_q : req_in;
+      assign lock_d = req_out_o & ~gnt_in_i;
+      assign req_d = (lock_q) ? req_q : req_in_i;
 
       if (TmrBeforeReg) begin : gen_lock_tmr_before_reg
         logic lock_voted;
-        assign lock_sync = lock_d;
+        assign lock_sync_o = lock_d;
         TMR_voter_fail #(
           .VoterType(1)
         ) i_lock_vote (
           .a_i(lock_d),
-          .b_i(alt_lock_sync[0]),
-          .c_i(alt_lock_sync[1]),
+          .b_i(alt_lock_sync_i[0]),
+          .c_i(alt_lock_sync_i[1]),
           .majority_o(lock_voted),
           .fault_detected_o(tmr_errors[0])
         );
@@ -446,13 +446,13 @@ module rel_rr_arb_tree_tmr_part #(
         end
       end else begin : gen_lock_tmr_after_reg
         logic lock_next;
-        assign lock_sync = lock_next;
+        assign lock_sync_o = lock_next;
         TMR_voter_fail #(
           .VoterType(1)
         ) i_lock_vote (
           .a_i(lock_next),
-          .b_i(alt_lock_sync[0]),
-          .c_i(alt_lock_sync[1]),
+          .b_i(alt_lock_sync_i[0]),
+          .c_i(alt_lock_sync_i[1]),
           .majority_o(lock_q),
           .fault_detected_o(tmr_errors[0])
         );
@@ -473,12 +473,12 @@ module rel_rr_arb_tree_tmr_part #(
       `ifndef COMMON_CELLS_ASSERTS_OFF
         lock: assert property(
           @(posedge clk_i) disable iff (!rst_ni || flush_i)
-              LockIn |-> req_out && (!gnt_in && !flush_i) |=> idx_out == $past(idx_out)) else
+              LockIn |-> req_out_o && (!gnt_in_i && !flush_i) |=> idx_out_o == $past(idx_out_o)) else
               $fatal (1, {"Lock implies same arbiter decision in next cycle if output is not ",
                           "ready."});
 
         logic [NumIn-1:0] req_tmp;
-        assign req_tmp = req_q & req_in;
+        assign req_tmp = req_q & req_in_i;
         lock_req: assume property(
           @(posedge clk_i) disable iff (!rst_ni || flush_i)
               LockIn |-> lock_d |=> req_tmp == req_q) else
@@ -489,14 +489,14 @@ module rel_rr_arb_tree_tmr_part #(
 
       if (TmrBeforeReg) begin : gen_req_tmr_before_reg
         logic [NumIn-1:0] req_voted;
-        assign req_d_sync = req_d;
+        assign req_d_sync_o = req_d;
         for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
           TMR_voter_fail #(
             .VoterType(1)
           ) i_req_d_vote (
             .a_i(req_d[i]),
-            .b_i(alt_req_d_sync[0][i]),
-            .c_i(alt_req_d_sync[1][i]),
+            .b_i(alt_req_d_sync_i[0][i]),
+            .c_i(alt_req_d_sync_i[1][i]),
             .majority_o(req_voted[i]),
             .fault_detected_o(tmr_errors[2+i])
           );
@@ -514,14 +514,14 @@ module rel_rr_arb_tree_tmr_part #(
         end
       end else begin : gen_req_tmr_after_reg
         logic [NumIn-1:0] req_next;
-        assign req_d_sync = req_next;
+        assign req_d_sync_o = req_next;
         for (genvar i = 0; i < NumIn; i++) begin : gen_vote_req
           TMR_voter_fail #(
             .VoterType(1)
           ) i_req_next_vote (
             .a_i(req_next[i]),
-            .b_i(alt_req_d_sync[0][i]),
-            .c_i(alt_req_d_sync[1][i]),
+            .b_i(alt_req_d_sync_i[0][i]),
+            .c_i(alt_req_d_sync_i[1][i]),
             .majority_o(req_q[i]),
             .fault_detected_o(tmr_errors[2+i])
           );
@@ -539,11 +539,11 @@ module rel_rr_arb_tree_tmr_part #(
         end
       end
     end else begin : gen_no_lock
-      assign req_d = req_in;
+      assign req_d = req_in_i;
       assign tmr_errors[0] = '0;
       assign tmr_errors[2:NumIn+1] = '0;
-      assign lock_sync = '0;
-      assign req_d_sync = '0;
+      assign lock_sync_o = '0;
+      assign req_d_sync_o = '0;
     end
 
 
@@ -576,23 +576,23 @@ module rel_rr_arb_tree_tmr_part #(
       );
 
       assign next_idx = upper_empty      ? lower_idx : upper_idx;
-      assign rr_d     = (gnt_in && req_out) ? next_idx  : rr_q;
+      assign rr_d     = (gnt_in_i && req_out_o) ? next_idx  : rr_q;
 
     end else begin : gen_unfair_arb
-      assign rr_d = (gnt_in && req_out) ?
+      assign rr_d = (gnt_in_i && req_out_o) ?
                     ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1) : rr_q;
     end
 
     if (TmrBeforeReg) begin : gen_rr_tmr_before_reg
       idx_t rr_voted;
-      assign rr_d_sync = rr_d;
+      assign rr_d_sync_o = rr_d;
       bitwise_TMR_voter_fail #(
         .DataWidth(IdxWidth),
         .VoterType(1)
       ) i_rr_d_vote (
         .a_i(rr_d),
-        .b_i(alt_rr_d_sync[0]),
-        .c_i(alt_rr_d_sync[1]),
+        .b_i(alt_rr_d_sync_i[0]),
+        .c_i(alt_rr_d_sync_i[1]),
         .majority_o(rr_voted),
         .fault_detected_o(tmr_errors[1])
       );
@@ -609,14 +609,14 @@ module rel_rr_arb_tree_tmr_part #(
       end
     end else begin : gen_rr_tmr_after_reg
       idx_t rr_next;
-      assign rr_d_sync = rr_next;
+      assign rr_d_sync_o = rr_next;
       bitwise_TMR_voter_fail #(
         .DataWidth(IdxWidth),
         .VoterType(1)
       ) i_rr_next_vote (
         .a_i(rr_next),
-        .b_i(alt_rr_d_sync[0]),
-        .c_i(alt_rr_d_sync[1]),
+        .b_i(alt_rr_d_sync_i[0]),
+        .c_i(alt_rr_d_sync_i[1]),
         .majority_o(rr_q),
         .fault_detected_o(tmr_errors[1])
       );
@@ -641,10 +641,10 @@ module rel_rr_arb_tree_tmr_part #(
   idx_t    [2**NumLevels-2:0] index_nodes; // used to propagate the indices
   /* lint_off */
 
-  assign req_out = req_nodes[0];
-  assign gnt_nodes[0] = gnt_in;
+  assign req_out_o = req_nodes[0];
+  assign gnt_nodes[0] = gnt_in_i;
   // assign data_nodes_0 = data_nodes[0];
-  assign idx_out = index_nodes[0];
+  assign idx_out_o = index_nodes[0];
 
   for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : gen_levels
     for (genvar l = 0; l < 2**level; l++) begin : gen_level
@@ -664,24 +664,24 @@ module rel_rr_arb_tree_tmr_part #(
           assign sel =  ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
 
           assign index_nodes[Idx0] = idx_t'(sel);
-          assign data_nodes_sel[0][Idx0] = sel;
+          assign data_nodes_sel_o[0][Idx0] = sel;
           // assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
-          assign gnt_out[l*2]   = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])  & ~sel;
-          assign gnt_out[l*2+1] = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
+          assign gnt_out_o[l*2]   = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2])  & ~sel;
+          assign gnt_out_o[l*2+1] = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
         end
         // if only the first index is still in the vector...
         if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
           assign req_nodes[Idx0]   = req_d[l*2];
           assign index_nodes[Idx0] = '0;// always zero in this case
-          assign data_nodes_sel[0][Idx0] = 1'b0;
+          assign data_nodes_sel_o[0][Idx0] = 1'b0;
           // assign data_nodes[Idx0]  = data_i[l*2];
-          assign gnt_out[l*2]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]);
+          assign gnt_out_o[l*2]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]);
         end
         // if index is out of range, fill up with zeros (will get pruned)
         if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
           assign req_nodes[Idx0]   = 1'b0;
           assign index_nodes[Idx0] = idx_t'('0);
-          assign data_nodes_sel[0][Idx0] = '0;
+          assign data_nodes_sel_o[0][Idx0] = '0;
           // assign data_nodes[Idx0]  = DataType'('0);
         end
       //////////////////////////////////////////////////////////////
@@ -696,7 +696,7 @@ module rel_rr_arb_tree_tmr_part #(
           idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]}) :
           idx_t'({1'b0, index_nodes[Idx1][NumLevels-unsigned'(level)-2:0]});
 
-        assign data_nodes_sel[0][Idx0] = sel;
+        assign data_nodes_sel_o[0][Idx0] = sel;
         // assign data_nodes[Idx0]  = (sel) ? data_nodes[Idx1+1] : data_nodes[Idx1];
         assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel;
         assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel;

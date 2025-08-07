@@ -180,24 +180,24 @@ module rel_fifo #(
       .clk_i(clk_i),
       .rst_ni(rst_ni),
       .flush_i(flush[i]),
-      .full(full[i]),
-      .empty(empty[i]),
+      .full_o(full[i]),
+      .empty_o(empty[i]),
       .push_i(push[i]),
       .pop_i(pop[i]),
-      .gate_clock(gate_clock[i]),
-      .read_pointer_next_multi(read_pointer_next[i]),
+      .gate_clock_o(gate_clock[i]),
+      .read_pointer_next_multi_o(read_pointer_next[i]),
       .use_fallthrough_o(use_fallthrough[i]),
-      .status_cnt_q(status_cnt_q[i]),
-      .read_pointer_q(read_pointer_q[i]),
-      .write_pointer_q(write_pointer_q[i]),
-      .status_cnt_n(status_cnt_n[i]),
-      .read_pointer_n(read_pointer_n[i]),
-      .write_pointer_n(write_pointer_n[i]),
-      .alt_read_pointer_n_sync(alt_read_pointer_n_sync[i]),
-      .read_pointer_n_sync(read_pointer_n_sync[i]),
-      .alt_write_pointer_n_sync(alt_write_pointer_n_sync[i]),
-      .write_pointer_n_sync(write_pointer_n_sync[i]),
-      .tmr_faults(tmr_faults[5+(2*i):4+(2*i)])
+      .status_cnt_q_o(status_cnt_q[i]),
+      .read_pointer_q_o(read_pointer_q[i]),
+      .write_pointer_q_o(write_pointer_q[i]),
+      .status_cnt_n_o(status_cnt_n[i]),
+      .read_pointer_n_o(read_pointer_n[i]),
+      .write_pointer_n_o(write_pointer_n[i]),
+      .alt_read_pointer_n_sync_i(alt_read_pointer_n_sync[i]),
+      .read_pointer_n_sync_o(read_pointer_n_sync[i]),
+      .alt_write_pointer_n_sync_i(alt_write_pointer_n_sync[i]),
+      .write_pointer_n_sync_o(write_pointer_n_sync[i]),
+      .tmr_faults_o(tmr_faults[5+(2*i):4+(2*i)])
     );
   end
 
@@ -258,30 +258,30 @@ module rel_fifo_tmr_part #(
   input  logic clk_i,
   input  logic rst_ni,
   input  logic flush_i,
-  output logic full,
-  output logic empty,
+  output logic full_o,
+  output logic empty_o,
   input  logic push_i,
   input  logic pop_i,
-  output logic [FifoDepth-1:0][EccDataWidth-1:0] gate_clock,
-  output logic [EccDataWidth-1:0][AddrDepth:0] read_pointer_next_multi,
+  output logic [FifoDepth-1:0][EccDataWidth-1:0] gate_clock_o,
+  output logic [EccDataWidth-1:0][AddrDepth:0] read_pointer_next_multi_o,
   output logic [EccDataWidth-1:0] use_fallthrough_o,
-  output logic [AddrDepth:0] status_cnt_q,
-  output logic [AddrDepth:0] read_pointer_q,
-  output logic [AddrDepth:0] write_pointer_q,
-  output logic [AddrDepth:0] status_cnt_n,
-  output logic [AddrDepth:0] read_pointer_n,
-  output logic [AddrDepth:0] write_pointer_n,
-  input  logic [1:0][AddrDepth:0] alt_read_pointer_n_sync,
-  output logic      [AddrDepth:0] read_pointer_n_sync,
-  input  logic [1:0][AddrDepth:0] alt_write_pointer_n_sync,
-  output logic      [AddrDepth:0] write_pointer_n_sync,
-  output logic [1:0] tmr_faults
+  output logic [AddrDepth:0] status_cnt_q_o,
+  output logic [AddrDepth:0] read_pointer_q_o,
+  output logic [AddrDepth:0] write_pointer_q_o,
+  output logic [AddrDepth:0] status_cnt_n_o,
+  output logic [AddrDepth:0] read_pointer_n_o,
+  output logic [AddrDepth:0] write_pointer_n_o,
+  input  logic [1:0][AddrDepth:0] alt_read_pointer_n_sync_i,
+  output logic      [AddrDepth:0] read_pointer_n_sync_o,
+  input  logic [1:0][AddrDepth:0] alt_write_pointer_n_sync_i,
+  output logic      [AddrDepth:0] write_pointer_n_sync_o,
+  output logic [1:0] tmr_faults_o
 );
 
   logic [AddrDepth:0] read_pointer_next, write_pointer_next;
 
   for (genvar i = 0; i < EccDataWidth; i++) begin : gen_read_write_next
-    assign read_pointer_next_multi[i]  = read_pointer_next;
+    assign read_pointer_next_multi_o[i]  = read_pointer_next;
     assign use_fallthrough_o[i] = FallThrough &&
                                   (read_pointer_next == write_pointer_next) &&
                                   push_i;
@@ -297,26 +297,26 @@ module rel_fifo_tmr_part #(
 
     // always_ff @(posedge clk_i or negedge rst_ni) begin : proc_status_cnt
     //   if(!rst_ni) begin
-    //     status_cnt_q <= '0;
+    //     status_cnt_q_o <= '0;
     //   end else begin
-    //     status_cnt_q <= status_cnt_d;
+    //     status_cnt_q_o <= status_cnt_d;
     //   end
     // end
   end else begin : gen_status_calc
-    assign status_cnt_q = write_pointer_q - read_pointer_q;
+    assign status_cnt_q_o = write_pointer_q_o - read_pointer_q_o;
   end
 
   if (Depth == 0) begin : gen_pass_through
-    assign empty = push_i;
-    assign full = pop_i;
+    assign empty_o = push_i;
+    assign full_o = pop_i;
   end else begin : gen_fifo
     if (StatusFF) begin : gen_full_empty_from_status
-      assign full  = (status_cnt_q == FifoDepth[AddrDepth:0]);
-      assign empty = (status_cnt_q == 0) & ~(FallThrough & push_i);
+      assign full_o  = (status_cnt_q_o == FifoDepth[AddrDepth:0]);
+      assign empty_o = (status_cnt_q_o == 0) & ~(FallThrough & push_i);
     end else begin : gen_full_empty_calc
-      assign full  = (write_pointer_q[AddrDepth-1:0] == read_pointer_q[AddrDepth-1:0] &
-                          write_pointer_q[AddrDepth]     != read_pointer_q[AddrDepth]);
-      assign empty = (write_pointer_q                == read_pointer_q) &
+      assign full_o  = (write_pointer_q_o[AddrDepth-1:0] == read_pointer_q_o[AddrDepth-1:0] &
+                          write_pointer_q_o[AddrDepth]     != read_pointer_q_o[AddrDepth]);
+      assign empty_o = (write_pointer_q_o                == read_pointer_q_o) &
                           ~(FallThrough & push_i);
     end
   end
@@ -324,81 +324,81 @@ module rel_fifo_tmr_part #(
   // read and write queue logic
   always_comb begin : read_write_comb
     // default assignment
-    read_pointer_n  = read_pointer_q;
-    write_pointer_n = write_pointer_q;
-    status_cnt_n    = status_cnt_q;
-    gate_clock      = {FifoDepth{{EccDataWidth{1'b1}}}};
+    read_pointer_n_o  = read_pointer_q_o;
+    write_pointer_n_o = write_pointer_q_o;
+    status_cnt_n_o    = status_cnt_q_o;
+    gate_clock_o      = {FifoDepth{{EccDataWidth{1'b1}}}};
 
     // push a new element to the queue
-    if (push_i && ~full) begin
+    if (push_i && ~full_o) begin
       // un-gate the clock, we want to write something
-      gate_clock[write_pointer_q[AddrDepth-1:0]] = {EccDataWidth{1'b0}};
+      gate_clock_o[write_pointer_q_o[AddrDepth-1:0]] = {EccDataWidth{1'b0}};
       // increment the write counter
       // this is dead code when DEPTH is a power of two
-      if (write_pointer_q[AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
-          write_pointer_n[AddrDepth-1:0] = '0;
-          write_pointer_n[AddrDepth] = ~write_pointer_q[AddrDepth];
+      if (write_pointer_q_o[AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
+          write_pointer_n_o[AddrDepth-1:0] = '0;
+          write_pointer_n_o[AddrDepth] = ~write_pointer_q_o[AddrDepth];
       end else begin
-          write_pointer_n = write_pointer_q + 1;
+          write_pointer_n_o = write_pointer_q_o + 1;
       end
       if (StatusFF) begin
         // increment the overall counter
-        status_cnt_n    = status_cnt_q + 1;
+        status_cnt_n_o    = status_cnt_q_o + 1;
       end
     end
 
     // pop an element from the queue
-    if (pop_i && ~empty) begin
+    if (pop_i && ~empty_o) begin
       // read from the queue is a default assignment
       // but increment the read pointer...
       // this is dead code when DEPTH is a power of two
-      if (read_pointer_q[AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
-          read_pointer_n[AddrDepth-1:0] = '0;
-          read_pointer_n[AddrDepth] = ~read_pointer_q[AddrDepth];
+      if (read_pointer_q_o[AddrDepth-1:0] == FifoDepth[AddrDepth-1:0] - 1) begin
+          read_pointer_n_o[AddrDepth-1:0] = '0;
+          read_pointer_n_o[AddrDepth] = ~read_pointer_q_o[AddrDepth];
       end else begin
-          read_pointer_n = read_pointer_q + 1;
+          read_pointer_n_o = read_pointer_q_o + 1;
       end
       // ... and decrement the overall count
       if (StatusFF) begin
-        status_cnt_n   = status_cnt_q - 1;
+        status_cnt_n_o   = status_cnt_q_o - 1;
       end
     end
 
     // keep the count pointer stable if we push and pop at the same time
     if (StatusFF) begin
-      if (push_i && pop_i &&  ~full && ~empty)
-        status_cnt_n   = status_cnt_q;
+      if (push_i && pop_i &&  ~full_o && ~empty_o)
+        status_cnt_n_o   = status_cnt_q_o;
     end
 
     // FIFO is in pass through mode -> do not change the pointers
     if (FallThrough && (write_pointer_next == read_pointer_next) && push_i) begin
       if (pop_i) begin
-        status_cnt_n = status_cnt_q;
-        read_pointer_n = read_pointer_q;
-        write_pointer_n = write_pointer_q;
+        status_cnt_n_o = status_cnt_q_o;
+        read_pointer_n_o = read_pointer_q_o;
+        write_pointer_n_o = write_pointer_q_o;
       end
     end
   end
 
-    assign read_pointer_n_sync  = read_pointer_next;
-    assign write_pointer_n_sync = write_pointer_next;
+    assign read_pointer_n_sync_o  = read_pointer_next;
+    assign write_pointer_n_sync_o = write_pointer_next;
     bitwise_TMR_voter_fail #(
       .DataWidth(AddrDepth+1)
     ) i_read_pointer_vote (
       .a_i(read_pointer_next),
-      .b_i(alt_read_pointer_n_sync[0]),
-      .c_i(alt_read_pointer_n_sync[1]),
-      .majority_o(read_pointer_q),
-      .fault_detected_o(tmr_faults[0])
+      .b_i(alt_read_pointer_n_sync_i[0]),
+      .c_i(alt_read_pointer_n_sync_i[1]),
+      .majority_o(read_pointer_q_o),
+      .fault_detected_o(tmr_faults_o[0])
     );
     bitwise_TMR_voter_fail #(
       .DataWidth(AddrDepth+1)
     ) i_write_pointer_vote (
       .a_i(write_pointer_next),
-      .b_i(alt_write_pointer_n_sync[0]),
-      .c_i(alt_write_pointer_n_sync[1]),
-      .majority_o(write_pointer_q),
-      .fault_detected_o(tmr_faults[1])
+      .b_i(alt_write_pointer_n_sync_i[0]),
+      .c_i(alt_write_pointer_n_sync_i[1]),
+      .majority_o(write_pointer_q_o),
+      .fault_detected_o(tmr_faults_o[1])
     );
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -410,8 +410,8 @@ module rel_fifo_tmr_part #(
           read_pointer_next  <= '0;
           write_pointer_next <= '0;
         end else begin
-          read_pointer_next  <= read_pointer_n;
-          write_pointer_next <= write_pointer_n;
+          read_pointer_next  <= read_pointer_n_o;
+          write_pointer_next <= write_pointer_n_o;
         end
       end
     end

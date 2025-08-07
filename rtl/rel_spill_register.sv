@@ -92,20 +92,20 @@ module rel_spill_register #(
         .T           ( T ),
         .Bypass      ( Bypass )
       ) i_tmr_part (
-        .clk_i              ( clk_i              ),
-        .rst_ni             ( rst_ni             ),
-        .alt_a_full_q_sync  ( alt_a_full_q_sync[i] ),
-        .a_full_q_sync      ( a_full_q_sync[i] ),
-        .alt_b_full_q_sync  ( alt_b_full_q_sync[i] ),
-        .b_full_q_sync      ( b_full_q_sync[i] ),
-        .a_fill_tmr         ( a_fill_tmr[i]      ),
-        .b_fill_tmr         ( b_fill_tmr[i]      ),
-        .b_full_q_tmr       ( b_full_q_tmr[i]    ),
-        .valid_i            ( valid_in[i]        ),
-        .valid_o            ( valid_out[i]       ),
-        .ready_i            ( ready_in[i]        ),
-        .ready_o            ( ready_out[i]       ),
-        .faults             ( faults[3+2*i:2+2*i] )
+        .clk_i                ( clk_i              ),
+        .rst_ni               ( rst_ni             ),
+        .alt_a_full_q_sync_i  ( alt_a_full_q_sync[i] ),
+        .a_full_q_sync_o      ( a_full_q_sync[i] ),
+        .alt_b_full_q_sync_i  ( alt_b_full_q_sync[i] ),
+        .b_full_q_sync_o      ( b_full_q_sync[i] ),
+        .a_fill_tmr_o         ( a_fill_tmr[i]      ),
+        .b_fill_tmr_o         ( b_fill_tmr[i]      ),
+        .b_full_q_tmr_o       ( b_full_q_tmr[i]    ),
+        .valid_i              ( valid_in[i]        ),
+        .valid_o              ( valid_out[i]       ),
+        .ready_i              ( ready_in[i]        ),
+        .ready_o              ( ready_out[i]       ),
+        .faults_o             ( faults[3+2*i:2+2*i] )
       );
     end
 
@@ -178,18 +178,18 @@ module rel_spill_reg_tmr_part #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  input  logic [1:0] alt_a_full_q_sync,
-  output logic a_full_q_sync,
-  input  logic [1:0] alt_b_full_q_sync,
-  output logic b_full_q_sync,
-  output logic [$bits(T)-1:0] a_fill_tmr,
-  output logic [$bits(T)-1:0] b_fill_tmr,
-  output logic [$bits(T)-1:0] b_full_q_tmr,
+  input  logic [1:0] alt_a_full_q_sync_i,
+  output logic a_full_q_sync_o,
+  input  logic [1:0] alt_b_full_q_sync_i,
+  output logic b_full_q_sync_o,
+  output logic [$bits(T)-1:0] a_fill_tmr_o,
+  output logic [$bits(T)-1:0] b_fill_tmr_o,
+  output logic [$bits(T)-1:0] b_full_q_tmr_o,
   input  logic valid_i,
   output logic valid_o,
   input  logic ready_i,
   output logic ready_o,
-  output logic [1:0] faults
+  output logic [1:0] faults_o
 );
 
   logic a_full_q;
@@ -198,45 +198,45 @@ module rel_spill_reg_tmr_part #(
   logic b_fill, b_drain;
 
   for (genvar i = 0; i < $bits(T); i++) begin : gen_tmr_fill
-    assign a_fill_tmr[i] = a_fill;
-    assign b_fill_tmr[i] = b_fill;
-    assign b_full_q_tmr[i] = b_full_q_sync;
+    assign a_fill_tmr_o[i] = a_fill;
+    assign b_fill_tmr_o[i] = b_fill;
+    assign b_full_q_tmr_o[i] = b_full_q_sync_o;
   end
 
 
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_a_data
     if (!rst_ni)
-      a_full_q_sync <= '0;
+      a_full_q_sync_o <= '0;
     else if (a_fill || a_drain)
-      a_full_q_sync <= a_fill;
+      a_full_q_sync_o <= a_fill;
   end
 
   TMR_voter_fail #(
     .VoterType ( 1 ) // KP_MV
   ) i_a_full_tmr (
-    .a_i              ( a_full_q_sync ),
-    .b_i              ( alt_a_full_q_sync[0] ),
-    .c_i              ( alt_a_full_q_sync[1] ),
+    .a_i              ( a_full_q_sync_o ),
+    .b_i              ( alt_a_full_q_sync_i[0] ),
+    .c_i              ( alt_a_full_q_sync_i[1] ),
     .majority_o       ( a_full_q ),
-    .fault_detected_o ( faults[0] )
+    .fault_detected_o ( faults_o[0] )
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_b_data
     if (!rst_ni)
-      b_full_q_sync <= '0;
+      b_full_q_sync_o <= '0;
     else if (b_fill || b_drain)
-      b_full_q_sync <= b_fill;
+      b_full_q_sync_o <= b_fill;
   end
 
   TMR_voter_fail #(
     .VoterType ( 0 ) // Classical_MV
   ) i_b_full_tmr (
-    .a_i              ( b_full_q_sync ),
-    .b_i              ( alt_b_full_q_sync[0] ),
-    .c_i              ( alt_b_full_q_sync[1] ),
+    .a_i              ( b_full_q_sync_o ),
+    .b_i              ( alt_b_full_q_sync_i[0] ),
+    .c_i              ( alt_b_full_q_sync_i[1] ),
     .majority_o       ( b_full_q ),
-    .fault_detected_o ( faults[1] )
+    .fault_detected_o ( faults_o[1] )
   );
 
   // Fill the A register when the A or B register is empty. Drain the A register
