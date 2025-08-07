@@ -149,7 +149,9 @@ module ecc_sram_wrap #(
 
     assign tcdm_rdata_o   = loaded;
 
-    assign to_store = store_state_q == NORMAL ? tcdm_wdata_i : (be_selector & input_buffer_q) | (~be_selector & loaded);
+    assign to_store = store_state_q == NORMAL ?
+                      tcdm_wdata_i :
+                      (be_selector & input_buffer_q) | (~be_selector & loaded);
 
   end else begin : gen_ecc_input
 

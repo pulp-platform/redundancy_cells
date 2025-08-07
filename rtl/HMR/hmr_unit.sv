@@ -65,7 +65,8 @@ module hmr_unit #(
   /// Number of physical cores NOT used for DMR
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
   /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
-  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups : TMRFixed ? NumTMRGroups : NumCores
+  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups :
+                                           TMRFixed ? NumTMRGroups : NumCores
 ) (
   input  logic      clk_i ,
   input  logic      rst_ni,
@@ -114,47 +115,48 @@ module hmr_unit #(
   input  nominal_outputs_t [NumCores-1:0]                   core_nominal_outputs_i,
   input  bus_outputs_t     [NumCores-1:0][NumBusVoters-1:0] core_bus_outputs_i
 );
-  function int max(int a, int b);
+  function automatic int max(int a, int b);
     return (a > b) ? a : b;
   endfunction
 
-  localparam int unsigned NumBackupRegs = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
+  localparam int unsigned NumBackupRegs = max(DMRSupported || DMRFixed ? NumDMRGroups : 0,
+                                              TMRSupported || TMRFixed ? NumTMRGroups : 0);
 
-  function int tmr_group_id (int core_id);
+  function automatic int tmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumTMRGroups;
     else                return (core_id/3);
   endfunction
 
-  function int tmr_core_id (int group_id, int core_offset);
+  function automatic int tmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumTMRGroups;
     else                return (group_id * 3) + core_offset;
   endfunction
 
-  function int tmr_shared_id (int group_id);
+  function automatic int tmr_shared_id (int group_id);
     if (InterleaveGrps || !(DMRSupported || DMRFixed)) return group_id;
     else                return group_id + group_id/2;
   endfunction
 
-  function int tmr_offset_id (int core_id);
+  function automatic int tmr_offset_id (int core_id);
     if (InterleaveGrps) return core_id / NumTMRGroups;
     else                return core_id % 3;
   endfunction
 
-  function int dmr_group_id (int core_id);
+  function automatic int dmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumDMRGroups;
     else                return (core_id/2);
   endfunction
 
-  function int dmr_core_id (int group_id, int core_offset);
+  function automatic int dmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumDMRGroups;
     else                return (group_id * 2) + core_offset;
   endfunction
 
-  function int dmr_shared_id (int group_id);
+  function automatic int dmr_shared_id (int group_id);
     return group_id;
   endfunction
 
-  function int dmr_offset_id (int core_id);
+  function automatic int dmr_offset_id (int core_id);
     if (InterleaveGrps) return core_id / NumDMRGroups;
     else                return core_id % 2;
   endfunction
@@ -220,12 +222,23 @@ module hmr_unit #(
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
-    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ? ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
-    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ? ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
-    assign core_en_as_master[i] = ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[i]) &
-                                  ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
-    assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) && i < NumDMRCores && RapidRecovery ? dmr_rapid_recovery_en[dmr_group_id(i)] : '0;
-    assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) && i < NumTMRCores && RapidRecovery ? tmr_rapid_recovery_en[tmr_group_id(i)] : '0;
+    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ?
+                             ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
+    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ?
+                             ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
+    assign core_en_as_master[i] =
+      ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[i]) &
+      ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
+    assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) &&
+                                           i < NumDMRCores &&
+                                           RapidRecovery ?
+                                           dmr_rapid_recovery_en[dmr_group_id(i)] :
+                                           '0;
+    assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) &&
+                                           i < NumTMRCores &&
+                                           RapidRecovery ?
+                                           tmr_rapid_recovery_en[tmr_group_id(i)] :
+                                           '0;
   end
 
   reg_req_t [3:0] top_register_reqs;
@@ -339,7 +352,8 @@ module hmr_unit #(
     assign core_config_hw2reg[i].current_mode.dual.d        = core_in_dmr[i];
     assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
     assign sp_store_is_zero[i] = core_config_reg2hw[i].sp_store.q == '0;
-    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe && core_register_reqs[i].wdata == '0;
+    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe &&
+                                      core_register_reqs[i].wdata == '0;
   end
 
   /**********************************************************
@@ -353,15 +367,15 @@ module hmr_unit #(
     reg_rsp_t [NumTMRGroups-1:0] tmr_register_resps;
     logic [NumTMRGroups-1:0] tmr_sw_resynch_req, tmr_sw_synch_req;
 
-    localparam TMRSelWidth = $clog2(NumTMRGroups);
+    localparam int unsigned TMRSelWidth = $clog2(NumTMRGroups);
 
     /***************
      *  Registers  *
      ***************/
-    if (NumTMRGroups == 1) begin
+    if (NumTMRGroups == 1) begin : gen_single_tmr_group_reg_connect
       assign tmr_register_reqs[0] = top_register_reqs[3];
       assign top_register_resps[3] = tmr_register_resps[0];
-    end else begin
+    end else begin : gen_multi_tmr_group_reg_connect
       reg_demux #(
         .NoPorts    ( NumTMRGroups ),
         .req_t      ( reg_req_t    ),
@@ -417,7 +431,9 @@ module hmr_unit #(
         .sw_synch_req_o       ( tmr_sw_synch_req[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
         .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
-        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,2)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,0)]} ),
+        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,2)],
+                                 tmr_incr_mismatches[tmr_core_id(i,1)],
+                                 tmr_incr_mismatches[tmr_core_id(i,0)]} ),
         .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
         .tmr_error_i          ( tmr_error[i] ),
         .tmr_failure_i        ( tmr_failure[i] ),
@@ -462,7 +478,7 @@ module hmr_unit #(
         .error_cba_o( tmr_error_main        [            i    ] )
       );
       if (SeparateData) begin : gen_data_voter
-        for (genvar j = 0; j < NumBusVoters; j++) begin
+        for (genvar j = 0; j < NumBusVoters; j++) begin : gen_bus_voter
           bitwise_TMR_voter #(
             .DataWidth( $bits(bus_outputs_t) ),
             .VoterType( 0 )
@@ -476,7 +492,7 @@ module hmr_unit #(
           );
         end
       end else begin : gen_no_data_voter
-        for (genvar j = 0; j < NumBusVoters; j++) begin
+        for (genvar j = 0; j < NumBusVoters; j++) begin : gen_tieoffs
           assign tmr_bus_outputs[i][j] = DefaultBusOutputs;
           assign tmr_failure_data[i][j] = '0;
           assign tmr_error_data[i][j] = '0;
@@ -516,15 +532,15 @@ module hmr_unit #(
     logic [NumDMRGroups-1:0] dmr_sw_synch_req;
     logic [NumDMRGroups-1:0] dmr_sw_resynch_req;
 
-    localparam DMRSelWidth = $clog2(NumDMRGroups);
+    localparam int unsigned DMRSelWidth = $clog2(NumDMRGroups);
 
     /***************
      *  Registers  *
      ***************/
-    if (NumDMRGroups == 1) begin
+    if (NumDMRGroups == 1) begin : gen_single_dmr_group_reg_connect
       assign dmr_register_reqs[0] = top_register_reqs[2];
       assign top_register_resps[2] = dmr_register_resps[0];
-    end else begin
+    end else begin : gen_multi_dmr_group_reg_connect
       reg_demux #(
         .NoPorts    ( NumDMRGroups ),
         .req_t      ( reg_req_t    ),
@@ -576,7 +592,8 @@ module hmr_unit #(
         .checkpoint_o          ( checkpoint_reg_q      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
         .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
-        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 1)], dmr_incr_mismatches[dmr_core_id(i, 0)]} ),
+        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 1)],
+                                  dmr_incr_mismatches[dmr_core_id(i, 0)]} ),
         .dmr_error_i           ( dmr_failure           [i] ),
 
         .fetch_en_i            ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
@@ -605,7 +622,7 @@ module hmr_unit #(
         .error_o ( dmr_failure_main      [            i    ] )
       );
       if (SeparateData) begin : gen_data_checker
-        for (genvar j = 0; j < NumBusVoters; j++) begin
+        for (genvar j = 0; j < NumBusVoters; j++) begin : gen_bus_checker
           DMR_checker # (
             .check_bus_t ( bus_outputs_t )
           ) dmr_core_checker_data (
@@ -636,9 +653,10 @@ module hmr_unit #(
           .error_o ( dmr_failure_backup [       i    ] )
         );
 
-        assign rapid_recovery_backup_en_inp[i] = core_in_tmr[i] ? (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0) // TMR mode
-                                               : core_in_dmr[i] ? (rapid_recovery_backup_en_oup[i] & ~dmr_failure[i] )        // DMR mode
-                                               : 1'b1;                                                                        // Independent
+        assign rapid_recovery_backup_en_inp[i] =
+            core_in_tmr[i] ? (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0)// TMR mode
+          : core_in_dmr[i] ? (rapid_recovery_backup_en_oup[i] & ~dmr_failure[i] )    // DMR mode
+          : 1'b1;                                                                    // Independent
         rapid_recovery_unit    #(
           .RfAddrWidth          ( RfAddrWidth                         ),
           .DataWidth            ( SysDataWidth                        ),
@@ -707,7 +725,7 @@ module hmr_unit #(
 
   if (RapidRecovery) begin: gen_rapid_recovery_connection
 
-    for (genvar i = 0; i < NumBackupRegs; i++) begin
+    for (genvar i = 0; i < NumBackupRegs; i++) begin : gen_core_backup_regs
       always_ff @(posedge clk_i, negedge rst_ni) begin
         if (~rst_ni) begin
           core_backup_q[i] <= '0;
@@ -732,7 +750,8 @@ module hmr_unit #(
         end
       end
       for (int i = 0; i < NumDMRGroups; i++) begin
-        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) && dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
+        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) &&
+            dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
           rapid_recovery_nominal[dmr_shared_id(i)] = dmr_nominal_outputs[i];
           rapid_recovery_backup_bus[dmr_shared_id(i)] = dmr_backup_outputs[i];
           rapid_recovery_start[dmr_shared_id(i)]   = dmr_recovery_start[i];
@@ -740,7 +759,8 @@ module hmr_unit #(
         end
       end
       for (int i = 0; i < NumTMRGroups; i++) begin
-        if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) && tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
+        if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) &&
+            tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
           rapid_recovery_nominal[tmr_shared_id(i)] = tmr_nominal_outputs[i];
           rapid_recovery_start[tmr_shared_id(i)]   = tmr_recovery_start[i];
           tmr_recovery_finished[i]                 = rapid_recovery_finished[tmr_shared_id(i)];
@@ -763,22 +783,23 @@ module hmr_unit #(
     if (TMRFixed || DMRFixed) $fatal(1, "Cannot support both TMR and DMR and fix one!");
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam TMRCoreIndex = tmr_core_id(tmr_group_id(i), 0);
-      localparam DMRCoreIndex = dmr_core_id(dmr_group_id(i), 0);
+      localparam int unsigned TMRCoreIndex = tmr_core_id(tmr_group_id(i), 0);
+      localparam int unsigned DMRCoreIndex = dmr_core_id(dmr_group_id(i), 0);
 
       always_comb begin
         // Special signals
         core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
-                                checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
+                              checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = (core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : 
-                                  (core_in_tmr[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0));
+          rapid_recovery_o  [i] =
+            (core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] :
+            (core_in_tmr[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0));
 
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
-                                | (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : 
-                                  (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0));
+              | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
+              | (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] :
+                (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0));
         end else begin
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
                                 | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)];
@@ -786,11 +807,13 @@ module hmr_unit #(
         if (i >= NumTMRCores && i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
         end else if (i < NumTMRCores && i >= NumDMRCores) begin
-          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)]
-                                | (RapidRecovery ? (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
+          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)] |
+            (RapidRecovery ?
+              (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
         end else if (i >= NumTMRCores && i < NumDMRCores) begin
-          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)]
-                                | (RapidRecovery ? (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
+          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)] |
+            (RapidRecovery ?
+              (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
         end
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           core_inputs_o[i] = sys_inputs_i[TMRCoreIndex];
@@ -803,8 +826,8 @@ module hmr_unit #(
     end
 
     for (genvar i = 0; i < NumSysCores/*==NumCores*/; i++) begin : gen_core_outputs
-      localparam TMRCoreIndex = tmr_group_id(i);
-      localparam DMRCoreIndex = dmr_group_id(i);
+      localparam int unsigned TMRCoreIndex = tmr_group_id(i);
+      localparam int unsigned DMRCoreIndex = dmr_group_id(i);
       always_comb begin
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
@@ -836,15 +859,16 @@ module hmr_unit #(
      *** TMR only ***
      *****************/
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
+      localparam int unsigned SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
         // Special signals
         core_bootaddress_o[i] = (checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] != '0) ?
-                                checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
+                            checkpoint_reg_q[dmr_shared_id(dmr_group_id(i))] : sys_bootaddress_i;
         // Setback
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = core_in_tmr[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0;
+          rapid_recovery_o  [i] = core_in_tmr[i] ?
+                                  rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0;
 
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
                                 | rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))];
@@ -863,15 +887,17 @@ module hmr_unit #(
     end
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
+      localparam int unsigned CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
       if (TMRFixed && i < NumTMRGroups) begin : fixed_tmr
         assign sys_nominal_outputs_o[i] = tmr_nominal_outputs[CoreCoreIndex];
         assign sys_bus_outputs_o    [i] = tmr_bus_outputs    [CoreCoreIndex];
-      end else begin
-        if (i >= NumTMRCores) begin : independent_stragglers
-          assign sys_nominal_outputs_o[i] = core_nominal_outputs_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_bus_outputs_o    [i] = core_bus_outputs_i    [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-        end else begin
+      end else begin : gen_not_fixed_tmr
+        if (i >= NumTMRCores) begin : gen_independent_stragglers
+          assign sys_nominal_outputs_o[i] =
+            core_nominal_outputs_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_bus_outputs_o    [i] =
+            core_bus_outputs_i    [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+        end else begin : gen_normal_tmr
           always_comb begin
             if (core_in_tmr[i]) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
@@ -899,14 +925,15 @@ module hmr_unit #(
     assign dmr_failure_o     = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
+      localparam int unsigned SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       always_comb begin
         core_bootaddress_o[i] = (checkpoint_reg_q[SysCoreIndex] != '0) ?
                                 checkpoint_reg_q[SysCoreIndex] : sys_bootaddress_i;
         // Setback
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : '0;
+          rapid_recovery_o  [i] = core_in_dmr[i] ?
+                                  rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : '0;
 
           core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)]
                                 | rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))];
@@ -925,15 +952,17 @@ module hmr_unit #(
     end // gen_core_inputs
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = DMRFixed ? i : dmr_group_id(i);
+      localparam int unsigned CoreCoreIndex = DMRFixed ? i : dmr_group_id(i);
       if (DMRFixed && i < NumDMRGroups) begin : fixed_dmr
         assign sys_nominal_outputs_o[i] = dmr_nominal_outputs[CoreCoreIndex];
         assign sys_bus_outputs_o    [i] = dmr_bus_outputs    [CoreCoreIndex];
-      end else begin
-        if (i >= NumDMRCores) begin : independent_stragglers
-          assign sys_nominal_outputs_o[i] = core_nominal_outputs_i[DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
-          assign sys_bus_outputs_o    [i] = core_bus_outputs_i    [DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
-        end else begin
+      end else begin : gen_not_fixed_dmr
+        if (i >= NumDMRCores) begin : gen_independent_stragglers
+          assign sys_nominal_outputs_o[i] =
+            core_nominal_outputs_i[DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
+          assign sys_bus_outputs_o    [i] =
+            core_bus_outputs_i    [DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
+        end else begin : gen_normal_dmr
           always_comb begin
             if (core_in_dmr[i]) begin : dmr_mode
               if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core

@@ -72,16 +72,16 @@ module recovery_rf #(
 );
 
   // number of integer registers
-  localparam NUM_WORDS = 2 ** (ADDR_WIDTH - 1);
+  localparam int unsigned NUM_WORDS = 2 ** (ADDR_WIDTH - 1);
   // number of floating point registers
-  localparam NUM_FP_WORDS = 2 ** (ADDR_WIDTH - 1);
-  localparam NUM_TOT_WORDS = FPU ? (PULP_ZFINX ? NUM_WORDS : NUM_WORDS + NUM_FP_WORDS) : NUM_WORDS;
+  localparam int unsigned NUM_FP_WORDS = 2 ** (ADDR_WIDTH - 1);
+  localparam int unsigned NUM_TOT_WORDS = FPU ? (PULP_ZFINX ? NUM_WORDS : NUM_WORDS + NUM_FP_WORDS) : NUM_WORDS;
 
   // integer register file
   logic [NonProtectedWidth-1:0] mem     [NUM_WORDS];
   logic [        DataWidth-1:0] ecc_mem [NUM_WORDS];
   logic [NUM_TOT_WORDS-1:1] waddr_onehot_a;
-  logic [NUM_TOT_WORDS-1:1] waddr_onehot_b  , 
+  logic [NUM_TOT_WORDS-1:1] waddr_onehot_b  ,
                             waddr_onehot_b_q;
   logic [NUM_TOT_WORDS-1:1] mem_clocks;
   logic [DataWidth-1:0] wdata_a    ,
@@ -111,20 +111,20 @@ module recovery_rf #(
 
   generate
     if (ECCEnabled) begin : gen_ecc_region
-    
+
       prim_secded_39_32_enc a_port_ecc_encoder (
         .in  ( wdata_a_i  ),
         .out ( wdata_a_ecc)
       );
       assign wdata_a = wdata_a_ecc;
-    
+
       prim_secded_39_32_enc b_port_ecc_encoder (
         .in  ( wdata_b_i  ),
         .out ( wdata_b_ecc)
       );
       assign wdata_b = wdata_b_ecc;
-    
-      for (genvar index = 0; index < NUM_WORDS; index++) begin
+
+      for (genvar index = 0; index < NUM_WORDS; index++) begin : gen_internal_decoder
         prim_secded_39_32_dec internal_memory_decoder (
           .in         ( ecc_mem [index] ),
           .d_o        ( mem [index]     ),
@@ -132,9 +132,9 @@ module recovery_rf #(
           .err_o      (                 )
         );
       end
-      
-      if (FPU == 1 && PULP_ZFINX == 0) begin
-        for (genvar index = 0; index < NUM_FP_WORDS; index++) begin
+
+      if (FPU == 1 && PULP_ZFINX == 0) begin : gen_fp_decoders
+        for (genvar index = 0; index < NUM_FP_WORDS; index++) begin : gen_internal_fp_decoder
           prim_secded_39_32_dec internal_fp_memory_decoder (
             .in         ( ecc_mem_fp [index]  ),
             .d_o        ( mem_fp [index]      ),
@@ -151,7 +151,7 @@ module recovery_rf #(
 
       for (genvar index = 0; index < NUM_WORDS; index++)
         assign mem [index] = ecc_mem [index];
-    
+
       for (genvar index = 0; index < NUM_FP_WORDS; index++)
         assign mem_fp [index] = ecc_mem_fp [index];
     end
@@ -160,11 +160,11 @@ module recovery_rf #(
   //-----------------------------------------------------------------------------
   //-- READ : Read address decoder RAD
   //-----------------------------------------------------------------------------
-  if (FPU == 1 && PULP_ZFINX == 0) begin
+  if (FPU == 1 && PULP_ZFINX == 0) begin : gen_mem_fp_read
     assign rdata_a_o = raddr_a_i[5] ? mem_fp[raddr_a_i[4:0]] : mem[raddr_a_i[4:0]];
     assign rdata_b_o = raddr_b_i[5] ? mem_fp[raddr_b_i[4:0]] : mem[raddr_b_i[4:0]];
     assign rdata_c_o = raddr_c_i[5] ? mem_fp[raddr_c_i[4:0]] : mem[raddr_c_i[4:0]];
-  end else begin
+  end else begin : gen_standard_read
     assign rdata_a_o = mem[raddr_a_i[4:0]];
     assign rdata_b_o = mem[raddr_b_i[4:0]];
     assign rdata_c_o = mem[raddr_c_i[4:0]];
@@ -245,7 +245,7 @@ module recovery_rf #(
     end
   end
 
-  if (FPU == 1 && PULP_ZFINX == 0) begin
+  if (FPU == 1 && PULP_ZFINX == 0) begin : gen_mem_fp_latch
     // Floating point registers
     always_latch begin : latch_wdata_fp
       if (FPU == 1) begin

@@ -51,6 +51,14 @@ jobs:
             ./rtl/ecc_wrap/ecc_manager_reg_top.sv
             ./rtl/ODRG_unit/odrg_manager_reg_pkg.sv
             ./rtl/ODRG_unit/odrg_manager_reg_top.sv
+            ./rtl/HMR/hmr_core_regs_reg_pkg.sv
+            ./rtl/HMR/hmr_core_regs_reg_top.sv
+            ./rtl/HMR/hmr_dmr_regs_reg_pkg.sv
+            ./rtl/HMR/hmr_dmr_regs_reg_top.sv
+            ./rtl/HMR/hmr_registers_reg_pkg.sv
+            ./rtl/HMR/hmr_registers_reg_top.sv
+            ./rtl/HMR/hmr_tmr_regs_reg_pkg.sv
+            ./rtl/HMR/hmr_tmr_regs_reg_top.sv
             ./rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
             ./rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
           extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files .github/waiver.verible"

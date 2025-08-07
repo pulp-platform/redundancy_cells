@@ -7,10 +7,10 @@
  * this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
- * 
+ *
  * Dual Modular Redundancy Controller
- * Handles the occurrence of errors and starts recovery routine 
- * 
+ * Handles the occurrence of errors and starts recovery routine
+ *
  */
 
 module DMR_controller
@@ -123,7 +123,7 @@ end
  * Routine start signal.
  * Checks if there are any errors from external checkers to start the FSM Recovery Routine.
  */
-assign routine_start = (|dmr_rf_checker_error_port_a_i) | 
+assign routine_start = (|dmr_rf_checker_error_port_a_i) |
                        (|dmr_rf_checker_error_port_a_i) |
                        (|dmr_core_checker_error_main_i) |
                        (|dmr_core_checker_error_data_i) ;
@@ -153,7 +153,7 @@ end
  * inexistent instruction requests towards iCache while the cores are in debug mode (halted).
  */
 generate
-  for (genvar i = 0; i < NumDMRGroups; i++) begin
+  for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_core_instr_lock
     always_ff @(posedge clk_i, negedge rst_ni) begin : instruction_lock_registers
       if (~rst_ni) begin
         dmr_ctrl_core_instr_lock_q [i] <= 1'b0;
@@ -172,7 +172,7 @@ endgenerate
  * Clock gate the cores that do not need to recover during the recovery routine.
  */
 generate
-  for (genvar i = 0; i < NumDMRGroups; i++) begin
+  for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_clk_en
     always_ff @(posedge clk_i, negedge rst_ni) begin : core_clock_enable
       if (~rst_ni) begin
         dmr_ctrl_core_clk_en_q [i] <= 1'b1;
@@ -192,7 +192,7 @@ endgenerate
  * allow their register files to be reloaded with the RRF content.
  */
 generate
-  for (genvar i = 0; i < NumDMRGroups; i++) begin
+  for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_core_recover
     always_ff @(posedge clk_i, negedge rst_ni) begin : core_recover_registers
       if (~rst_ni) begin
         dmr_ctrl_core_recover_q [i] <= 1'b0;
@@ -212,7 +212,7 @@ endgenerate
  * from sampling new values from the cores.
  */
 generate
-  for (genvar i = 0; i < NumDMRGroups; i++) begin
+  for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_pc_write_enable
     always_ff @(posedge clk_i, negedge rst_ni) begin : program_counter_write_enable
       if (~rst_ni) begin
         dmr_ctrl_pc_write_enable_q [i] <= 1'b1;
@@ -310,7 +310,7 @@ always_comb begin : recovery_routine_fsm
       end else
         next = current;
     end
-    
+
     RESET: begin
       dmr_ctrl_core_setback_out [error_index_q] = 1'b1;
       dmr_ctrl_core_instr_lock_d [error_index_q] = 1'b1;
@@ -321,7 +321,7 @@ always_comb begin : recovery_routine_fsm
       end
       next = HALT_REQ;
     end
-    
+
     HALT_REQ: begin
       dmr_ctrl_core_debug_req_out [error_index_q] = 1'b1;
       next = HALT_WAIT;
@@ -343,7 +343,7 @@ always_comb begin : recovery_routine_fsm
       end else
         next = current;
     end
-    
+
     RESTORE_RF: begin
       dmr_ctrl_core_recover_d [error_index_q] = 1'b1;
       addr_gen_start = 1'b1;
@@ -354,7 +354,7 @@ always_comb begin : recovery_routine_fsm
       end else
         next = current;
     end
-    
+
     RESTORE_CSR: begin
     end
 
@@ -362,6 +362,9 @@ always_comb begin : recovery_routine_fsm
       clear = 1'b1;
       next =  IDLE;
     end
+
+    // Default: do nothing
+    default: ;
   endcase
 end : recovery_routine_fsm
 

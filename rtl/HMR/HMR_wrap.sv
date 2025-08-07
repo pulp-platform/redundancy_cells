@@ -51,7 +51,8 @@ module HMR_wrap
   /// Number of physical cores NOT used for DMR
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
   /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
-  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRCores : TMRFixed ? NumTMRCores : NumCores
+  localparam int unsigned NumSysCores    = DMRFixed ? NumDMRCores :
+                                           TMRFixed ? NumTMRCores : NumCores
 ) (
   input  logic      clk_i ,
   input  logic      rst_ni,
@@ -130,7 +131,7 @@ module HMR_wrap
   input  logic [NumSysCores-1:0][ UserWidth-1:0]     sys_data_r_user_i  ,
   input  logic [NumSysCores-1:0]                     sys_data_r_valid_i ,
   input  logic [NumSysCores-1:0]                     sys_data_err_i     ,
-                                                     
+
   input  logic [NumSysCores-1:0][NumExtPerf-1:0]     sys_perf_counters_i,
 
   // Ports connecting to the cores
@@ -174,47 +175,47 @@ module HMR_wrap
 
   // APU/SHARED_FPU not implemented
 );
-  function int max(int a, int b);
+  function automatic int max(int a, int b);
     return (a > b) ? a : b;
   endfunction
 
   localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
 
-  function int tmr_group_id (int core_id);
+  function automatic int tmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumTMRGroups;
     else                return (core_id/3);
   endfunction
 
-  function int tmr_core_id (int group_id, int core_offset);
+  function automatic int tmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumTMRGroups;
     else                return (group_id * 3) + core_offset;
   endfunction
 
-  function int tmr_shared_id (int group_id);
+  function automatic int tmr_shared_id (int group_id);
     if (InterleaveGrps || !(DMRSupported || DMRFixed)) return group_id;
     else                return group_id + group_id/2;
   endfunction
 
-  function int tmr_offset_id (int core_id);
+  function automatic int tmr_offset_id (int core_id);
     if (InterleaveGrps) return core_id / NumTMRGroups;
     else                return core_id % 3;
   endfunction
 
-  function int dmr_group_id (int core_id);
+  function automatic int dmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumDMRGroups;
     else                return (core_id/2);
   endfunction
 
-  function int dmr_core_id (int group_id, int core_offset);
+  function automatic int dmr_core_id (int group_id, int core_offset);
     if (InterleaveGrps) return group_id + core_offset * NumDMRGroups;
     else                return (group_id * 2) + core_offset;
   endfunction
 
-  function int dmr_shared_id (int group_id);
+  function automatic int dmr_shared_id (int group_id);
     return group_id;
   endfunction
 
-  function int dmr_offset_id (int core_id);
+  function automatic int dmr_offset_id (int core_id);
     if (InterleaveGrps) return core_id / NumDMRGroups;
     else                return core_id % 2;
   endfunction
@@ -296,7 +297,7 @@ module HMR_wrap
                                                  tmr_backup_regfile_we_a,
                                                  tmr_backup_regfile_we_b,
                                                  tmr_recovery_finished;
- 
+
   logic [NumBackupRegfiles-1:0][RFAddrWidth-1:0] backup_regfile_waddr_a,
                                                 backup_regfile_waddr_b;
   logic [NumBackupRegfiles-1:0][ DataWidth-1:0] backup_branch_addr_int,
@@ -326,7 +327,8 @@ module HMR_wrap
   regfile_raddr_t [NumBackupRegfiles-1:0] core_regfile_raddr_out;
   regfile_rdata_t [NumBackupRegfiles-1:0] core_recovery_regfile_rdata_out;
   regfile_write_t [NumBackupRegfiles-1:0] core_recovery_regfile_wport_out;
-  csrs_intf_t     [NumBackupRegfiles-1:0] backup_csr_int, dmr_backup_csr, tmr_backup_csr, recovery_csr_out;
+  csrs_intf_t     [NumBackupRegfiles-1:0] backup_csr_int, dmr_backup_csr,
+                                          tmr_backup_csr, recovery_csr_out;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_concat
     if (SeparateData) begin : gen_separate_data
@@ -352,8 +354,9 @@ module HMR_wrap
                                   core_data_be_i[i], core_data_user_i[i]};
     end else begin : gen_single_group
       assign main_concat_in[i] = {core_core_busy_i[i], core_irq_ack_i[i], core_irq_ack_id_i[i],
-                                  core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i], core_data_add_i[i], 
-                                  core_data_wen_i[i], core_data_wdata_i[i], core_data_be_i[i], core_data_user_i[i],
+                                  core_instr_req_i[i], core_instr_addr_i[i], core_data_req_i[i],
+                                  core_data_add_i[i], core_data_wen_i[i], core_data_wdata_i[i],
+                                  core_data_be_i[i], core_data_user_i[i],
                                   // CSRs signals
                                   backup_csr_i[i].csr_mstatus , //  7-bits
                                   backup_csr_i[i].csr_mie     , // 32-bits
@@ -382,7 +385,7 @@ module HMR_wrap
   logic [NumSysCores-1:0][DataWidth-1:0] filt_data_data;
   logic [NumSysCores-1:0][BeWidth-1:0] filt_data_be;
 
-  for (genvar i = 0; i < NumSysCores; i++) begin
+  for (genvar i = 0; i < NumSysCores; i++) begin : gen_resp_suppress
     resp_suppress #(
       .AW (32),
       .DW (DataWidth)
@@ -459,12 +462,24 @@ module HMR_wrap
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
     assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
-    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ? ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
-    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ? ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
-    assign core_en_as_master[i] = ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[i]) &
-                                  ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
-    assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) && i < NumDMRCores && RapidRecovery ? dmr_rapid_recovery_en[dmr_group_id(i)] : '0;
-    assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) && i < NumTMRCores && RapidRecovery ? tmr_rapid_recovery_en[tmr_group_id(i)] : '0;
+    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ?
+                            ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
+    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ?
+                            ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
+    assign core_en_as_master[i] = ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ?
+                                  1'b1 : ~core_in_tmr[i]) &
+                                  ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ?
+                                  1'b1 : ~core_in_dmr[i]);
+    assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) &&
+                                           i < NumDMRCores &&
+                                           RapidRecovery ?
+                                           dmr_rapid_recovery_en[dmr_group_id(i)] :
+                                           '0;
+    assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) &&
+                                           i < NumTMRCores &&
+                                           RapidRecovery ?
+                                           tmr_rapid_recovery_en[tmr_group_id(i)] :
+                                           '0;
   end
 
   reg_req_t  [3:0] top_register_reqs;
@@ -578,7 +593,8 @@ module HMR_wrap
     assign core_config_hw2reg[i].current_mode.dual.d        = core_in_dmr[i];
     assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
     assign sp_store_is_zero[i] = core_config_reg2hw[i].sp_store.q == '0;
-    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe && core_register_reqs[i].wdata == '0;
+    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe &&
+                                      core_register_reqs[i].wdata == '0;
   end
 
 
@@ -593,7 +609,7 @@ module HMR_wrap
     reg_resp_t [NumTMRGroups-1:0] tmr_register_resps;
     logic [NumTMRGroups-1:0] tmr_sw_synch_req;
 
-    localparam TMRSelWidth = $clog2(NumTMRGroups);
+    localparam int unsigned TMRSelWidth = $clog2(NumTMRGroups);
 
     /***************
      *  Registers  *
@@ -651,7 +667,9 @@ module HMR_wrap
         .sw_synch_req_o       ( tmr_sw_synch_req[i] ),
         .grp_in_independent_o ( tmr_grp_in_independent[i] ),
         .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
-        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)], tmr_incr_mismatches[tmr_core_id(i,1)], tmr_incr_mismatches[tmr_core_id(i,2)]} ),
+        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,0)],
+                                 tmr_incr_mismatches[tmr_core_id(i,1)],
+                                 tmr_incr_mismatches[tmr_core_id(i,2)]} ),
         .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
         .tmr_error_i          ( tmr_error[i] ),
         .tmr_failure_i        ( tmr_failure[i] ),
@@ -814,7 +832,7 @@ module HMR_wrap
     reg_resp_t [NumDMRGroups-1:0] dmr_register_resps;
     logic [NumDMRGroups-1:0] dmr_sw_synch_req;
 
-    localparam DMRSelWidth = $clog2(NumDMRGroups);
+    localparam int unsigned DMRSelWidth = $clog2(NumDMRGroups);
 
     /***************
      *  Registers  *
@@ -866,7 +884,8 @@ module HMR_wrap
         .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
         .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
         .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
-        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 0)], dmr_incr_mismatches[dmr_core_id(i, 1)]} ),
+        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 0)],
+                                  dmr_incr_mismatches[dmr_core_id(i, 1)]} ),
         .dmr_error_i           ( dmr_failure           [i] ),
 
         .fetch_en_i            ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
@@ -964,7 +983,7 @@ module HMR_wrap
                                                       : dmr_failure_main[i];
       end
     end
-  end else begin: no_dmr_checkers
+  end else begin: gen_no_dmr_checkers
     assign dmr_failure_main = '0;
     assign dmr_failure_data = '0;
     assign dmr_failure      = '0;
@@ -986,9 +1005,10 @@ module HMR_wrap
   if (RapidRecovery) begin : gen_rapid_recovery
     for (genvar i = 0; i < NumBackupRegfiles; i++) begin : gen_groups
       // Write Enable signal for backup registers
-      assign rapid_recovery_backup_enable[i] = core_in_tmr[i] ? (i < NumTMRGroups ? backup_enable[i] : 1'b0) // TMR mode
-                                             : core_in_dmr[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
-                                             : 1'b1;                                                  // Independent mode
+      assign rapid_recovery_backup_enable[i] =
+        core_in_tmr[i] ? (i < NumTMRGroups ? backup_enable[i] : 1'b0) // TMR mode
+      : core_in_dmr[i] ? (backup_enable[i] & ~dmr_failure[i] ) // DMR mode
+      : 1'b1;                                                  // Independent mode
       // TODO: Only supports interleaved mode!!!
 
 
@@ -1115,7 +1135,8 @@ module HMR_wrap
       end
 
       for (int i = 0; i < NumDMRGroups; i++) begin
-        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) && dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
+        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) &&
+            dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
           backup_csr_int              [dmr_shared_id(i)] = dmr_backup_csr [i];
           backup_program_counter_int  [dmr_shared_id(i)] = dmr_backup_program_counter      [i];
           // backup_program_counter_error[dmr_shared_id(i)] = dmr_backup_program_counter_error[i];
@@ -1129,13 +1150,15 @@ module HMR_wrap
           backup_regfile_waddr_b      [dmr_shared_id(i)] = dmr_backup_regfile_waddr_b      [i];
           start_recovery              [dmr_shared_id(i)] = dmr_start_recovery              [i];
           dmr_recovery_finished[i] = recovery_finished[dmr_shared_id(i)];
-          recovery_debug_halted_in    [dmr_shared_id(i)] = core_debug_halted_i [dmr_core_id(dmr_group_id(i), 0)]
-                                                         & core_debug_halted_i [dmr_core_id(dmr_group_id(i), 1)];
+          recovery_debug_halted_in    [dmr_shared_id(i)] =
+                core_debug_halted_i [dmr_core_id(dmr_group_id(i), 0)]
+              & core_debug_halted_i [dmr_core_id(dmr_group_id(i), 1)];
         end
       end
 
       for (int i = 0; i < NumTMRGroups; i++) begin
-        if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) && tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
+        if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) &&
+            tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
           backup_csr_int              [tmr_shared_id(i)] = tmr_backup_csr [i];
           backup_program_counter_int  [tmr_shared_id(i)] = tmr_backup_program_counter      [i];
           backup_branch_int           [tmr_shared_id(i)] = tmr_backup_branch_int           [i];
@@ -1148,9 +1171,10 @@ module HMR_wrap
           backup_regfile_waddr_b      [tmr_shared_id(i)] = tmr_backup_regfile_waddr_b      [i];
           start_recovery              [tmr_shared_id(i)] = tmr_start_recovery              [i];
           tmr_recovery_finished[i] = recovery_finished[tmr_shared_id(i)];
-          recovery_debug_halted_in    [tmr_shared_id(i)] = core_debug_halted_i [tmr_core_id(tmr_group_id(i), 0)]
-                                                         & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 1)]
-                                                         & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 2)];
+          recovery_debug_halted_in    [tmr_shared_id(i)] =
+                core_debug_halted_i [tmr_core_id(tmr_group_id(i), 0)]
+              & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 1)]
+              & core_debug_halted_i [tmr_core_id(tmr_group_id(i), 2)];
         end
       end
     end
@@ -1159,53 +1183,67 @@ module HMR_wrap
       always_comb begin
         if ((DMRFixed || (DMRSupported && core_in_dmr[i])) && dmr_core_rapid_recovery_en[i]) begin
 
-          core_debug_resume_o        [i] = recovery_debug_resume_out    [dmr_shared_id(dmr_group_id(i))];
-          
-          // Setback
-          core_recover_o             [i] = recovery_trigger_out         [dmr_shared_id(dmr_group_id(i))];
-          core_instr_lock_o          [i] = recovery_instr_lock_out      [dmr_shared_id(dmr_group_id(i))];
-
-          // CSRs
-          recovery_csr_o             [i] = recovery_csr_out             [dmr_shared_id(dmr_group_id(i))];
-
-          // PC
-          pc_recover_o               [i] = recovery_pc_enable_out       [dmr_shared_id(dmr_group_id(i))];
-          recovery_program_counter_o [i] = recovery_program_counter_out [dmr_shared_id(dmr_group_id(i))];
-          recovery_branch_o          [i] = recovery_branch_out          [dmr_shared_id(dmr_group_id(i))];
-          recovery_branch_addr_o     [i] = recovery_branch_addr_out     [dmr_shared_id(dmr_group_id(i))];
-
-          // RF
-          core_recovery_regfile_wport_o[i].we_a    = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].we_a;
-          core_recovery_regfile_wport_o[i].waddr_a = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].waddr_a;
-          core_recovery_regfile_wport_o[i].wdata_a = core_recovery_regfile_rdata_out[dmr_shared_id(dmr_group_id(i))].rdata_a;
-          core_recovery_regfile_wport_o[i].we_b    = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].we_b;
-          core_recovery_regfile_wport_o[i].waddr_b = core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].waddr_b;
-          core_recovery_regfile_wport_o[i].wdata_b = core_recovery_regfile_rdata_out[dmr_shared_id(dmr_group_id(i))].rdata_b;
-
-        end else if ((TMRFixed || (TMRSupported && core_in_tmr[i])) && tmr_core_rapid_recovery_en[i]) begin
-          core_debug_resume_o        [i] = recovery_debug_resume_out    [tmr_shared_id(tmr_group_id(i))];
+          core_debug_resume_o [i] = recovery_debug_resume_out    [dmr_shared_id(dmr_group_id(i))];
 
           // Setback
-          core_recover_o             [i] = recovery_trigger_out         [tmr_shared_id(tmr_group_id(i))];
-          core_instr_lock_o          [i] = recovery_instr_lock_out      [tmr_shared_id(tmr_group_id(i))];
+          core_recover_o      [i] = recovery_trigger_out         [dmr_shared_id(dmr_group_id(i))];
+          core_instr_lock_o   [i] = recovery_instr_lock_out      [dmr_shared_id(dmr_group_id(i))];
 
           // CSRs
-          recovery_csr_o             [i] = recovery_csr_out             [tmr_shared_id(tmr_group_id(i))];
+          recovery_csr_o      [i] = recovery_csr_out             [dmr_shared_id(dmr_group_id(i))];
 
           // PC
-          pc_recover_o               [i] = recovery_pc_enable_out       [tmr_shared_id(tmr_group_id(i))];
-          recovery_program_counter_o [i] = recovery_program_counter_out [tmr_shared_id(tmr_group_id(i))];
-          recovery_branch_o          [i] = recovery_branch_out          [tmr_shared_id(tmr_group_id(i))];
-          recovery_branch_addr_o     [i] = recovery_branch_addr_out     [tmr_shared_id(tmr_group_id(i))];
+          pc_recover_o        [i] = recovery_pc_enable_out       [dmr_shared_id(dmr_group_id(i))];
+          recovery_program_counter_o [i] =
+            recovery_program_counter_out [dmr_shared_id(dmr_group_id(i))];
+          recovery_branch_o   [i] = recovery_branch_out          [dmr_shared_id(dmr_group_id(i))];
+          recovery_branch_addr_o [i] = recovery_branch_addr_out  [dmr_shared_id(dmr_group_id(i))];
 
           // RF
-          // core_regfile_raddr_o         [i]         = core_regfile_raddr_out [tmr_shared_id(tmr_group_id(i))];
-          core_recovery_regfile_wport_o[i].we_a    = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].we_a;
-          core_recovery_regfile_wport_o[i].waddr_a = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].waddr_a;
-          core_recovery_regfile_wport_o[i].wdata_a = core_recovery_regfile_rdata_out[tmr_shared_id(tmr_group_id(i))].rdata_a;
-          core_recovery_regfile_wport_o[i].we_b    = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].we_b;
-          core_recovery_regfile_wport_o[i].waddr_b = core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].waddr_b;
-          core_recovery_regfile_wport_o[i].wdata_b = core_recovery_regfile_rdata_out[tmr_shared_id(tmr_group_id(i))].rdata_b;
+          core_recovery_regfile_wport_o[i].we_a    =
+            core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].we_a;
+          core_recovery_regfile_wport_o[i].waddr_a =
+            core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].waddr_a;
+          core_recovery_regfile_wport_o[i].wdata_a =
+            core_recovery_regfile_rdata_out[dmr_shared_id(dmr_group_id(i))].rdata_a;
+          core_recovery_regfile_wport_o[i].we_b    =
+            core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].we_b;
+          core_recovery_regfile_wport_o[i].waddr_b =
+            core_recovery_regfile_wport_out[dmr_shared_id(dmr_group_id(i))].waddr_b;
+          core_recovery_regfile_wport_o[i].wdata_b =
+            core_recovery_regfile_rdata_out[dmr_shared_id(dmr_group_id(i))].rdata_b;
+
+        end else if ((TMRFixed || (TMRSupported && core_in_tmr[i])) &&
+                     tmr_core_rapid_recovery_en[i]) begin
+          core_debug_resume_o [i] = recovery_debug_resume_out    [tmr_shared_id(tmr_group_id(i))];
+
+          // Setback
+          core_recover_o      [i] = recovery_trigger_out         [tmr_shared_id(tmr_group_id(i))];
+          core_instr_lock_o   [i] = recovery_instr_lock_out      [tmr_shared_id(tmr_group_id(i))];
+
+          // CSRs
+          recovery_csr_o      [i] = recovery_csr_out             [tmr_shared_id(tmr_group_id(i))];
+
+          // PC
+          pc_recover_o        [i] = recovery_pc_enable_out       [tmr_shared_id(tmr_group_id(i))];
+          recovery_program_counter_o [i] =
+            recovery_program_counter_out [tmr_shared_id(tmr_group_id(i))];
+          recovery_branch_o   [i] = recovery_branch_out          [tmr_shared_id(tmr_group_id(i))];
+          recovery_branch_addr_o [i] = recovery_branch_addr_out  [tmr_shared_id(tmr_group_id(i))];
+
+          // RF
+          core_recovery_regfile_wport_o[i].we_a    =
+            core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].we_a;
+          core_recovery_regfile_wport_o[i].waddr_a =
+            core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].waddr_a;
+          core_recovery_regfile_wport_o[i].wdata_a =
+            core_recovery_regfile_rdata_out[tmr_shared_id(tmr_group_id(i))].rdata_a;
+          core_recovery_regfile_wport_o[i].we_b    =
+            core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].we_b;
+          core_recovery_regfile_wport_o[i].waddr_b =
+            core_recovery_regfile_wport_out[tmr_shared_id(tmr_group_id(i))].waddr_b;
+          core_recovery_regfile_wport_o[i].wdata_b =
+            core_recovery_regfile_rdata_out[tmr_shared_id(tmr_group_id(i))].rdata_b;
 
         end else begin
           // Disable RapidRecovery
@@ -1271,16 +1309,17 @@ module HMR_wrap
     if (TMRFixed || DMRFixed) $fatal(1, "Cannot support both TMR and DMR and fix one!");
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam TMRCoreIndex = tmr_core_id(tmr_group_id(i), 0);
-      localparam DMRCoreIndex = dmr_core_id(dmr_group_id(i), 0);
+      localparam int unsigned TMRCoreIndex = tmr_core_id(tmr_group_id(i), 0);
+      localparam int unsigned DMRCoreIndex = dmr_core_id(dmr_group_id(i), 0);
 
       always_comb begin
         // Special signals
         if (RapidRecovery) begin
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
-                                | (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] : 
-                                  (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0));
+          core_setback_o    [i] =
+              tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
+            | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
+            | (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] :
+              (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0));
         end else begin
           core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
                                 | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)];
@@ -1288,11 +1327,13 @@ module HMR_wrap
         if (i >= NumTMRCores && i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
         end else if (i < NumTMRCores && i >= NumDMRCores) begin
-          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)]
-                                | (RapidRecovery ? (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
+          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)] |
+            (RapidRecovery ?
+              (core_in_tmr[i] ? recovery_setback_out [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
         end else if (i >= NumTMRCores && i < NumDMRCores) begin
-          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)]
-                                | (RapidRecovery ? (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
+          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)] |
+            (RapidRecovery ?
+              (core_in_dmr[i] ? recovery_setback_out [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
         end
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           // CTRL
@@ -1304,7 +1345,7 @@ module HMR_wrap
           core_boot_addr_o    [i] = sys_boot_addr_i    [TMRCoreIndex];
 
           if (RapidRecovery) begin
-            core_debug_req_o  [i] = sys_debug_req_i     [TMRCoreIndex] 
+            core_debug_req_o  [i] = sys_debug_req_i     [TMRCoreIndex]
                                   | recovery_debug_req_out [tmr_shared_id(tmr_group_id(i))];
           end else begin
             core_debug_req_o  [i] = sys_debug_req_i     [TMRCoreIndex];
@@ -1338,7 +1379,7 @@ module HMR_wrap
           core_boot_addr_o    [i] = sys_boot_addr_i    [DMRCoreIndex];
 
           if (RapidRecovery) begin
-            core_debug_req_o  [i] = sys_debug_req_i     [DMRCoreIndex] 
+            core_debug_req_o  [i] = sys_debug_req_i     [DMRCoreIndex]
                                   | recovery_debug_req_out [dmr_shared_id(dmr_group_id(i))];
           end else begin
             core_debug_req_o  [i] = sys_debug_req_i     [DMRCoreIndex];
@@ -1396,8 +1437,8 @@ module HMR_wrap
     end
 
     for (genvar i = 0; i < NumSysCores/*==NumCores*/; i++) begin : gen_core_outputs
-      localparam TMRCoreIndex = tmr_group_id(i);
-      localparam DMRCoreIndex = dmr_group_id(i);
+      localparam int unsigned TMRCoreIndex = tmr_group_id(i);
+      localparam int unsigned DMRCoreIndex = dmr_group_id(i);
       always_comb begin
         if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
           if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
@@ -1507,7 +1548,7 @@ module HMR_wrap
      *** TMR only ***
      *****************/
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
+      localparam int unsigned SysCoreIndex = TMRFixed ? i/3 : tmr_core_id(tmr_group_id(i), 0);
       always_comb begin
         // Special signals
         // Setback
@@ -1530,7 +1571,7 @@ module HMR_wrap
           core_boot_addr_o    [i] = sys_boot_addr_i    [SysCoreIndex];
 
           if (RapidRecovery) begin
-            core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex] 
+            core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex]
                                   | recovery_debug_req_out [tmr_shared_id(tmr_group_id(i))];
           end else begin
             core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex];
@@ -1588,7 +1629,7 @@ module HMR_wrap
     end
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
-      localparam CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
+      localparam int unsigned CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
       if (TMRFixed && i < NumTMRGroups) begin : fixed_tmr
         // CTRL
         assign sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
@@ -1611,23 +1652,34 @@ module HMR_wrap
       end else begin
         if (i >= NumTMRCores) begin : independent_stragglers
           // CTRL
-          assign sys_core_busy_o     [i] = core_core_busy_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_core_busy_o     [i] =
+            core_core_busy_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // IRQ
-          assign sys_irq_ack_o       [i] = core_irq_ack_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_irq_ack_id_o    [i] = core_irq_ack_id_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_irq_ack_o       [i] =
+            core_irq_ack_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_irq_ack_id_o    [i] =
+            core_irq_ack_id_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // INSTR
-          assign filt_instr_req     [i] = core_instr_req_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_instr_addr    [i] = core_instr_addr_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_req     [i] =
+            core_instr_req_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_addr    [i] =
+            core_instr_addr_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // DATA
-          assign filt_data_req      [i] = core_data_req_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_addr      [i] = core_data_add_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_we      [i] = core_data_wen_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_data    [i] = core_data_wdata_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_user_o     [i] = core_data_user_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_be       [i] = core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_req      [i] =
+            core_data_req_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_addr     [i] =
+            core_data_add_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_we       [i] =
+            core_data_wen_i  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_data     [i] =
+            core_data_wdata_i[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_user_o    [i] =
+            core_data_user_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_be       [i] =
+            core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin
           always_comb begin
             if (core_in_tmr[i]) begin : tmr_mode
@@ -1645,10 +1697,10 @@ module HMR_wrap
 
                 // DATA
                 filt_data_req      [i] = tmr_data_req_out  [CoreCoreIndex];
-                filt_data_addr      [i] = tmr_data_add_out  [CoreCoreIndex];
-                filt_data_we      [i] = tmr_data_wen_out  [CoreCoreIndex];
-                filt_data_data    [i] = tmr_data_wdata_out[CoreCoreIndex];
-                sys_data_user_o     [i] = tmr_data_user_out [CoreCoreIndex];
+                filt_data_addr     [i] = tmr_data_add_out  [CoreCoreIndex];
+                filt_data_we       [i] = tmr_data_wen_out  [CoreCoreIndex];
+                filt_data_data     [i] = tmr_data_wdata_out[CoreCoreIndex];
+                sys_data_user_o    [i] = tmr_data_user_out [CoreCoreIndex];
                 filt_data_be       [i] = tmr_data_be_out   [CoreCoreIndex];
               end else begin : disable_core // Assign disable
                 // CTLR
@@ -1679,16 +1731,16 @@ module HMR_wrap
               sys_irq_ack_id_o    [i] = core_irq_ack_id_i[i];
 
               // INSTR
-              filt_instr_req     [i] = core_instr_req_i [i];
-              filt_instr_addr    [i] = core_instr_addr_i[i];
+              filt_instr_req      [i] = core_instr_req_i [i];
+              filt_instr_addr     [i] = core_instr_addr_i[i];
 
               // DATA
-              filt_data_req      [i] = core_data_req_i  [i];
+              filt_data_req       [i] = core_data_req_i  [i];
               filt_data_addr      [i] = core_data_add_i  [i];
-              filt_data_we      [i] = core_data_wen_i  [i];
-              filt_data_data    [i] = core_data_wdata_i[i];
+              filt_data_we        [i] = core_data_wen_i  [i];
+              filt_data_data      [i] = core_data_wdata_i[i];
               sys_data_user_o     [i] = core_data_user_i [i];
-              filt_data_be       [i] = core_data_be_i   [i];
+              filt_data_be        [i] = core_data_be_i   [i];
             end
           end
         end
@@ -1706,7 +1758,7 @@ module HMR_wrap
     // assign dmr_resynch_req_o = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
-      localparam SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
+      localparam int unsigned SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
       always_comb begin
         // Setback
         if (RapidRecovery) begin
@@ -1728,7 +1780,7 @@ module HMR_wrap
           core_boot_addr_o    [i] = sys_boot_addr_i     [SysCoreIndex];
 
           if (RapidRecovery) begin
-            core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex] 
+            core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex]
                                   | recovery_debug_req_out [dmr_shared_id(dmr_group_id(i))];
           end else begin
             core_debug_req_o  [i] = sys_debug_req_i     [SysCoreIndex];
@@ -1809,23 +1861,34 @@ module HMR_wrap
       end else begin
         if (i >= NumDMRCores) begin : independent_stragglers
           // CTRL
-          assign sys_core_busy_o     [i] = dmr_core_busy_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_core_busy_o     [i] =
+            dmr_core_busy_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // IRQ
-          assign sys_irq_ack_o       [i] = dmr_irq_ack_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_irq_ack_id_o    [i] = dmr_irq_ack_id_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_irq_ack_o       [i] =
+            dmr_irq_ack_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_irq_ack_id_o    [i] =
+            dmr_irq_ack_id_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // INSTR
-          assign filt_instr_req     [i] = dmr_instr_req_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_instr_addr    [i] = dmr_instr_addr_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_req     [i] =
+            dmr_instr_req_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_instr_addr    [i] =
+            dmr_instr_addr_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
 
           // DATA
-          assign filt_data_req      [i] = dmr_data_req_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_addr      [i] = dmr_data_add_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_we      [i] = dmr_data_wen_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_data    [i] = dmr_data_wdata_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign sys_data_user_o     [i] = dmr_data_user_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-          assign filt_data_be       [i] = dmr_data_be_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_req      [i] =
+            dmr_data_req_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_addr     [i] =
+            dmr_data_add_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_we       [i] =
+            dmr_data_wen_out  [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_data     [i] =
+            dmr_data_wdata_out[TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign sys_data_user_o    [i] =
+            dmr_data_user_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
+          assign filt_data_be       [i] =
+            dmr_data_be_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin
           always_comb begin
             if (core_in_dmr[i]) begin : dmr_mode
@@ -1843,10 +1906,10 @@ module HMR_wrap
 
                 // DATA
                 filt_data_req      [i] = dmr_data_req_out  [CoreCoreIndex];
-                filt_data_addr      [i] = dmr_data_add_out  [CoreCoreIndex];
-                filt_data_we      [i] = dmr_data_wen_out  [CoreCoreIndex];
-                filt_data_data    [i] = dmr_data_wdata_out[CoreCoreIndex];
-                sys_data_user_o     [i] = dmr_data_user_out [CoreCoreIndex];
+                filt_data_addr     [i] = dmr_data_add_out  [CoreCoreIndex];
+                filt_data_we       [i] = dmr_data_wen_out  [CoreCoreIndex];
+                filt_data_data     [i] = dmr_data_wdata_out[CoreCoreIndex];
+                sys_data_user_o    [i] = dmr_data_user_out [CoreCoreIndex];
                 filt_data_be       [i] = dmr_data_be_out   [CoreCoreIndex];
               end else begin : disable_core // Assign disable
                 // CTLR
@@ -1862,10 +1925,10 @@ module HMR_wrap
 
                 // DATA
                 filt_data_req      [i] = '0;
-                filt_data_addr      [i] = '0;
-                filt_data_we      [i] = '0;
-                filt_data_data    [i] = '0;
-                sys_data_user_o     [i] = '0;
+                filt_data_addr     [i] = '0;
+                filt_data_we       [i] = '0;
+                filt_data_data     [i] = '0;
+                sys_data_user_o    [i] = '0;
                 filt_data_be       [i] = '0;
               end
             end else begin : independent_mode
@@ -1882,10 +1945,10 @@ module HMR_wrap
 
               // DATA
               filt_data_req      [i] = core_data_req_i  [i];
-              filt_data_addr      [i] = core_data_add_i  [i];
-              filt_data_we      [i] = core_data_wen_i  [i];
-              filt_data_data    [i] = core_data_wdata_i[i];
-              sys_data_user_o     [i] = core_data_user_i [i];
+              filt_data_addr     [i] = core_data_add_i  [i];
+              filt_data_we       [i] = core_data_wen_i  [i];
+              filt_data_data     [i] = core_data_wdata_i[i];
+              sys_data_user_o    [i] = core_data_user_i [i];
               filt_data_be       [i] = core_data_be_i   [i];
             end
           end

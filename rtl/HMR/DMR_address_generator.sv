@@ -7,14 +7,14 @@
  * this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
- * 
+ *
  * Dual Modular Address Generator
- * Generates addresses for RF refill 
- * 
+ * Generates addresses for RF refill
+ *
  */
 
 module DMR_address_generator #(
-  parameter  AddrWidth = 5
+  parameter  int unsigned AddrWidth = 5
 )(
   input  logic                 clk_i    ,
   input  logic                 rst_ni   ,
@@ -35,7 +35,7 @@ logic [NumVotingSignals-1:0] addr_count_rst;
 logic [ArrayWidth-1:0][AddrWidth-1:0] addr_count;
 
 generate
-  for (genvar i = 0; i < NumVotingSignals; i++) begin
+  for (genvar i = 0; i < NumVotingSignals; i++) begin : gen_addr_ffs
     always_ff @(posedge clk_i, negedge  rst_ni) begin : address_generator_counter
       if (~rst_ni)
         addr_count [i] <= '1;

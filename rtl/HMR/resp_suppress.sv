@@ -17,7 +17,7 @@ module resp_suppress #(
 ) (
   input  logic clk_i,
   input  logic rst_ni,
-  
+
   input  logic            ctrl_setback_i,
 
   input  logic            req_i,
@@ -94,5 +94,5 @@ module resp_suppress #(
       be_q <= be_d;
     end
   end
-  
+
 endmodule
