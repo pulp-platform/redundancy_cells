@@ -708,7 +708,7 @@ module hmr_unit #(
         end
       end
     end
-  end else begin: no_dmr_checkers
+  end else begin: gen_no_dmr_checkers
     assign dmr_failure_main = '0;
     assign dmr_failure_data = '0;
     assign dmr_failure      = '0;
@@ -767,7 +767,7 @@ module hmr_unit #(
         end
       end
     end
-  end else begin
+  end else begin : gen_no_recovery
     assign core_backup_q           = '0;
     assign rapid_recovery_nominal  = '0;
     assign rapid_recovery_start    = '0;
@@ -879,16 +879,16 @@ module hmr_unit #(
           core_setback_o [i] = '0;
         end
       end
-      if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : tmr_mode
+      if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : gen_tmr_mode
         assign core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
-      end else begin : independent_mode
+      end else begin : gen_independent_mode
         assign core_inputs_o[i] = sys_inputs_i[i];
       end
     end
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
       localparam int unsigned CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
-      if (TMRFixed && i < NumTMRGroups) begin : fixed_tmr
+      if (TMRFixed && i < NumTMRGroups) begin : gen_fixed_tmr
         assign sys_nominal_outputs_o[i] = tmr_nominal_outputs[CoreCoreIndex];
         assign sys_bus_outputs_o    [i] = tmr_bus_outputs    [CoreCoreIndex];
       end else begin : gen_not_fixed_tmr
@@ -953,7 +953,7 @@ module hmr_unit #(
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
       localparam int unsigned CoreCoreIndex = DMRFixed ? i : dmr_group_id(i);
-      if (DMRFixed && i < NumDMRGroups) begin : fixed_dmr
+      if (DMRFixed && i < NumDMRGroups) begin : gen_fixed_dmr
         assign sys_nominal_outputs_o[i] = dmr_nominal_outputs[CoreCoreIndex];
         assign sys_bus_outputs_o    [i] = dmr_bus_outputs    [CoreCoreIndex];
       end else begin : gen_not_fixed_dmr

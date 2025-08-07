@@ -87,7 +87,7 @@ logic [$clog2(NumDMRGroups)-1:0] error_index_d,
 /******************
  * Output Assigns *
  ******************/
-for (genvar i = 0; i < NumDMRGroups; i++) begin
+for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_assigns
   assign dmr_ctrl_core_setback_o [i] = dmr_ctrl_core_setback_out [i];
   assign dmr_ctrl_core_clk_en_o [i] = dmr_ctrl_core_clk_en_out [i];
   assign dmr_ctrl_pc_read_enable_o [i] = dmr_ctrl_pc_read_enable_out [i];

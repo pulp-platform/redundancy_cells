@@ -179,7 +179,8 @@ module HMR_wrap
     return (a > b) ? a : b;
   endfunction
 
-  localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0, TMRSupported || TMRFixed ? NumTMRGroups : 0);
+  localparam int unsigned NumBackupRegfiles = max(DMRSupported || DMRFixed ? NumDMRGroups : 0,
+                                                  TMRSupported || TMRFixed ? NumTMRGroups : 0);
 
   function automatic int tmr_group_id (int core_id);
     if (InterleaveGrps) return core_id % NumTMRGroups;
@@ -1630,7 +1631,7 @@ module HMR_wrap
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
       localparam int unsigned CoreCoreIndex = TMRFixed ? i : tmr_group_id(i);
-      if (TMRFixed && i < NumTMRGroups) begin : fixed_tmr
+      if (TMRFixed && i < NumTMRGroups) begin : gen_fixed_tmr
         // CTRL
         assign sys_core_busy_o     [i] = tmr_core_busy_out[CoreCoreIndex];
 
@@ -1649,8 +1650,8 @@ module HMR_wrap
         assign filt_data_data    [i] = tmr_data_wdata_out[CoreCoreIndex];
         assign sys_data_user_o     [i] = tmr_data_user_out [CoreCoreIndex];
         assign filt_data_be       [i] = tmr_data_be_out   [CoreCoreIndex];
-      end else begin
-        if (i >= NumTMRCores) begin : independent_stragglers
+      end else begin : gen_normal_tmr
+        if (i >= NumTMRCores) begin : gen_independent_stragglers
           // CTRL
           assign sys_core_busy_o     [i] =
             core_core_busy_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
@@ -1680,7 +1681,7 @@ module HMR_wrap
             core_data_user_i [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
           assign filt_data_be       [i] =
             core_data_be_i   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-        end else begin
+        end else begin : gen_tmr_normal
           always_comb begin
             if (core_in_tmr[i]) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
@@ -1839,7 +1840,7 @@ module HMR_wrap
 
     for (genvar i = 0; i < NumSysCores; i++) begin : gen_core_outputs
       localparam CoreCoreIndex = DMRFixed ? i : dmr_group_id(i);
-      if (DMRFixed && i < NumDMRGroups) begin : fixed_dmr
+      if (DMRFixed && i < NumDMRGroups) begin : gen_fixed_dmr
         // CTRL
         assign sys_core_busy_o     [i] = dmr_core_busy_out[CoreCoreIndex];
 
@@ -1858,8 +1859,8 @@ module HMR_wrap
         assign filt_data_data    [i] = dmr_data_wdata_out[CoreCoreIndex];
         assign sys_data_user_o     [i] = dmr_data_user_out [CoreCoreIndex];
         assign filt_data_be       [i] = dmr_data_be_out   [CoreCoreIndex];
-      end else begin
-        if (i >= NumDMRCores) begin : independent_stragglers
+      end else begin : gen_normal_dmr
+        if (i >= NumDMRCores) begin : gen_independent_stragglers
           // CTRL
           assign sys_core_busy_o     [i] =
             dmr_core_busy_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
@@ -1889,7 +1890,7 @@ module HMR_wrap
             dmr_data_user_out [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
           assign filt_data_be       [i] =
             dmr_data_be_out   [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
-        end else begin
+        end else begin : gen_dmr_normal
           always_comb begin
             if (core_in_dmr[i]) begin : dmr_mode
               if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core

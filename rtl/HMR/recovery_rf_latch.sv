@@ -72,18 +72,19 @@ module recovery_rf #(
 );
 
   // number of integer registers
-  localparam int unsigned NUM_WORDS = 2 ** (ADDR_WIDTH - 1);
+  localparam int unsigned NumWords = 2 ** (ADDR_WIDTH - 1);
   // number of floating point registers
-  localparam int unsigned NUM_FP_WORDS = 2 ** (ADDR_WIDTH - 1);
-  localparam int unsigned NUM_TOT_WORDS = FPU ? (PULP_ZFINX ? NUM_WORDS : NUM_WORDS + NUM_FP_WORDS) : NUM_WORDS;
+  localparam int unsigned NumFpWords = 2 ** (ADDR_WIDTH - 1);
+  localparam int unsigned NumTotWords =
+    FPU ? (PULP_ZFINX ? NumWords : NumWords + NumFpWords) : NumWords;
 
   // integer register file
-  logic [NonProtectedWidth-1:0] mem     [NUM_WORDS];
-  logic [        DataWidth-1:0] ecc_mem [NUM_WORDS];
-  logic [NUM_TOT_WORDS-1:1] waddr_onehot_a;
-  logic [NUM_TOT_WORDS-1:1] waddr_onehot_b  ,
+  logic [NonProtectedWidth-1:0] mem     [NumWords];
+  logic [        DataWidth-1:0] ecc_mem [NumWords];
+  logic [NumTotWords-1:1] waddr_onehot_a;
+  logic [NumTotWords-1:1] waddr_onehot_b  ,
                             waddr_onehot_b_q;
-  logic [NUM_TOT_WORDS-1:1] mem_clocks;
+  logic [NumTotWords-1:1] mem_clocks;
   logic [DataWidth-1:0] wdata_a    ,
                         wdata_a_q  ,
                         wdata_a_ecc;
@@ -98,8 +99,8 @@ module recovery_rf #(
   logic clk_int;
 
   // fp register file
-  logic [NonProtectedWidth-1:0] mem_fp     [NUM_FP_WORDS];
-  logic [        DataWidth-1:0] ecc_mem_fp [NUM_FP_WORDS];
+  logic [NonProtectedWidth-1:0] mem_fp     [NumFpWords];
+  logic [        DataWidth-1:0] ecc_mem_fp [NumFpWords];
 
   int unsigned i;
   int unsigned j;
@@ -124,7 +125,7 @@ module recovery_rf #(
       );
       assign wdata_b = wdata_b_ecc;
 
-      for (genvar index = 0; index < NUM_WORDS; index++) begin : gen_internal_decoder
+      for (genvar index = 0; index < NumWords; index++) begin : gen_internal_decoder
         prim_secded_39_32_dec internal_memory_decoder (
           .in         ( ecc_mem [index] ),
           .d_o        ( mem [index]     ),
@@ -134,7 +135,7 @@ module recovery_rf #(
       end
 
       if (FPU == 1 && PULP_ZFINX == 0) begin : gen_fp_decoders
-        for (genvar index = 0; index < NUM_FP_WORDS; index++) begin : gen_internal_fp_decoder
+        for (genvar index = 0; index < NumFpWords; index++) begin : gen_internal_fp_decoder
           prim_secded_39_32_dec internal_fp_memory_decoder (
             .in         ( ecc_mem_fp [index]  ),
             .d_o        ( mem_fp [index]      ),
@@ -143,16 +144,16 @@ module recovery_rf #(
           );
         end
       end
-    end else begin : no_ecc_region
+    end else begin : gen_no_ecc_region
       assign wdata_a     = wdata_a_i;
       assign wdata_a_ecc = '0;
       assign wdata_b     = wdata_b_i;
       assign wdata_b_ecc = '0;
 
-      for (genvar index = 0; index < NUM_WORDS; index++)
+      for (genvar index = 0; index < NumWords; index++)
         assign mem [index] = ecc_mem [index];
 
-      for (genvar index = 0; index < NUM_FP_WORDS; index++)
+      for (genvar index = 0; index < NumFpWords; index++)
         assign mem_fp [index] = ecc_mem_fp [index];
     end
   endgenerate
@@ -205,7 +206,7 @@ module recovery_rf #(
 
   genvar gidx;
   generate
-    for (gidx = 1; gidx < NUM_TOT_WORDS; gidx++) begin : gen_we_decoder
+    for (gidx = 1; gidx < NumTotWords; gidx++) begin : gen_we_decoder
       assign waddr_onehot_a[gidx] = (we_a_i == 1'b1) && (waddr_a == gidx);
       assign waddr_onehot_b[gidx] = (we_b_i == 1'b1) && (waddr_b == gidx);
     end
@@ -215,7 +216,7 @@ module recovery_rf #(
   //-- WRITE : Clock gating (if integrated clock-gating cells are available)
   //-----------------------------------------------------------------------------
   generate
-    for (x = 1; x < NUM_TOT_WORDS; x++) begin : gen_clock_gate
+    for (x = 1; x < NumTotWords; x++) begin : gen_clock_gate
       tc_clk_gating clock_gate_i (
           .clk_i     ( clk_int                               ),
           .en_i      ( waddr_onehot_a[x] | waddr_onehot_b[x] ),
@@ -239,7 +240,7 @@ module recovery_rf #(
     // Note: The assignment has to be done inside this process or Modelsim complains about it
     ecc_mem[0] = '0;
 
-    for (k = 1; k < NUM_WORDS; k++) begin : w_WordIter
+    for (k = 1; k < NumWords; k++) begin : w_WordIter
       if (~rst_ni) ecc_mem[k] = '0;
       else if (mem_clocks[k] == 1'b1) ecc_mem[k] = waddr_onehot_b_q[k] ? wdata_b_q : wdata_a_q;
     end
@@ -249,10 +250,10 @@ module recovery_rf #(
     // Floating point registers
     always_latch begin : latch_wdata_fp
       if (FPU == 1) begin
-        for (l = 0; l < NUM_FP_WORDS; l++) begin : w_WordIter
+        for (l = 0; l < NumFpWords; l++) begin : w_WordIter
           if (~rst_ni) ecc_mem_fp[l] = '0;
-          else if (mem_clocks[l+NUM_WORDS] == 1'b1)
-            ecc_mem_fp[l] = waddr_onehot_b_q[l+NUM_WORDS] ? wdata_b_q : wdata_a_q;
+          else if (mem_clocks[l+NumWords] == 1'b1)
+            ecc_mem_fp[l] = waddr_onehot_b_q[l+NumWords] ? wdata_b_q : wdata_a_q;
         end
       end
     end
