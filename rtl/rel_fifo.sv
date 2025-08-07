@@ -282,7 +282,9 @@ module rel_fifo_tmr_part #(
 
   for (genvar i = 0; i < EccDataWidth; i++) begin : gen_read_write_next
     assign read_pointer_next_multi[i]  = read_pointer_next;
-    assign use_fallthrough_o[i] = FallThrough && (read_pointer_next == write_pointer_next) && push_i;
+    assign use_fallthrough_o[i] = FallThrough &&
+                                  (read_pointer_next == write_pointer_next) &&
+                                  push_i;
   end
 
   if (StatusFF) begin : gen_status_ff

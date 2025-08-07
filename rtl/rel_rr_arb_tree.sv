@@ -626,7 +626,7 @@ module rel_rr_arb_tree_tmr_part #(
         end else begin
           if (flush_i) begin
             rr_next <= '0;
-          end else begin    
+          end else begin
             rr_next <= rr_d;
           end
         end
