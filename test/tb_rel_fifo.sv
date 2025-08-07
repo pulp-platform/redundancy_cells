@@ -53,8 +53,7 @@ module tb_rel_fifo_inst #(
         .Depth         ( DEPTH         ),
         .TmrStatus     ( 1'b1         ),
         .DataHasEcc    ( 1'b1         ),
-        .StatusFF      ( 1'b0         ),
-        .TmrBeforeReg  ( 1'b0         )
+        .StatusFF      ( 1'b0         )
     ) dut (
         .clk_i,
         .rst_ni,
