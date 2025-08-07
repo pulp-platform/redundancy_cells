@@ -132,14 +132,11 @@ module ecc_sram_wrap #(
 
     assign decoder_in = store_state_q == NORMAL ? bank_rdata : rmw_buffer_end;
 
-    hsiao_ecc_dec #(
-      .DataWidth (UnprotectedWidth),
-      .ProtWidth (ProtectedWidth - UnprotectedWidth)
-    ) ecc_decode (
-      .in        ( decoder_in ),
-      .out       ( loaded ),
-      .syndrome_o(),
-      .err_o     ( ecc_error )
+    prim_secded_39_32_dec ecc_decode (
+      .in         ( decoder_in ),
+      .d_o        ( loaded ),
+      .syndrome_o (),
+      .err_o      (ecc_error)
     );
 
     hsiao_ecc_enc #(
@@ -164,12 +161,9 @@ module ecc_sram_wrap #(
     assign bank_wdata = store_state_q == NORMAL ? tcdm_wdata_i : lns_wdata;
     assign tcdm_rdata_o   = bank_rdata;
 
-    hsiao_ecc_dec #(
-      .DataWidth (UnprotectedWidth),
-      .ProtWidth (ProtectedWidth - UnprotectedWidth)
-    ) ld_decode (
-      .in        ( rmw_buffer_end ),
-      .out       ( intermediate_data_ld ),
+    prim_secded_39_32_dec ld_decode (
+      .in        (rmw_buffer_end),
+      .d_o       (intermediate_data_ld),
       .syndrome_o(),
       .err_o     ()
     );
@@ -191,7 +185,6 @@ module ecc_sram_wrap #(
       .in  ( (be_selector & intermediate_data_st) | (~be_selector & intermediate_data_ld)   ),
       .out ( lns_wdata )
     );
-
   end
 
   always_comb begin

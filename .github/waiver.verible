@@ -3,3 +3,4 @@
 # SPDX-License-Identifier: SHL-0.51
 
 waive --rule=explicit-parameter-storage-type --location="./rtl/ecc_wrap/ecc_sram.sv"
+waive --rule=module-filename --location="./rtl/HMR/recovery_rf_latch.sv"

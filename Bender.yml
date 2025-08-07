@@ -20,6 +20,19 @@ sources:
   - rtl/ODRG_unit/odrg_manager_reg_pkg.sv
   - rtl/ecc_wrap/ecc_manager_reg_pkg.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
+  - rtl/lowrisc_ecc/prim_secded_13_8_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_13_8_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_13_8_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_22_16_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_22_16_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_22_16_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_39_32_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_39_32_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_39_32_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_72_64_cor.sv
+  - rtl/lowrisc_ecc/prim_secded_72_64_dec.sv
+  - rtl/lowrisc_ecc/prim_secded_72_64_enc.sv
+  - rtl/lowrisc_ecc/prim_secded_pkg.sv
   - rtl/ODRG_unit/triple_core_barrier.sv
   - rtl/hsiao_ecc/hsiao_ecc_pkg.sv
   - rtl/hsiao_ecc/hsiao_ecc_enc.sv
@@ -28,6 +41,7 @@ sources:
   - rtl/TMR_voter.sv
   - rtl/TMR_voter_fail.sv
   - rtl/TMR_word_voter.sv
+  - rtl/HMR/resp_suppress.sv
     # Level 1
   - rtl/ODRG_unit/odrg_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
@@ -102,6 +116,30 @@ sources:
       - test/tb_bitwise_tmr_voter.sv
       - test/tb_bitwise_tmr_voter_fail.sv
       - test/tb_voter_macros.sv
+
+  - files:
+      - rtl/HMR/rapid_recovery_pkg.sv
+      - rtl/HMR/recovery_csr.sv
+      - rtl/HMR/recovery_pc.sv
+      - rtl/HMR/recovery_rf.sv
+      - rtl/HMR/rapid_recovery_unit.sv
+      - rtl/HMR/DMR_checker.sv
+      - rtl/HMR/DMR_CSR_checker.sv
+      - rtl/HMR/DMR_address_generator.sv
+      # - rtl/HMR/DMR_controller.sv
+      - rtl/HMR/hmr_rapid_recovery_ctrl.sv
+      - rtl/HMR/hmr_registers_reg_pkg.sv
+      - rtl/HMR/hmr_core_regs_reg_pkg.sv
+      - rtl/HMR/hmr_dmr_regs_reg_pkg.sv
+      - rtl/HMR/hmr_tmr_regs_reg_pkg.sv
+      - rtl/HMR/hmr_registers_reg_top.sv
+      - rtl/HMR/hmr_core_regs_reg_top.sv
+      - rtl/HMR/hmr_dmr_regs_reg_top.sv
+      - rtl/HMR/hmr_dmr_ctrl.sv
+      - rtl/HMR/hmr_tmr_regs_reg_top.sv
+      - rtl/HMR/hmr_tmr_ctrl.sv
+      - rtl/HMR/HMR_wrap.sv
+      - rtl/HMR/hmr_unit.sv
 
 vendor_package:
   - name: lowrisc_opentitan
