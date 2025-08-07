@@ -16,11 +16,11 @@ module prim_secded_28_22_cor (
 
   // Syndrome calculation
   assign syndrome_o[0] = ^(d_i & 28'h07003FF);
-  assign syndrome_o[1] = ^(d_i & 28'h0A0FC0F);
-  assign syndrome_o[2] = ^(d_i & 28'h1171C71);
+  assign syndrome_o[1] = ^(d_i & 28'h0B0FC0F);
+  assign syndrome_o[2] = ^(d_i & 28'h1371C71);
   assign syndrome_o[3] = ^(d_i & 28'h23B6592);
-  assign syndrome_o[4] = ^(d_i & 28'h43DAAA4);
-  assign syndrome_o[5] = ^(d_i & 28'h83ED348);
+  assign syndrome_o[4] = ^(d_i & 28'h41DAAA4);
+  assign syndrome_o[5] = ^(d_i & 28'h82ED348);
 
   // Corrected output calculation
   assign d_o[0] = (syndrome_o == 6'h7) ^ d_i[0];
@@ -43,8 +43,8 @@ module prim_secded_28_22_cor (
   assign d_o[17] = (syndrome_o == 6'h2c) ^ d_i[17];
   assign d_o[18] = (syndrome_o == 6'h34) ^ d_i[18];
   assign d_o[19] = (syndrome_o == 6'h38) ^ d_i[19];
-  assign d_o[20] = (syndrome_o == 6'h3d) ^ d_i[20];
-  assign d_o[21] = (syndrome_o == 6'h3b) ^ d_i[21];
+  assign d_o[20] = (syndrome_o == 6'h1f) ^ d_i[20];
+  assign d_o[21] = (syndrome_o == 6'h2f) ^ d_i[21];
   assign d_o[22] = (syndrome_o == 6'h1) ^ d_i[22];
   assign d_o[23] = (syndrome_o == 6'h2) ^ d_i[23];
   assign d_o[24] = (syndrome_o == 6'h4) ^ d_i[24];
