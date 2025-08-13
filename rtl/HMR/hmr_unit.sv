@@ -310,18 +310,28 @@ module hmr_unit #(
     hmr_hw2reg.dmr_config.rd_data.rapid_recovery = '0;
     hmr_hw2reg.dmr_config.rd_data.force_recovery = '0;
   end
-  assign hmr_hw2reg.avail_config.rd_ack = hmr_reg2hw.avail_config.req && !hmr_reg2hw.avail_config.req_is_wr;
-  assign hmr_hw2reg.cores_en.rd_ack = hmr_reg2hw.cores_en.req && !hmr_reg2hw.cores_en.req_is_wr;
-  assign hmr_hw2reg.dmr_enable.rd_ack = hmr_reg2hw.dmr_enable.req && !hmr_reg2hw.dmr_enable.req_is_wr;
-  assign hmr_hw2reg.dmr_enable.wr_ack = hmr_reg2hw.dmr_enable.req && hmr_reg2hw.dmr_enable.req_is_wr;
-  assign hmr_hw2reg.tmr_enable.rd_ack = hmr_reg2hw.tmr_enable.req && !hmr_reg2hw.tmr_enable.req_is_wr;
-  assign hmr_hw2reg.tmr_enable.wr_ack = hmr_reg2hw.tmr_enable.req && hmr_reg2hw.tmr_enable.req_is_wr;
+  assign hmr_hw2reg.avail_config.rd_ack = hmr_reg2hw.avail_config.req &&
+                                         !hmr_reg2hw.avail_config.req_is_wr;
+  assign hmr_hw2reg.cores_en.rd_ack     = hmr_reg2hw.cores_en.req &&
+                                         !hmr_reg2hw.cores_en.req_is_wr;
+  assign hmr_hw2reg.dmr_enable.rd_ack   = hmr_reg2hw.dmr_enable.req &&
+                                         !hmr_reg2hw.dmr_enable.req_is_wr;
+  assign hmr_hw2reg.dmr_enable.wr_ack   = hmr_reg2hw.dmr_enable.req &&
+                                          hmr_reg2hw.dmr_enable.req_is_wr;
+  assign hmr_hw2reg.tmr_enable.rd_ack   = hmr_reg2hw.tmr_enable.req &&
+                                         !hmr_reg2hw.tmr_enable.req_is_wr;
+  assign hmr_hw2reg.tmr_enable.wr_ack   = hmr_reg2hw.tmr_enable.req &&
+                                          hmr_reg2hw.tmr_enable.req_is_wr;
 
-  assign hmr_hw2reg.tmr_config.rd_ack = hmr_reg2hw.tmr_config.req && !hmr_reg2hw.tmr_config.req_is_wr;
-  assign hmr_hw2reg.tmr_config.wr_ack = hmr_reg2hw.tmr_config.req && hmr_reg2hw.tmr_config.req_is_wr;
+  assign hmr_hw2reg.tmr_config.rd_ack   = hmr_reg2hw.tmr_config.req &&
+                                         !hmr_reg2hw.tmr_config.req_is_wr;
+  assign hmr_hw2reg.tmr_config.wr_ack   = hmr_reg2hw.tmr_config.req &&
+                                          hmr_reg2hw.tmr_config.req_is_wr;
 
-  assign hmr_hw2reg.dmr_config.rd_ack = hmr_reg2hw.dmr_config.req && !hmr_reg2hw.dmr_config.req_is_wr;
-  assign hmr_hw2reg.dmr_config.wr_ack = hmr_reg2hw.dmr_config.req && hmr_reg2hw.dmr_config.req_is_wr;
+  assign hmr_hw2reg.dmr_config.rd_ack   = hmr_reg2hw.dmr_config.req &&
+                                         !hmr_reg2hw.dmr_config.req_is_wr;
+  assign hmr_hw2reg.dmr_config.wr_ack   = hmr_reg2hw.dmr_config.req &&
+                                          hmr_reg2hw.dmr_config.req_is_wr;
 
   // Core Config Registers
 
@@ -366,8 +376,10 @@ module hmr_unit #(
       .hwif_in  ( core_config_hw2reg [i] )
     );
 
-    assign core_config_hw2reg[i].mismatches.mismatches.next = core_config_reg2hw[i].mismatches.mismatches.value + 1;
-    assign core_config_hw2reg[i].mismatches.mismatches.we = tmr_incr_mismatches[i] | dmr_incr_mismatches[i];
+    assign core_config_hw2reg[i].mismatches.mismatches.next =
+           core_config_reg2hw[i].mismatches.mismatches.value + 1;
+    assign core_config_hw2reg[i].mismatches.mismatches.we = tmr_incr_mismatches[i] |
+                                                            dmr_incr_mismatches[i];
     always_comb begin
       core_config_hw2reg[i].current_mode.rd_data = '{default: '0};
       core_config_hw2reg[i].current_mode.rd_data.independent = core_in_independent[i];

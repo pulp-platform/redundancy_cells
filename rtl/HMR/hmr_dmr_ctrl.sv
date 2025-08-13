@@ -96,7 +96,9 @@ module hmr_dmr_ctrl
   assign dmr_hw2reg.dmr_enable.dmr_enable.next     = dmr_enable_q_i;
   assign dmr_hw2reg.dmr_config.rapid_recovery.we   = rapid_recovery_qe_i || ~RapidRecovery;
   assign dmr_hw2reg.dmr_config.rapid_recovery.next = rapid_recovery_q_i && RapidRecovery;
-  assign dmr_hw2reg.dmr_config.force_recovery.next = force_recovery_qe_i ? force_recovery_q_i : 1'b0;
+  assign dmr_hw2reg.dmr_config.force_recovery.next = force_recovery_qe_i ?
+                                                       force_recovery_q_i :
+                                                       1'b0;
 
   /**************************
    *  FSM for DMR lockstep  *
