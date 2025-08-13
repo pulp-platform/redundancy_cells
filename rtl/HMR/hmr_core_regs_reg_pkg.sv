@@ -7,8 +7,6 @@ package hmr_core_regs_reg_pkg;
     localparam HMR_CORE_REGS_REG_TOP_MIN_ADDR_WIDTH = 4;
     localparam HMR_CORE_REGS_REG_TOP_SIZE = 'hc;
 
-    
-
     typedef struct packed {
         logic [28:0] _reserved_31_3;
         logic triple;

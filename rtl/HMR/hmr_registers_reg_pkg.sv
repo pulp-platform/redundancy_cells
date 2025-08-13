@@ -6,7 +6,6 @@ package hmr_registers_reg_pkg;
     localparam HMR_REGISTERS_REG_TOP_DATA_WIDTH = 32;
     localparam HMR_REGISTERS_REG_TOP_MIN_ADDR_WIDTH = 5;
     localparam HMR_REGISTERS_REG_TOP_SIZE = 'h18;
-
     localparam NumCores = 'hc;
     localparam NumDMRGroups = 'h6;
     localparam NumTMRGroups = 'h4;
