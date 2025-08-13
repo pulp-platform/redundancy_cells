@@ -137,9 +137,9 @@ addrmap hmr #(
 
 
     external avail_config avail_config;
-    external cores_en cores_en;
-    external dmr_enable dmr_enable;
-    external tmr_enable tmr_enable;
-    external dmr_config dmr_config;
-    external tmr_config tmr_config;
+    external cores_en     cores_en;
+    external dmr_enable   dmr_enable;
+    external tmr_enable   tmr_enable;
+    external dmr_config   dmr_config;
+    external tmr_config   tmr_config;
 };
