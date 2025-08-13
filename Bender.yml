@@ -8,7 +8,8 @@ dependencies:
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.0 }
   register_interface:  { git: "https://github.com/pulp-platform/register_interface.git", version: 0.4.4 }
   common_cells:        { git: "https://github.com/pulp-platform/common_cells.git", version: 1.35.0 }
-  
+  apb:                 { git: "https://github.com/pulp-platform/apb.git", version: 0.2.4 }
+
 export_include_dirs:
   - include
 
@@ -139,7 +140,7 @@ sources:
       - rtl/HMR/hmr_dmr_ctrl.sv
       - rtl/HMR/hmr_tmr_regs_reg_top.sv
       - rtl/HMR/hmr_tmr_ctrl.sv
-      - rtl/HMR/HMR_wrap.sv
+      # - rtl/HMR/HMR_wrap.sv # Legacy, plase use hmr_unit instead
       - rtl/HMR/hmr_unit.sv
 
 vendor_package:
