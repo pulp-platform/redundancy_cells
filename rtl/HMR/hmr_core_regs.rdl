@@ -52,7 +52,7 @@ addrmap hmr_core {
             name = "sp_store";
             desc = "Stack Pointer";
             sw = rw;
-            hw = rw;
+            hw = r;
             swmod = true;
         } sp_store[31:0] = 0x0;
     };

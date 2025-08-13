@@ -31,17 +31,8 @@ package hmr_core_regs_reg_pkg;
     } hmr_core__mismatches__in_t;
 
     typedef struct {
-        logic [31:0] next;
-    } hmr_core__sp_store__sp_store__in_t;
-
-    typedef struct {
-        hmr_core__sp_store__sp_store__in_t sp_store;
-    } hmr_core__sp_store__in_t;
-
-    typedef struct {
         hmr_core__current_mode__external__in_t current_mode;
         hmr_core__mismatches__in_t mismatches;
-        hmr_core__sp_store__in_t sp_store;
     } hmr_core__in_t;
 
     typedef struct {
