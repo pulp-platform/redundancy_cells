@@ -206,9 +206,6 @@ module hmr_core_regs_reg_top (
         if(decoded_reg_strb.sp_store && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.sp_store.sp_store.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
             load_next_c = '1;
-        end else begin // HW Write
-            next_c = hwif_in.sp_store.sp_store.next;
-            load_next_c = '1;
         end
         field_combo.sp_store.sp_store.next = next_c;
         field_combo.sp_store.sp_store.load_next = load_next_c;
