@@ -7,8 +7,6 @@ package hmr_tmr_regs_reg_pkg;
     localparam HMR_TMR_REGS_REG_TOP_MIN_ADDR_WIDTH = 3;
     localparam HMR_TMR_REGS_REG_TOP_SIZE = 'h8;
 
-    
-
     typedef struct {
         logic next;
         logic we;
