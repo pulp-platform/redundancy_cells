@@ -2,7 +2,105 @@
 
 This repository contains various modules used to add redundancy.
 
+## Hybrid Modular Redundancy (HMR)
+
+The HMR unit (contained in `rtl/HMR/hmr_unit.sv`) is designed as a configurable bridge between the system and multiple cores. This bridge allows to configure the cores to run independently, run in a dual/DMR/DCLS mode, or run in a triple/TMR/TCLS mode. These configurations can be switched at runtime (given the availability at design time), or fixed with a parameter at design time.
+
+### System integration
+
+### Instantiation
+
+This module should be placed between all signals connecting the processor cores to the rest of the system. Some additional modules are required to support certain features:
+- To allow runtime switching between independent, DMR, and TMR modes, logic should be implemented to signal when the cores are ready to group together and synchronize. If in `DMRFixed` or `TMRFixed` configuration, this is not needed.
+
+#### Parameters
+
+To integrate this module into a system, the following parameters *require* configuration:
+- `NumCores`: The number of physical cores within the system
+- `all_inputs_t`: A custom struct type containing all inputs required for the implemented core
+- `nominal_outputs_t`: A custom struct type containing all normal output signals from the implemented core
+- `apb_req_t/apb_resp_t`: APB types (see [apb](https://github.com/pulp-platform/apb)) to access configuration registers
+
+The following parameters are optional for custom configurations:
+- `DMRSupported`: Enables support for DMR mode (default: `1'b1`).
+- `DMRFixed`: Enforces permanent DMR mode. Cannot be used with `TMRSupported` or `TMRFixed` (default: `1'b0`).
+- `TMRSupported`: Enables support for TMR mode (default: `1'b1`).
+- `TMRFixed`: Enforces permanent TMR mode. Cannot be used with `DMRSupported` or `DMRFixed` (default: `1'b0`).
+- `InterleaveGrps`: Uses interleaved cores for groups instead of sequential cores for groups (e.g., for 6 cores TMR, interleaved groups 0,2,4 and 1,3,5 together vs. sequential groups 0,1,2 and 3,4,5 together) (default: `1'b1`).
+- `DefaultNominalOutputs`: Sets a custom default value the core outputs should have towards the system when disabled (i.e., part of a DMR/TMR group) (default: `'{default: '0}`).
+- `SeparateData`: Have separate error signalling for data buses, disabling error notification when the bus is disabled (default: `1'b0`). Requires `NumBusVoters` and `bus_outputs_t` to be set.
+- `bus_outputs_t`: A custom struct type containing output signals from the implemented core for a separated bus (default: `logic`).
+- `DefaultBusOutputs`: Sets a custom default value the bus outptus should have towards the system when disabled (i.e., part of a DMR/TMR group) (default: `'{default: '0}`).
+- `RapidRecovery`: Enables the *rapid recovery* feature. Requires `RfAddrWidth`, `SysDataWidth`, `core_backup_t`, and `rapid_recovery_t` to be set. Please check the HMR paper and the code for more information (default: `1'b0`).
+
+When using a non-standard configuration, it may be beneficial to regenerate the configuration registers with the desired values. The `Makefile` sets up a target for this with variables to configure:
+
+```sh
+make gen_HMR HMR_NUM_CORES=[12|your desired core number] HMR_DMR_AVAILABLE=[1|your DMRSupported/Fixed config] HMR_TMR_AVAILABLE=[1|your TMRSupported/Fixed config]
+```
+
+#### Signals
+
+The following signals are required for baseline functionality:
+- `clk_i`: The clock.
+- `rst_ni`: The reset.
+- `apb_req_i`: An APB request struct input (see [apb](https://github.com/pulp-platform/apb)).
+- `apb_resp_o`: An APB response struct output (see [apb](https://github.com/pulp-platform/apb)).
+
+All signals with a `sys_` prefix connect to the system:
+- `sys_bootaddress_i`: Default boot address (required for *checkpoint* feature in DMR, otherwise can be tied to `'0`).
+- `sys_inputs_i`: All inputs to the cores from the system.
+- `sys_nominal_outputs_o`: All normal outputs from the cores to the system.
+- `sys_bus_outputs_o`: Bus outputs from the system. Can be left unconnected if `SeparateData` is disabled.
+- `sys_fetch_en_i`: Allows configuration switching prior to coer startup.
+- `enable_bus_vote_i`: Signals bus outputs are enabled. Can be tied to `'0` if `SeparateData` is disabled.
+
+All signals with a `core_` prefix connect to the core:
+- `core_bootaddress_o`: Connect to the cores' boot address input signal (if *checkpoint* feature in DMR is desired, otherwise can be unconnected).
+- `core_setback_o`: Reset signal to the processor cores (may need FF if aynchronous reset is used internally).
+- `core_inputs_o`: All inputs to the cores.
+- `core_nominal_output_i`: All normal outputs from the cores.
+- `core_bus_outputs_i`: Bus outputs from the cores. Can be tied to `'0` if `SeparateData` is disabled.
+
+Both DMR and TMR feature some indicator signals:
+- `?mr_failure_o`: Indicates an unrecoverable mismatch detected.
+- `tmr_error_o`: Indicates a mismatch of a single core.
+- `?mr_resynch_req_o`: Interrupt to cores to trigger software resynchronization routine.
+- `?mr_sw_synch_req_o`: Interrupt to cores to trigger a software routine to synchronize independent cores. Can be left unconnected for ?MRFixed configurations.
+- `?mr_cores_synch_i`: Signal indicating independent cores for a group are synchronized and ready to lock together.
+- `redundancy_enable_o`: Signal indicating any redundancy currently is enabled.
+
+To support the *rapid recovery* feature, additional signals are required connecting to a rapid recovery capable core. Please check the HMR paper and the code for more information. If unused, these signals can be left unconnected (outputs) or tied to '0 (inputs).
+
+### Citing
+
+If you are using HMR in your academic work you can cite us:
+```BibTeX
+@article{10.1145/3635161,
+author = {Rogenmoser, Michael and Tortorella, Yvan and Rossi, Davide and Conti, Francesco and Benini, Luca},
+title = {Hybrid Modular Redundancy: Exploring Modular Redundancy Approaches in RISC-V Multi-core Computing Clusters for Reliable Processing in Space},
+year = {2025},
+issue_date = {January 2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {9},
+number = {1},
+issn = {2378-962X},
+url = {https://doi.org/10.1145/3635161},
+doi = {10.1145/3635161},
+abstract = {Space Cyber-Physical Systems such as spacecraft and satellites strongly rely on the reliability of onboard computers to guarantee the success of their missions. Relying solely on radiation-hardened technologies is extremely expensive, and developing inflexible architectural and microarchitectural modifications to introduce modular redundancy within a system leads to significant area increase and performance degradation. To mitigate the overheads of traditional radiation hardening and modular redundancy approaches, we present a novel Hybrid Modular Redundancy approach, a redundancy scheme that features a cluster of RISC-V processors with a flexible on-demand dual-core and triple-core lockstep grouping of computing cores with runtime split-lock capabilities. Further, we propose two recovery approaches, software-based and hardware-based, trading off performance and area overhead. Running at 430 MHz, our fault-tolerant cluster achieves up to 1,160 MOPS on a matrix multiplication benchmark when configured in non-redundant mode and 617 and 414 MOPS in dual and triple mode, respectively. A software-based recovery in triple mode requires 363 clock cycles and occupies 0.612 mm2, representing a 1.3\% area overhead over a non-redundant 12-core RISC-V cluster. As a high-performance alternative, a new hardware-based method provides rapid fault recovery in just 24 clock cycles and occupies 0.660 mm2, namely, ∼9.4\% area overhead over the baseline non-redundant RISC-V cluster. The cluster is also enhanced with split-lock capabilities to enter one of the available redundant modes with minimum performance loss, allowing execution of a mission-critical portion of code when in independent mode, or a performance section when in a reliability mode, with <400 clock cycles overhead for entry and exit. The proposed system is the first to integrate these functionalities on an open-source RISC-V-based compute device, enabling finely tunable reliability versus performance trade-offs.},
+journal = {ACM Trans. Cyber-Phys. Syst.},
+month = jan,
+articleno = {8},
+numpages = {29},
+keywords = {RISC-V, adaptive fault tolerance, space vehicle computer, reliable computing}
+}
+```
+
 ## On-Demand Redundancy Grouping (ODRG_unit)
+> [!NOTE]
+> This module has been superceeded by HMR above. ODRG functionality is supported within certain configurations of HMR.
+
 The `ODRG_unit` is designed as a configurable bridge between three ibex cores, allowing for independent operation or lock-step operation with majority voting, triggering an interrupt in case a mismatch is detected. It uses lowrisc's reggen tool to generate the required configuration registers.
 
 ### Testing
@@ -13,8 +111,8 @@ If you are using ODRG in your academic work you can cite us:
 ```BibTeX
 @INPROCEEDINGS{9912026,
   author={Rogenmoser, Michael and Wistoff, Nils and Vogel, Pirmin and Gürkaynak, Frank and Benini, Luca},
-  booktitle={2022 IEEE Computer Society Annual Symposium on VLSI (ISVLSI)}, 
-  title={On-Demand Redundancy Grouping: Selectable Soft-Error Tolerance for a Multicore Cluster}, 
+  booktitle={2022 IEEE Computer Society Annual Symposium on VLSI (ISVLSI)},
+  title={On-Demand Redundancy Grouping: Selectable Soft-Error Tolerance for a Multicore Cluster},
   year={2022},
   volume={},
   number={},
