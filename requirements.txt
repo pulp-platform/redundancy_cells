@@ -2,3 +2,5 @@ hjson
 mako
 pyyaml
 tabulate
+peakrdl
+peakrdl-rawheader @ git+https://github.com/micprog/PeakRDL-rawheader.git
