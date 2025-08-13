@@ -14,7 +14,7 @@
 
 SHELL=bash
 
-BENDER ?= bender
+BENDER ?= ./bender
 REG_PATH = $(shell $(BENDER) path register_interface)
 # use if you need to hardcode location of regtool
 # REG_PATH = ../register_interface
