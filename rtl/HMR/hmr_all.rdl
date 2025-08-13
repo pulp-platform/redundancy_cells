@@ -24,4 +24,6 @@ addrmap hmr_all #(
     hmr_core hmr_core[NumCores]    @0x100 += 0x10;
     hmr_dmr  hmr_dmr[NumDMRGroups] @0x200 += 0x10;
     hmr_tmr  hmr_tmr[NumTMRGroups] @0x300 += 0x10;
+    hmr_dmr->ispresent = DMRAvailable;
+    hmr_tmr->ispresent = TMRAvailable;
 };

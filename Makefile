@@ -28,6 +28,11 @@ RDL_HMR = rtl/HMR/hmr_regs.rdl
 RDL_HMR_core = rtl/HMR/hmr_core_regs.rdl
 RDL_HMR_dmr = rtl/HMR/hmr_dmr_regs.rdl
 RDL_HMR_tmr = rtl/HMR/hmr_tmr_regs.rdl
+HMR_NUM_CORES ?= 12
+HMR_NUM_DMR_GROUPS ?= $(HMR_NUM_CORES)/2
+HMR_NUM_TMR_GROUPS ?= $(HMR_NUM_CORES)/3
+HMR_DMR_AVAILABLE ?= 1
+HMR_TMR_AVAILABLE ?= 1
 HJSON_ECC = rtl/ecc_wrap/ecc_sram_wrapper.hjson
 
 TARGET_DIR_ODRG = rtl/ODRG_unit
@@ -47,12 +52,21 @@ gen_TCLS:
 	python $(REG_TOOL) $(HJSON_TCLS) -D > $(TARGET_DIR_TCLS)/TCLS.h
 
 gen_HMR: $(RDL_HMR_TOP) $(RDL_HMR) $(RDL_HMR_core) $(RDL_HMR_dmr) $(RDL_HMR_tmr)
-	$(PEAKRDL) regblock $(RDL_HMR) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n --module-name hmr_registers_reg_top --package-name hmr_registers_reg_pkg
-	$(PEAKRDL) regblock $(RDL_HMR_core) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n --module-name hmr_core_regs_reg_top --package-name hmr_core_regs_reg_pkg
-	$(PEAKRDL) regblock $(RDL_HMR_dmr) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n --module-name hmr_dmr_regs_reg_top --package-name hmr_dmr_regs_reg_pkg
-	$(PEAKRDL) regblock $(RDL_HMR_tmr) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n --module-name hmr_tmr_regs_reg_top --package-name hmr_tmr_regs_reg_pkg
-	$(PEAKRDL) raw-header $(RDL_HMR_TOP) -I $(TARGET_DIR_HMR) -o $(TARGET_DIR_HMR)/hmr_registers_reg_addr_pkg.sv --format svpkg
-	$(PEAKRDL) c-header $(RDL_HMR_TOP) -I $(TARGET_DIR_HMR) -o $(TARGET_DIR_HMR)/hmr_registers.h
+	$(PEAKRDL) regblock $(RDL_HMR) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n \
+		--module-name hmr_registers_reg_top --package-name hmr_registers_reg_pkg \
+		-P NumCores=$(HMR_NUM_CORES) -P NumDMRGroups=$(HMR_NUM_DMR_GROUPS) -P NumTMRGroups=$(HMR_NUM_TMR_GROUPS)
+	$(PEAKRDL) regblock $(RDL_HMR_core) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n \
+		--module-name hmr_core_regs_reg_top --package-name hmr_core_regs_reg_pkg
+	$(PEAKRDL) regblock $(RDL_HMR_dmr) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n \
+		--module-name hmr_dmr_regs_reg_top --package-name hmr_dmr_regs_reg_pkg
+	$(PEAKRDL) regblock $(RDL_HMR_tmr) -o $(TARGET_DIR_HMR) --cpuif apb4-flat --default-reset arst_n \
+		--module-name hmr_tmr_regs_reg_top --package-name hmr_tmr_regs_reg_pkg
+	$(PEAKRDL) raw-header $(RDL_HMR_TOP) -I $(TARGET_DIR_HMR) -o $(TARGET_DIR_HMR)/hmr_registers_reg_addr_pkg.sv --format svpkg \
+		-P NumCores=$(HMR_NUM_CORES) -P NumDMRGroups=$(HMR_NUM_DMR_GROUPS) -P NumTMRGroups=$(HMR_NUM_TMR_GROUPS) \
+		-P DMRAvailable=$(HMR_DMR_AVAILABLE) -P TMRAvailable=$(HMR_TMR_AVAILABLE)
+	$(PEAKRDL) c-header $(RDL_HMR_TOP) -I $(TARGET_DIR_HMR) -o $(TARGET_DIR_HMR)/hmr_registers.h \
+		-P NumCores=$(HMR_NUM_CORES) -P NumDMRGroups=$(HMR_NUM_DMR_GROUPS) -P NumTMRGroups=$(HMR_NUM_TMR_GROUPS) \
+		-P DMRAvailable=$(HMR_DMR_AVAILABLE) -P TMRAvailable=$(HMR_TMR_AVAILABLE)
 
 gen_ecc_registers:
 	python $(REG_TOOL) $(HJSON_ECC) -t $(TARGET_DIR_ECC) -r

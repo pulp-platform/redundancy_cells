@@ -123,70 +123,70 @@ typedef struct __attribute__ ((__packed__)) {
     uint8_t RESERVED_c_f[0x4];
 } hmr_all__hmr_core__stride10_t;
 
-// Reg - hmr_all::hmr_dmr::dmr_enable
-#define HMR_ALL__HMR_DMR__DMR_ENABLE__DMR_ENABLE_bm 0x1
-#define HMR_ALL__HMR_DMR__DMR_ENABLE__DMR_ENABLE_bp 0
-#define HMR_ALL__HMR_DMR__DMR_ENABLE__DMR_ENABLE_bw 1
-#define HMR_ALL__HMR_DMR__DMR_ENABLE__DMR_ENABLE_reset 0x0
+// Reg - hmr_all::hmr_dmr_ispresent_t::dmr_enable
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_ENABLE__DMR_ENABLE_bm 0x1
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_ENABLE__DMR_ENABLE_bp 0
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_ENABLE__DMR_ENABLE_bw 1
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_ENABLE__DMR_ENABLE_reset 0x0
 
-// Reg - hmr_all::hmr_dmr::dmr_config
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__RAPID_RECOVERY_bm 0x1
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__RAPID_RECOVERY_bp 0
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__RAPID_RECOVERY_bw 1
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__RAPID_RECOVERY_reset 0x0
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__FORCE_RECOVERY_bm 0x2
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__FORCE_RECOVERY_bp 1
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__FORCE_RECOVERY_bw 1
-#define HMR_ALL__HMR_DMR__DMR_CONFIG__FORCE_RECOVERY_reset 0x0
+// Reg - hmr_all::hmr_dmr_ispresent_t::dmr_config
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__RAPID_RECOVERY_bm 0x1
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__RAPID_RECOVERY_bp 0
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__RAPID_RECOVERY_bw 1
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__RAPID_RECOVERY_reset 0x0
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__FORCE_RECOVERY_bm 0x2
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__FORCE_RECOVERY_bp 1
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__FORCE_RECOVERY_bw 1
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__DMR_CONFIG__FORCE_RECOVERY_reset 0x0
 
-// Reg - hmr_all::hmr_dmr::checkpoint_addr
-#define HMR_ALL__HMR_DMR__CHECKPOINT_ADDR__CHECKPOINT_ADDR_bm 0xffffffff
-#define HMR_ALL__HMR_DMR__CHECKPOINT_ADDR__CHECKPOINT_ADDR_bp 0
-#define HMR_ALL__HMR_DMR__CHECKPOINT_ADDR__CHECKPOINT_ADDR_bw 32
-#define HMR_ALL__HMR_DMR__CHECKPOINT_ADDR__CHECKPOINT_ADDR_reset 0x0
+// Reg - hmr_all::hmr_dmr_ispresent_t::checkpoint_addr
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__CHECKPOINT_ADDR__CHECKPOINT_ADDR_bm 0xffffffff
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__CHECKPOINT_ADDR__CHECKPOINT_ADDR_bp 0
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__CHECKPOINT_ADDR__CHECKPOINT_ADDR_bw 32
+#define HMR_ALL__HMR_DMR_ISPRESENT_T__CHECKPOINT_ADDR__CHECKPOINT_ADDR_reset 0x0
 
-// Addrmap - hmr_all::hmr_dmr
+// Addrmap - hmr_all::hmr_dmr_ispresent_t
 typedef struct __attribute__ ((__packed__)) {
     uint32_t dmr_enable;
     uint32_t dmr_config;
     uint32_t checkpoint_addr;
     uint8_t RESERVED_c_f[0x4];
-} hmr_all__hmr_dmr__stride10_t;
+} hmr_all__hmr_dmr_ispresent_t__stride10_t;
 
-// Reg - hmr_all::hmr_tmr::tmr_enable
-#define HMR_ALL__HMR_TMR__TMR_ENABLE__TMR_ENABLE_bm 0x1
-#define HMR_ALL__HMR_TMR__TMR_ENABLE__TMR_ENABLE_bp 0
-#define HMR_ALL__HMR_TMR__TMR_ENABLE__TMR_ENABLE_bw 1
-#define HMR_ALL__HMR_TMR__TMR_ENABLE__TMR_ENABLE_reset 0x0
+// Reg - hmr_all::hmr_tmr_ispresent_t::tmr_enable
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_ENABLE__TMR_ENABLE_bm 0x1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_ENABLE__TMR_ENABLE_bp 0
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_ENABLE__TMR_ENABLE_bw 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_ENABLE__TMR_ENABLE_reset 0x0
 
-// Reg - hmr_all::hmr_tmr::tmr_config
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__DELAY_RESYNCH_bm 0x1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__DELAY_RESYNCH_bp 0
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__DELAY_RESYNCH_bw 1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__DELAY_RESYNCH_reset 0x0
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__SETBACK_bm 0x2
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__SETBACK_bp 1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__SETBACK_bw 1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__SETBACK_reset 0x1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RELOAD_SETBACK_bm 0x4
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RELOAD_SETBACK_bp 2
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RELOAD_SETBACK_bw 1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RELOAD_SETBACK_reset 0x1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RAPID_RECOVERY_bm 0x8
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RAPID_RECOVERY_bp 3
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RAPID_RECOVERY_bw 1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__RAPID_RECOVERY_reset 0x0
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__FORCE_RESYNCH_bm 0x10
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__FORCE_RESYNCH_bp 4
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__FORCE_RESYNCH_bw 1
-#define HMR_ALL__HMR_TMR__TMR_CONFIG__FORCE_RESYNCH_reset 0x0
+// Reg - hmr_all::hmr_tmr_ispresent_t::tmr_config
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__DELAY_RESYNCH_bm 0x1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__DELAY_RESYNCH_bp 0
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__DELAY_RESYNCH_bw 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__DELAY_RESYNCH_reset 0x0
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__SETBACK_bm 0x2
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__SETBACK_bp 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__SETBACK_bw 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__SETBACK_reset 0x1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RELOAD_SETBACK_bm 0x4
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RELOAD_SETBACK_bp 2
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RELOAD_SETBACK_bw 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RELOAD_SETBACK_reset 0x1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RAPID_RECOVERY_bm 0x8
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RAPID_RECOVERY_bp 3
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RAPID_RECOVERY_bw 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__RAPID_RECOVERY_reset 0x0
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__FORCE_RESYNCH_bm 0x10
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__FORCE_RESYNCH_bp 4
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__FORCE_RESYNCH_bw 1
+#define HMR_ALL__HMR_TMR_ISPRESENT_T__TMR_CONFIG__FORCE_RESYNCH_reset 0x0
 
-// Addrmap - hmr_all::hmr_tmr
+// Addrmap - hmr_all::hmr_tmr_ispresent_t
 typedef struct __attribute__ ((__packed__)) {
     uint32_t tmr_enable;
     uint32_t tmr_config;
     uint8_t RESERVED_8_f[0x8];
-} hmr_all__hmr_tmr__stride10_t;
+} hmr_all__hmr_tmr_ispresent_t__stride10_t;
 
 // Addrmap - hmr_all
 typedef struct __attribute__ ((__packed__)) {
@@ -194,9 +194,9 @@ typedef struct __attribute__ ((__packed__)) {
     uint8_t RESERVED_18_ff[0xe8];
     hmr_all__hmr_core__stride10_t hmr_core[12];
     uint8_t RESERVED_1c0_1ff[0x40];
-    hmr_all__hmr_dmr__stride10_t hmr_dmr[6];
+    hmr_all__hmr_dmr_ispresent_t__stride10_t hmr_dmr[6];
     uint8_t RESERVED_260_2ff[0xa0];
-    hmr_all__hmr_tmr__stride10_t hmr_tmr[4];
+    hmr_all__hmr_tmr_ispresent_t__stride10_t hmr_tmr[4];
 } hmr_all_t;
 
 
