@@ -247,6 +247,9 @@ module hmr_dmr_regs_reg_top (
         if(decoded_reg_strb.checkpoint_addr && decoded_req_is_wr) begin // SW write
             next_c = (field_storage.checkpoint_addr.checkpoint_addr.value & ~decoded_wr_biten[31:0]) | (decoded_wr_data[31:0] & decoded_wr_biten[31:0]);
             load_next_c = '1;
+        end else begin // HW Write
+            next_c = hwif_in.checkpoint_addr.checkpoint_addr.next;
+            load_next_c = '1;
         end
         field_combo.checkpoint_addr.checkpoint_addr.next = next_c;
         field_combo.checkpoint_addr.checkpoint_addr.load_next = load_next_c;

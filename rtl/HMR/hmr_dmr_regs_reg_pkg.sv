@@ -32,8 +32,17 @@ package hmr_dmr_regs_reg_pkg;
     } hmr_dmr__dmr_config__in_t;
 
     typedef struct {
+        logic [31:0] next;
+    } hmr_dmr__checkpoint_addr__checkpoint_addr__in_t;
+
+    typedef struct {
+        hmr_dmr__checkpoint_addr__checkpoint_addr__in_t checkpoint_addr;
+    } hmr_dmr__checkpoint_addr__in_t;
+
+    typedef struct {
         hmr_dmr__dmr_enable__in_t dmr_enable;
         hmr_dmr__dmr_config__in_t dmr_config;
+        hmr_dmr__checkpoint_addr__in_t checkpoint_addr;
     } hmr_dmr__in_t;
 
     typedef struct {
