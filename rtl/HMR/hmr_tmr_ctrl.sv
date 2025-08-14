@@ -16,7 +16,8 @@ module hmr_tmr_ctrl #(
   parameter bit  DefaultInTMR   = TMRFixed ? 1'b1 : 1'b0,
   parameter bit  RapidRecovery  = 1'b0,
   parameter type apb_req_t      = logic,
-  parameter type apb_resp_t     = logic
+  parameter type apb_resp_t     = logic,
+  parameter bit  SyncRegStates  = 1'b0
 ) (
   input  logic       clk_i,
   input  logic       rst_ni,
@@ -55,12 +56,18 @@ module hmr_tmr_ctrl #(
   input  logic       fetch_en_i,
   input  logic       cores_synch_i,
   output logic       recovery_request_o,
-  input  logic       recovery_finished_i
+  input  logic       recovery_finished_i,
+
+  output logic      [10:0] sync_reg_o,
+  input  logic [1:0][10:0] sync_reg_i,
+  output logic             fault_o
 );
 
-  logic synch_req,   synch_req_sent_d,   synch_req_sent_q;
-  logic resynch_req, resynch_req_sent_d, resynch_req_sent_q;
-  logic cores_synch_q;
+  logic [10:0] sync_reg_voted;
+
+  logic synch_req,   synch_req_sent_d,   synch_req_sent_q_int,   synch_req_sent_q;
+  logic resynch_req, resynch_req_sent_d, resynch_req_sent_q_int, resynch_req_sent_q;
+  logic cores_synch_q_int, cores_synch_q;
 
   typedef enum logic [2:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD, TMR_RAPID} tmr_mode_e;
   localparam tmr_mode_e DefaultTMRMode = DefaultInTMR || TMRFixed ? TMR_RUN : NON_TMR;
@@ -68,7 +75,7 @@ module hmr_tmr_ctrl #(
   hmr_tmr_regs_reg_pkg::hmr_tmr__out_t tmr_reg2hw;
   hmr_tmr_regs_reg_pkg::hmr_tmr__in_t tmr_hw2reg;
 
-  tmr_mode_e tmr_red_mode_d, tmr_red_mode_q;
+  tmr_mode_e tmr_red_mode_d, tmr_red_mode_q_int, tmr_red_mode_q;
 
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
   assign tmr_resynch_req_o = tmr_red_mode_q == TMR_UNLOAD;
@@ -97,16 +104,35 @@ module hmr_tmr_ctrl #(
   );
 
   // Global config update
-  assign tmr_hw2reg.tmr_enable.tmr_enable.we       = tmr_enable_qe_i;
-  assign tmr_hw2reg.tmr_enable.tmr_enable.next     = tmr_enable_q_i;
-  assign tmr_hw2reg.tmr_config.delay_resynch.we    = delay_resynch_qe_i;
-  assign tmr_hw2reg.tmr_config.delay_resynch.next  = delay_resynch_q_i;
-  assign tmr_hw2reg.tmr_config.setback.we          = setback_qe_i;
-  assign tmr_hw2reg.tmr_config.setback.next        = setback_q_i;
-  assign tmr_hw2reg.tmr_config.reload_setback.we   = reload_setback_qe_i;
-  assign tmr_hw2reg.tmr_config.reload_setback.next = reload_setback_q_i;
-  assign tmr_hw2reg.tmr_config.rapid_recovery.we   = rapid_recovery_qe_i;
-  assign tmr_hw2reg.tmr_config.rapid_recovery.next = rapid_recovery_q_i;
+  if (SyncRegStates) begin : gen_global_synced
+    assign sync_reg_o[6] = tmr_reg2hw.tmr_enable.tmr_enable.value;
+    assign sync_reg_o[7] = tmr_reg2hw.tmr_config.delay_resynch.value;
+    assign sync_reg_o[8] = tmr_reg2hw.tmr_config.setback.value;
+    assign sync_reg_o[9] = tmr_reg2hw.tmr_config.reload_setback.value;
+    assign sync_reg_o[10] = tmr_reg2hw.tmr_config.rapid_recovery.value;
+    assign tmr_hw2reg.tmr_enable.tmr_enable.we       = 1'b1;
+    assign tmr_hw2reg.tmr_enable.tmr_enable.next     = tmr_enable_qe_i ? tmr_enable_q_i : sync_reg_voted[6];
+    assign tmr_hw2reg.tmr_config.delay_resynch.we    = 1'b1;
+    assign tmr_hw2reg.tmr_config.delay_resynch.next  = delay_resynch_qe_i ? delay_resynch_q_i : sync_reg_voted[7];
+    assign tmr_hw2reg.tmr_config.setback.we          = 1'b1;
+    assign tmr_hw2reg.tmr_config.setback.next        = setback_qe_i ? setback_q_i : sync_reg_voted[8];
+    assign tmr_hw2reg.tmr_config.reload_setback.we   = 1'b1;
+    assign tmr_hw2reg.tmr_config.reload_setback.next = reload_setback_qe_i ? reload_setback_q_i : sync_reg_voted[9];
+    assign tmr_hw2reg.tmr_config.rapid_recovery.we   = 1'b1;
+    assign tmr_hw2reg.tmr_config.rapid_recovery.next = rapid_recovery_qe_i ? rapid_recovery_q_i : sync_reg_voted[10];
+  end else begin : gen_global_not_synced
+    assign sync_reg_o[10:6] = '0;
+    assign tmr_hw2reg.tmr_enable.tmr_enable.we       = tmr_enable_qe_i;
+    assign tmr_hw2reg.tmr_enable.tmr_enable.next     = tmr_enable_q_i;
+    assign tmr_hw2reg.tmr_config.delay_resynch.we    = delay_resynch_qe_i;
+    assign tmr_hw2reg.tmr_config.delay_resynch.next  = delay_resynch_q_i;
+    assign tmr_hw2reg.tmr_config.setback.we          = setback_qe_i;
+    assign tmr_hw2reg.tmr_config.setback.next        = setback_q_i;
+    assign tmr_hw2reg.tmr_config.reload_setback.we   = reload_setback_qe_i;
+    assign tmr_hw2reg.tmr_config.reload_setback.next = reload_setback_q_i;
+    assign tmr_hw2reg.tmr_config.rapid_recovery.we   = rapid_recovery_qe_i;
+    assign tmr_hw2reg.tmr_config.rapid_recovery.next = rapid_recovery_q_i;
+  end
   assign tmr_hw2reg.tmr_config.force_resynch.next  = force_resynch_qe_i ? force_resynch_q_i : 1'b0;
 
   /**************************
@@ -228,16 +254,40 @@ module hmr_tmr_ctrl #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_red_mode
     if(!rst_ni) begin
-      tmr_red_mode_q <= DefaultTMRMode;
-      synch_req_sent_q <= '0;
-      resynch_req_sent_q <= '0;
-      cores_synch_q <= '0;
+      tmr_red_mode_q_int <= DefaultTMRMode;
+      synch_req_sent_q_int <= '0;
+      resynch_req_sent_q_int <= '0;
+      cores_synch_q_int <= '0;
     end else begin
-      tmr_red_mode_q <= tmr_red_mode_d;
-      synch_req_sent_q <= synch_req_sent_d;
-      resynch_req_sent_q <= resynch_req_sent_d;
-      cores_synch_q <= cores_synch_i;
+      tmr_red_mode_q_int <= tmr_red_mode_d;
+      synch_req_sent_q_int <= synch_req_sent_d;
+      resynch_req_sent_q_int <= resynch_req_sent_d;
+      cores_synch_q_int <= cores_synch_i;
     end
+  end
+  assign tmr_red_mode_q = tmr_mode_e'(sync_reg_voted[2:0]);
+  assign synch_req_sent_q = sync_reg_voted[3];
+  assign resynch_req_sent_q = sync_reg_voted[4];
+  assign cores_synch_q = sync_reg_voted[5];
+
+  assign sync_reg_o[2:0] = tmr_red_mode_q_int;
+  assign sync_reg_o[3] = synch_req_sent_q_int;
+  assign sync_reg_o[4] = resynch_req_sent_q_int;
+  assign sync_reg_o[5] = cores_synch_q_int;
+  if (SyncRegStates) begin : gen_vote_regs
+    bitwise_TMR_voter_fail #(
+      .DataWidth(11),
+      .VoterType(1) // KP_MV
+    ) i_sync_reg_voter (
+      .a_i(sync_reg_i[0]),
+      .b_i(sync_reg_i[1]),
+      .c_i(sync_reg_o),
+      .majority_o(sync_reg_voted),
+      .fault_detected_o(fault_o)
+    );
+  end else begin : gen_pass_through
+    assign sync_reg_voted = sync_reg_o;
+    assign fault_o = 1'b0;
   end
 
   `ifdef TARGET_SIMULATION
