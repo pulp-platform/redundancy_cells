@@ -51,17 +51,29 @@ module ecc_sram_wrap #(
 
   logic [1:0]                    ecc_error;
   logic                          valid_read_d, valid_read_q;
+  logic                          valid_load_d, valid_load_q;
+  logic [DataInWidth-1:0]        corrected_data_raw_d, corrected_data_raw_q;
+  logic                          corrected_data_raw_en;
+  logic                          in_update_corrected_data_mode;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
     if(~rst_ni) begin
       valid_read_q <= '0;
     end else begin
       valid_read_q <= valid_read_d;
+      valid_load_q <= valid_load_d;
+    end
+  end
+
+  always_ff @(posedge clk_i) begin : proc_corrected_data_update
+    if(corrected_data_raw_en) begin
+      corrected_data_raw_q <= corrected_data_raw_d;
     end
   end
 
   assign valid_read_d = tcdm_req_i && tcdm_gnt_o &&
                         (tcdm_wen_i || (tcdm_be_i != {BEInWidth{1'b1}}));
+  assign valid_load_d = tcdm_req_i && tcdm_gnt_o && tcdm_wen_i;
   assign single_error_o = ecc_error[0] && valid_read_q;
   assign multi_error_o  = ecc_error[1] && valid_read_q;
 
@@ -93,7 +105,7 @@ module ecc_sram_wrap #(
   logic                      bank_final_we;
   logic [  BankAddWidth-1:0] bank_final_add;
 
-  typedef enum logic { NORMAL, LOAD_AND_STORE } store_state_e;
+  typedef enum logic[1:0] { NORMAL, LOAD_AND_STORE, UPDATE_CORRECTED_DATA } store_state_e;
   store_state_e store_state_d, store_state_q;
   logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0] rmw_count_d, rmw_count_q;
 
@@ -151,7 +163,14 @@ module ecc_sram_wrap #(
 
     assign to_store = store_state_q == NORMAL ?
                       tcdm_wdata_i :
+                      in_update_corrected_data_mode ?
+                      corrected_data_raw_q :
                       (be_selector & input_buffer_q) | (~be_selector & loaded);
+
+    // for read transaction, update the sram content after a single-error was corrected
+    assign corrected_data_raw_en = valid_load_q && single_error_o;
+    assign corrected_data_raw_d  = tcdm_rdata_o;
+
 
   end else begin : gen_ecc_input
 
@@ -197,27 +216,46 @@ module ecc_sram_wrap #(
     be_buffer_d    = tcdm_be_i;
     bank_req       =  tcdm_req_i;
     rmw_count_d    = rmw_count_q;
-    if (store_state_q == NORMAL) begin
-      if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
-        store_state_d = LOAD_AND_STORE;
-        bank_we       = 1'b0;
-        rmw_count_d   = NumRMWCuts;
+    in_update_corrected_data_mode = 1'b0;
+    case (store_state_q)
+      NORMAL: begin
+        if (tcdm_req_i & (tcdm_be_i != 4'b1111) & ~tcdm_wen_i) begin
+          store_state_d = LOAD_AND_STORE;
+          bank_we       = 1'b0;
+          rmw_count_d   = NumRMWCuts;
+        end
+        if(valid_load_q && single_error_o) begin
+          store_state_d = UPDATE_CORRECTED_DATA;
+          tcdm_gnt_o    = 1'b0;
+          add_buffer_d  = add_buffer_q;
+          bank_req      = 1'b0;
+        end
       end
-    end else begin
-      tcdm_gnt_o  = 1'b0;
-      bank_add        = add_buffer_q;
-      bank_we         = 1'b1;
-      input_buffer_d  = input_buffer_q;
-      add_buffer_d    = add_buffer_q;
-      be_buffer_d     = be_buffer_q;
-      if (rmw_count_q == '0) begin
-        bank_req      = 1'b1;
-      end else begin
-        bank_req      = 1'b0;
-        rmw_count_d   = rmw_count_q - 1;
-        store_state_d = LOAD_AND_STORE;
+      LOAD_AND_STORE: begin
+        tcdm_gnt_o  = 1'b0;
+        bank_add        = add_buffer_q;
+        bank_we         = 1'b1;
+        input_buffer_d  = input_buffer_q;
+        add_buffer_d    = add_buffer_q;
+        be_buffer_d     = be_buffer_q;
+        if (rmw_count_q == '0) begin
+          bank_req      = 1'b1;
+        end else begin
+          bank_req      = 1'b0;
+          rmw_count_d   = rmw_count_q - 1;
+          store_state_d = LOAD_AND_STORE;
+        end
       end
-    end
+      UPDATE_CORRECTED_DATA: begin
+        tcdm_gnt_o                    = 1'b0;
+        bank_req                      = 1'b1;
+        bank_we                       = 1'b1;
+        bank_add                      = add_buffer_q;
+        in_update_corrected_data_mode = 1'b1;
+        store_state_d                 = NORMAL;
+      end
+      default: /* do nothing */;
+    endcase
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_load_and_store_ff
