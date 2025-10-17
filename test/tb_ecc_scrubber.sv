@@ -190,7 +190,8 @@ module tb_ecc_scrubber #(
     .bank_rdata_i     ( bank_rdata      ),
     .ecc_out_o        (                 ),
     .ecc_in_i         ( '0              ),
-    .ecc_err_i        ( '0              )
+    .ecc_err_i        ( '0              ),
+    .fault_o         ( )
   );
 
   /***********************
