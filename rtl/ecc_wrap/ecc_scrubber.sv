@@ -17,6 +17,7 @@ module ecc_scrubber #(
   parameter bit          UseExternalECC = 0,
   parameter int unsigned DataWidth      = 39,
   parameter int unsigned ProtWidth      = 7,
+  parameter bit          CorrectRead    = 1'b0,
   parameter bit          TmrHs          = 1'b0,
   parameter int unsigned TmrHsWidth     = TmrHs ? 3 : 1
 ) (
@@ -79,7 +80,8 @@ module ecc_scrubber #(
     end
     ecc_scrubber_tmr_part #(
       .BankSize  ( BankSize  ),
-      .DataWidth ( DataWidth )
+      .DataWidth ( DataWidth ),
+      .CorrectRead ( CorrectRead )
     ) tmr_part (
       .clk_i               ( clk_i                ),
       .rst_ni              ( rst_ni               ),
@@ -144,7 +146,8 @@ endmodule
 
 module ecc_scrubber_tmr_part #(
   parameter int unsigned BankSize       = 256,
-  parameter int unsigned DataWidth      = 39
+  parameter int unsigned DataWidth      = 39,
+  parameter bit          CorrectRead    = 1'b0
 ) (
   input  logic                        clk_i,
   input  logic                        rst_ni,
@@ -182,25 +185,44 @@ module ecc_scrubber_tmr_part #(
   logic [$clog2(BankSize)-1:0] scrub_add;
 
   logic [$clog2(BankSize)-1:0] working_add_d, working_add_q, working_add_next;
+  logic [$clog2(BankSize)-1:0] read_add_d, read_add_q;
+  logic                        read_d, read_q;
+  logic                        correcting_read;
 
   logic [1:0] faults;
   assign fault_o = |faults;
 
   assign scrub_add = working_add_q;
 
-  assign bank_req_o   = intc_req_i | scrub_req;
+  assign bank_req_o   = intc_req_i | scrub_req | correcting_read;
+
+  assign read_add_d = intc_add_i;
+  assign read_d     = intc_req_i && !intc_we_i;
 
   always_comb begin : proc_bank_assign
     // By default, bank is connected to outside
     bank_we_o    = intc_we_i;
     bank_add_o   = intc_add_i;
     bank_wdata_use_scrub_o = '0;
+    correcting_read = 1'b0;
 
     // If scrubber active and outside is not, do scrub
     if ( (state_q == Read || state_q == Write) && intc_req_i == 1'b0) begin
       bank_we_o    = scrub_we;
       bank_add_o   = scrub_add;
       bank_wdata_use_scrub_o = '1;
+    end
+
+    // We only try to write once, thereafter the scrubber will get there sometime
+    if (CorrectRead && // Feature is enabled
+        read_q && // last cycle was a read
+        ecc_err_i[0] == 1'b1 && // read had a correctable error
+        intc_req_i == 1'b0 // outside is not requesting
+    ) begin
+      bank_we_o  = 1'b1;
+      bank_add_o = read_add_q;
+      bank_wdata_use_scrub_o = '1;
+      correcting_read = 1'b1;
     end
   end
 
@@ -209,7 +231,7 @@ module ecc_scrubber_tmr_part #(
     scrub_req     = 1'b0;
     scrub_we      = 1'b0;
     working_add_d = working_add_q;
-    bit_corrected_o = 1'b0;
+    bit_corrected_o = correcting_read;
     uncorrectable_o = 1'b0;
 
     if (state_q == Idle) begin
@@ -222,7 +244,7 @@ module ecc_scrubber_tmr_part #(
       // Request read to scrub
       scrub_req = 1'b1;
       // Request only active if outside is inactive
-      if (intc_req_i == 1'b0) begin
+      if (intc_req_i == 1'b0 && correcting_read == 1'b0) begin
         state_d = Write;
       end
 
@@ -239,7 +261,7 @@ module ecc_scrubber_tmr_part #(
         scrub_we  = 1'b1;
 
         // INTC interference - retry read and write
-        if (intc_req_i == 1'b1) begin
+        if (intc_req_i == 1'b1 || correcting_read == 1'b1) begin
           state_d = Read;
         end else begin                // Error corrected
           state_d       = Idle;
@@ -281,6 +303,22 @@ module ecc_scrubber_tmr_part #(
       state_next <= state_d;
       working_add_next <= working_add_d;
     end
+  end
+
+  if (CorrectRead) begin : gen_correct_read_sync
+    // Synchronize read address and read signal
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_read_sync_ff
+      if(!rst_ni) begin
+        read_add_q <= '0;
+        read_q <= 1'b0;
+      end else begin
+        read_add_q <= read_add_d;
+        read_q <= read_d;
+      end
+    end
+  end else begin
+    assign read_q = '0;
+    assign read_add_q = '0;
   end
 
 endmodule
