@@ -30,6 +30,7 @@ module ecc_scrubber #(
 
   // Input signals from others accessing memory bank
   input  logic [TmrHsWidth-1:0]                       intc_req_i,
+  output logic [TmrHsWidth-1:0]                       intc_gnt_o,
   input  logic [TmrHsWidth-1:0]                       intc_we_i,
   input  logic [TmrHsWidth-1:0][$clog2(BankSize)-1:0] intc_add_i,
   input  logic                 [       DataWidth-1:0] intc_wdata_i,
@@ -37,6 +38,7 @@ module ecc_scrubber #(
 
   // Output directly to bank
   output logic [TmrHsWidth-1:0]                       bank_req_o,
+  input  logic [TmrHsWidth-1:0]                       bank_gnt_i,
   output logic [TmrHsWidth-1:0]                       bank_we_o,
   output logic [TmrHsWidth-1:0][$clog2(BankSize)-1:0] bank_add_o,
   output logic                 [       DataWidth-1:0] bank_wdata_o,
@@ -90,10 +92,12 @@ module ecc_scrubber #(
       .uncorrectable_o     ( uncorrectable[i]     ),
       .ecc_err_i           ( ecc_err              ),
       .intc_req_i          ( intc_req_i[i]        ),
+      .intc_gnt_o          ( intc_gnt_o[i]       ),
       .intc_we_i           ( intc_we_i[i]         ),
       .intc_add_i          ( intc_add_i[i]        ),
       .intc_wdata_i        ( intc_wdata_i         ),
       .bank_req_o          ( bank_req_o[i]        ),
+      .bank_gnt_i          ( bank_gnt_i[i]        ),
       .bank_we_o           ( bank_we_o[i]         ),
       .bank_add_o          ( bank_add_o[i]        ),
       .bank_wdata_use_scrub_o ( bank_wdata_use_scrub[i] ),
@@ -159,11 +163,13 @@ module ecc_scrubber_tmr_part #(
   input  logic [1:0]                  ecc_err_i,
 
   input  logic                        intc_req_i,
+  output logic                        intc_gnt_o,
   input  logic                        intc_we_i,
   input  logic [$clog2(BankSize)-1:0] intc_add_i,
   input  logic [       DataWidth-1:0] intc_wdata_i,
 
   output logic                        bank_req_o,
+  input  logic                        bank_gnt_i,
   output logic                        bank_we_o,
   output logic [$clog2(BankSize)-1:0] bank_add_o,
   output logic [       DataWidth-1:0] bank_wdata_use_scrub_o,
@@ -198,6 +204,8 @@ module ecc_scrubber_tmr_part #(
 
   assign read_add_d = intc_add_i;
   assign read_d     = intc_req_i && !intc_we_i;
+
+  assign intc_gnt_o = bank_gnt_i;
 
   always_comb begin : proc_bank_assign
     // By default, bank is connected to outside
@@ -244,7 +252,7 @@ module ecc_scrubber_tmr_part #(
       // Request read to scrub
       scrub_req = 1'b1;
       // Request only active if outside is inactive
-      if (intc_req_i == 1'b0 && correcting_read == 1'b0) begin
+      if (intc_req_i == 1'b0 && correcting_read == 1'b0 && bank_gnt_i == 1'b1) begin
         state_d = Write;
       end
 
@@ -263,6 +271,8 @@ module ecc_scrubber_tmr_part #(
         // INTC interference - retry read and write
         if (intc_req_i == 1'b1 || correcting_read == 1'b1) begin
           state_d = Read;
+        end else if (bank_gnt_i == 1'b0) begin // Wait for grant
+          state_d = Write; // stay in write state
         end else begin                // Error corrected
           state_d       = Idle;
           working_add_d = (working_add_q + 1) % BankSize; // increment address
