@@ -65,7 +65,7 @@ module ecc_scrubber #(
   logic [TmrHsWidth-1:0][$clog2(BankSize)-1:0] working_add_sync;
   logic [TmrHsWidth-1:0][1:0][$clog2(BankSize)-1:0] alt_working_add_sync;
 
-  logic [DataWidth:0] faults;
+  logic [DataWidth+3-1:0] faults;
   assign fault_o = |faults;
 
   assign bit_corrected_o = |bit_corrected;
@@ -107,7 +107,7 @@ module ecc_scrubber #(
       .alt_state_sync_i       (alt_state_sync[i]),
       .working_add_sync_o     (working_add_sync[i]),
       .alt_working_add_sync_i (alt_working_add_sync[i]),
-      .fault_o             (faults[0])
+      .fault_o             (faults[i])
     );
   end
 
@@ -138,7 +138,7 @@ module ecc_scrubber #(
         .b_i            ( bank_wdata_use_scrub[1][i] ),
         .c_i            ( bank_wdata_use_scrub[2][i] ),
         .majority_o     ( sel                        ),
-        .fault_detected_o ( faults[i+1]                       )
+        .fault_detected_o ( faults[i+3]                       )
       );
       assign bank_wdata_o[i] = sel ? scrub_wdata[i] : intc_wdata_i[i];
     end
