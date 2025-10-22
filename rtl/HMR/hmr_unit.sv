@@ -588,6 +588,7 @@ module hmr_unit #(
       );
     end else begin : gen_tmr_ctrl_assign
       assign tmr_setback_q_voted = tmr_setback_q[0];
+      assign ctrl_faults[HsWidth*NumTMRGroups] = '0;
     end
   end else begin : gen_no_tmr_voted
     assign tmr_error_main   = '0;
@@ -613,7 +614,7 @@ module hmr_unit #(
     assign tmr_setback_q_voted = '0;
     assign tmr_resynch_req_o = '0;
     assign tmr_sw_synch_req_o = '0;
-    assign ctrl_faults [NumTMRGroups*HsWidth-1:0] = '0;
+    assign ctrl_faults [NumTMRGroups*HsWidth:0] = '0;
   end
 
   /************************************************************
@@ -831,6 +832,7 @@ module hmr_unit #(
       );
     end else begin : gen_tmr_ctrl_assign
       assign dmr_setback_q_voted = dmr_setback_q[0];
+      assign ctrl_faults[NumTMRGroups*HsWidth+1+NumDMRGroups*HsWidth] = '0;
     end
   end else begin: gen_no_dmr_checkers
     assign dmr_failure_main = '0;
@@ -853,6 +855,7 @@ module hmr_unit #(
     assign dmr_sw_synch_req_o = '0;
     assign dmr_resynch_req_o = '0;
     assign dmr_grp_in_independent = '1;
+    assign ctrl_faults [NumTMRGroups*HsWidth+1+NumDMRGroups*HsWidth:NumTMRGroups*HsWidth+1] = '0;
   end
 
   // TODO TMR internals!!!
