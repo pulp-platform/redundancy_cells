@@ -110,6 +110,9 @@ module ecc_scrubber #(
       .fault_o             (faults[i])
     );
   end
+  if (TmrHsWidth == 1) begin : gen_non_tmr_faults
+    assign faults[2:1] = '0;
+  end
 
   if (UseExternalECC) begin : gen_external_ecc
     assign ecc_err = ecc_err_i;
@@ -144,6 +147,7 @@ module ecc_scrubber #(
     end
   end else begin : gen_non_tmr_wdata
     assign bank_wdata_o = bank_wdata_use_scrub[0] ? scrub_wdata : intc_wdata_i;
+    assign faults[3+:DataWidth] = '0;
   end
 
 endmodule
@@ -259,7 +263,7 @@ module ecc_scrubber_tmr_part #(
     end else if (state_q == Write) begin
       if (ecc_err_i[0] == 1'b0) begin   // No correctable Error
         // Return to idle state
-        state_d       = Idle;
+        state_d       = scrub_trigger_i ? Read : Idle;
         working_add_d = (working_add_q + 1) % BankSize; // increment address
         uncorrectable_o = ecc_err_i[1];
 
