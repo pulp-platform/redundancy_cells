@@ -84,7 +84,7 @@ module rel_delta_counter #(
       if (clear_i || load_i)
         overflow_d = 1'b0;
       else if (!overflow_voted && en_i)
-		overflow_d = down_i ? (delta_i > counter_voted[WIDTH-1:0])
+		    overflow_d = down_i ? (delta_i > counter_voted[WIDTH-1:0])
                             : (counter_voted[WIDTH-1:0] > ({WIDTH{1'b1}} - delta_i));
     end
 
@@ -96,7 +96,7 @@ module rel_delta_counter #(
     for (genvar n = 0; n < 3; n++)
       assign overflow_o[n] = overflow_q[n];
 
-    assign fault_o    = counter_fault | overflow_fault;
+    assign fault_o = counter_fault | overflow_fault;
 
   end else begin : gen_transient_overflow
 
