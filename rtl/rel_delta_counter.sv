@@ -101,9 +101,9 @@ module rel_delta_counter #(
   end else begin : gen_transient_overflow
 
     for (genvar n = 0; n < 3; n++) begin : gen_overflow_replicas
-		assign overflow_o[n] = counter_q[n][WIDTH];
-	end
-    assign fault_o    = counter_fault;
+		  assign overflow_o[n] = counter_q[n][WIDTH];
+	  end
+    assign fault_o = counter_fault;
   end
 
 endmodule
