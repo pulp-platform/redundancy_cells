@@ -55,19 +55,24 @@ module rel_fifo #(
   /// pop head from queue
   input  logic [  HsWidth-1:0] pop_i,
   /// tmr fault output signal
-  output logic                 fault_o
+  output logic [          1:0] fault_o
 );
   // local parameter
   // FIFO depth - handle the case of pass-through, synthesizer will do constant propagation
   localparam int unsigned FifoDepth = (Depth > 0) ? Depth : 1;
 
-  // TODO: DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
-  localparam int unsigned EccDataWidth = DataWidth;
+  // DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
+  localparam int unsigned EccDataWidth = DataHasEcc ? DataWidth :
+                                       (DataWidth + hsiao_ecc_pkg::min_ecc(DataWidth));
 
+  logic tmr_fault_any;
+  logic [1:0] ecc_err;
   logic [9:0] tmr_faults;
   logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
-  assign fault_o = |tmr_faults;
 
+  assign tmr_fault_any = |tmr_faults;
+  assign fault_o[0] = tmr_fault_any | ecc_err[0];
+  assign fault_o[1] = ecc_err[1];
   // clock gating control
   logic [2:0][FifoDepth-1:0][EccDataWidth-1:0] gate_clock;
   // pointer to the read and write section of the queue
@@ -86,12 +91,27 @@ module rel_fifo #(
   logic [FifoDepth-1:0][EccDataWidth-1:0] mem_q;
 
   if (!DataHasEcc) begin : gen_ecc_encode
-    $error("unimplemented");
-    // TODO ecc encoding of data_i into data_in
-    // TODO ecc decoding of data_out into data_o
+
+    hsiao_ecc_enc #(
+      .DataWidth(DataWidth)
+    ) i_data_enc (
+      .in(data_i),
+      .out(data_in)
+    );
+
+    hsiao_ecc_dec #(
+      .DataWidth(DataWidth)
+    ) i_data_dec (
+      .in(data_out),
+      .out(data_o),
+      .syndrome_o(),
+      .err_o(ecc_err)
+    );
+
   end else begin : gen_ecc_passthrough
     assign data_in = data_i;
     assign data_o = data_out;
+    assign ecc_err = 2'b00;
   end
 
   logic [2:0][AddrDepth:0] read_pointer_n_sync,
@@ -290,7 +310,6 @@ module rel_fifo_tmr_part #(
   end
 
   if (StatusFF) begin : gen_status_ff
-    $error("unimplemented");
     // logic [2:0][AddrDepth:0] status_cnt_d;
 
     // always_comb begin
