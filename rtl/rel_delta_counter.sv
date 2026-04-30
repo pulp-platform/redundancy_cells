@@ -27,23 +27,88 @@ module rel_delta_counter #(
   output logic                  fault_o     
 );
   // stores data and carry
-  logic [2:0][WIDTH:0] counter_q;
+  logic [2:0][WIDTH:0] counter_sync;
+  logic [2:0][1:0][WIDTH:0] alt_counter_sync;
+  
+  logic [2:0]            overflow_sync;
+  logic [2:0][1:0]       alt_overflow_sync;
 
-  // Majority vote over the three replicas, self-correcting
-  logic [WIDTH:0] counter_voted;
+  logic [2:0]            tmr_fault;
+  assign fault_o = |tmr_fault;
+  
+  for (genvar i = 0; i < 3; i++) begin : gen_alt_sync
+    for (genvar j = 0; j < 2; j++) begin : gen_alt
+      assign alt_counter_sync[i][j]  = counter_sync[(i+j+1) % 3];
+      assign alt_overflow_sync[i][j] = overflow_sync[(i+j+1) % 3];
+    end
+  end
+  
+  for (genvar i = 0; i < 3; i++) begin : gen_tmr_parts
+    rel_delta_counter_tmr_part #(
+      .WIDTH           ( WIDTH           ),
+      .STICKY_OVERFLOW ( STICKY_OVERFLOW )
+    ) i_tmr_part (
+      .clk_i               ( clk_i                  ),
+      .rst_ni              ( rst_ni                 ),
+      .clear_i             ( clear_i                ),
+      .en_i                ( en_i                   ),
+      .load_i              ( load_i                 ),
+      .down_i              ( down_i                 ),
+      .delta_i             ( delta_i                ),
+      .d_i                 ( d_i                    ),
+      .alt_counter_sync_i  ( alt_counter_sync[i]    ),
+      .counter_sync_o      ( counter_sync[i]        ),
+      .alt_overflow_sync_i ( alt_overflow_sync[i]   ),
+      .overflow_sync_o     ( overflow_sync[i]       ),
+      .q_o                 ( q_o[i]                 ),
+      .overflow_o          ( overflow_o[i]          ),
+      .fault_o             ( tmr_fault[i]           )
+    );
+  end
+
+endmodule
+
+  (* no_ungroup *)
+  (* no_boundary_optimization *)
+  module rel_delta_counter_tmr_part #(
+    parameter int unsigned WIDTH           = 4,
+    parameter bit          STICKY_OVERFLOW = 1'b0
+  )(
+    input  logic                  clk_i,
+    input  logic                  rst_ni,
+    input  logic                  clear_i,
+    input  logic                  en_i,
+    input  logic                  load_i,
+    input  logic                  down_i,
+    input  logic [WIDTH-1:0]      delta_i,
+    input  logic [WIDTH-1:0]      d_i,
+    input  logic [1:0][WIDTH:0]   alt_counter_sync_i,
+    output logic      [WIDTH:0]   counter_sync_o,     
+    input  logic [1:0]            alt_overflow_sync_i,
+    output logic                  overflow_sync_o,    
+    // outputs
+    output logic [WIDTH-1:0]      q_o,
+    output logic                  overflow_o,
+    output logic                  fault_o
+  );
+  
+  logic [WIDTH:0] counter_q;   // own register
+  logic [WIDTH:0] counter_voted; // locally voted result
+  logic [WIDTH:0] counter_d;
   logic           counter_fault;
 
+  assign counter_sync_o = counter_q;
+  
   bitwise_TMR_voter_fail #(
     .DataWidth ( WIDTH+1 )
   ) i_counter_vote (
-    .a_i              ( counter_q[0]  ),
-    .b_i              ( counter_q[1]  ),
-    .c_i              ( counter_q[2]  ),
-    .majority_o       ( counter_voted ),
-    .fault_detected_o ( counter_fault )
+    .a_i              ( counter_q              ), // own raw register
+    .b_i              ( alt_counter_sync_i[0]  ), // replica j raw
+    .c_i              ( alt_counter_sync_i[1]  ), // replica k raw
+    .majority_o       ( counter_voted          ),
+    .fault_detected_o ( counter_fault          )
   );
 
-  logic [WIDTH:0] counter_d;
   always_comb begin
     counter_d = counter_voted;
     if (clear_i)
@@ -55,28 +120,30 @@ module rel_delta_counter #(
                          : (counter_voted + {1'b0, delta_i});
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni)
-    for (int i = 0; i < 3; i++)
-      if (!rst_ni) counter_q[i] <= '0;
-      else         counter_q[i] <= counter_d;
-  
-  // q_o data bits only
-  for (genvar j = 0; j < 3; j++)
-    assign q_o[j] = counter_q[j][WIDTH-1:0];
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (!rst_ni) counter_q <= '0;
+      else         counter_q <= counter_d;
+  end
+
+  assign q_o = counter_q[WIDTH-1:0];
 
   if (STICKY_OVERFLOW) begin : gen_sticky_overflow
-    logic [2:0] overflow_q;
-    logic       overflow_voted, overflow_d;
-    logic       overflow_fault;
 
-    bitwise_TMR_voter_fail #(
-      .DataWidth ( 1 )
+    logic overflow_q;
+    logic overflow_voted;
+    logic overflow_d;
+    logic overflow_fault;
+    
+    assign overflow_sync_o = overflow_q;
+
+    TMR_voter_fail #(
+      .VoterType ( 1 )
     ) i_overflow_vote (
-      .a_i              ( overflow_q[0]  ),
-      .b_i              ( overflow_q[1]  ),
-      .c_i              ( overflow_q[2]  ),
-      .majority_o       ( overflow_voted ),
-      .fault_detected_o ( overflow_fault )
+      .a_i              ( overflow_q              ),
+      .b_i              ( alt_overflow_sync_i[0]  ),
+      .c_i              ( alt_overflow_sync_i[1]  ),
+      .majority_o       ( overflow_voted          ),
+      .fault_detected_o ( overflow_fault          )
     );
 
     always_comb begin
@@ -88,22 +155,20 @@ module rel_delta_counter #(
                             : (counter_voted[WIDTH-1:0] > ({WIDTH{1'b1}} - delta_i));
     end
 
-    always_ff @(posedge clk_i or negedge rst_ni)
-      for (int i = 0; i < 3; i++)
-        if (!rst_ni) overflow_q[i] <= 1'b0;
-        else         overflow_q[i] <= overflow_d;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) overflow_q <= 1'b0;
+        else         overflow_q <= overflow_d;
+    end
 
-    for (genvar n = 0; n < 3; n++)
-      assign overflow_o[n] = overflow_q[n];
-
-    assign fault_o = counter_fault | overflow_fault;
+    assign overflow_o = overflow_q;
+    assign fault_o    = counter_fault | overflow_fault;
 
   end else begin : gen_transient_overflow
 
-    for (genvar n = 0; n < 3; n++) begin : gen_overflow_replicas
-		  assign overflow_o[n] = counter_q[n][WIDTH];
-	  end
-    assign fault_o = counter_fault;
+    assign overflow_sync_o = counter_q[WIDTH];
+    assign overflow_o      = counter_q[WIDTH];
+    assign fault_o         = counter_fault;
+
   end
 
 endmodule
