@@ -26,6 +26,7 @@ module rel_fifo #(
   /// Use dedicated registers for status_cnt_q (better timing, higher area, likely to be optimized away, currently unimplemented)
   parameter bit          StatusFF    = 1'b0,
   // DO NOT OVERWRITE THESE PARAMETERS
+  // Return index width for the given depth, use cf_math_pkg::idx_width(Depth)
   parameter int unsigned AddrDepth   = cf_math_pkg::idx_width(Depth),
   parameter int unsigned HsWidth     = TmrStatus ? 3 : 1
 )(
@@ -65,6 +66,7 @@ module rel_fifo #(
   localparam int unsigned EccDataWidth = DataWidth;
 
   logic [9:0] tmr_faults;
+  // per bit voters for data output
   logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
   assign fault_o = |tmr_faults;
 
@@ -316,6 +318,8 @@ module rel_fifo_tmr_part #(
       assign full_o  = (status_cnt_q_o == FifoDepth[AddrDepth:0]);
       assign empty_o = (status_cnt_q_o == 0) & ~(FallThrough & push_i);
     end else begin : gen_full_empty_calc
+      // lower bits of both pointers are equal AND the MSBs differ
+      // this means the write pointer has wrapped around and caught up with the read pointer -> full
       assign full_o  = (write_pointer_q_o[AddrDepth-1:0] == read_pointer_q_o[AddrDepth-1:0] &
                           write_pointer_q_o[AddrDepth]     != read_pointer_q_o[AddrDepth]);
       assign empty_o = (write_pointer_q_o                == read_pointer_q_o) &
