@@ -12,30 +12,48 @@
 
 module rel_delta_counter #(
   parameter int unsigned WIDTH           = 4,
-  parameter bit          STICKY_OVERFLOW = 1'b0
+  parameter bit          STICKY_OVERFLOW = 1'b0,
+  /// Status and control signals are triplicated
+  parameter bit          TmrStatus       = 1'b0,
+  /// DO NOT OVERRIDE
+  parameter int unsigned HsWidth         = TmrStatus ? 3 : 1
 )(
   input  logic                  clk_i,
   input  logic                  rst_ni,
-  input  logic                  clear_i,    // synchronous clear
-  input  logic                  en_i,       // enable the counter
-  input  logic                  load_i,     // load a new value
-  input  logic                  down_i,     // downcount, default is up
+  input  logic [HsWidth-1:0]    clear_i,    // synchronous clear
+  input  logic [HsWidth-1:0]    en_i,       // enable the counter
+  input  logic [HsWidth-1:0]    load_i,     // load a new value
+  input  logic [HsWidth-1:0]    down_i,     // downcount, default is up
   input  logic [WIDTH-1:0]      delta_i,
   input  logic [WIDTH-1:0]      d_i,
   output logic [2:0][WIDTH-1:0] q_o,        
   output logic [2:0]            overflow_o, 
-  output logic                  fault_o     
+  output logic                  fault_o    // leave it as single bit for easy intergration
 );
+
+  logic [2:0] clear, en, load, down;
+  logic [2:0]      tmr_fault;
+  assign fault_o = |tmr_fault;
+
   // stores data and carry
   logic [2:0][WIDTH:0] counter_sync;
   logic [2:0][1:0][WIDTH:0] alt_counter_sync;
-  
   logic [2:0]            overflow_sync;
   logic [2:0][1:0]       alt_overflow_sync;
-
-  logic [2:0]            tmr_fault;
-  assign fault_o = |tmr_fault;
   
+  if (TmrStatus) begin : gen_tmr_inputs
+    assign clear = clear_i;
+    assign en    = en_i;
+    assign load  = load_i;
+    assign down  = down_i;
+  end else begin : gen_broadcast_inputs
+    assign clear = {3{clear_i}};
+    assign en    = {3{en_i}};
+    assign load  = {3{load_i}};
+    assign down  = {3{down_i}};
+  end
+  
+  // cross-wiring signals for TMR pattern
   for (genvar i = 0; i < 3; i++) begin : gen_alt_sync
     for (genvar j = 0; j < 2; j++) begin : gen_alt
       assign alt_counter_sync[i][j]  = counter_sync[(i+j+1) % 3];
@@ -50,10 +68,10 @@ module rel_delta_counter #(
     ) i_tmr_part (
       .clk_i               ( clk_i                  ),
       .rst_ni              ( rst_ni                 ),
-      .clear_i             ( clear_i                ),
-      .en_i                ( en_i                   ),
-      .load_i              ( load_i                 ),
-      .down_i              ( down_i                 ),
+      .clear_i             ( clear[i]               ),
+      .en_i                ( en[i]                  ),
+      .load_i              ( load[i]                ),
+      .down_i              ( down[i]                ),
       .delta_i             ( delta_i                ),
       .d_i                 ( d_i                    ),
       .alt_counter_sync_i  ( alt_counter_sync[i]    ),
@@ -92,8 +110,8 @@ endmodule
     output logic                  fault_o
   );
   
-  logic [WIDTH:0] counter_q;   // own register
-  logic [WIDTH:0] counter_voted; // locally voted result
+  logic [WIDTH:0] counter_q;
+  logic [WIDTH:0] counter_voted;
   logic [WIDTH:0] counter_d;
   logic           counter_fault;
 
