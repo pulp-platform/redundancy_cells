@@ -14,9 +14,9 @@ module rel_counter #(
     parameter int unsigned WIDTH = 4,
     parameter bit STICKY_OVERFLOW = 1'b0,
     /// Status and control signals are triplicated
-    parameter bit          TmrStatus       = 1'b0,
+    parameter bit          TmrStatus = 1'b0,
     /// DO NOT OVERRIDE
-    parameter int unsigned HsWidth         = TmrStatus ? 3 : 1
+    parameter int unsigned HsWidth = TmrStatus ? 3 : 1
 )(
     input  logic                  clk_i,
     input  logic                  rst_ni,

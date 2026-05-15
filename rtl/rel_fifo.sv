@@ -66,7 +66,7 @@ module rel_fifo #(
   localparam int unsigned EccDataWidth = DataWidth;
 
   logic [9:0] tmr_faults;
-  // per bit voters for data output
+
   logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
   assign fault_o = |tmr_faults;
 

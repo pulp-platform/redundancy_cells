@@ -134,11 +134,11 @@ module rel_spill_register #(
         .fault_detected_o ( faults_here[1]       )
       );
       if (DataCorrector) begin : gen_data_corrector_connect
-        assign data_corrector_o[i] = b_data_q[i];
-        assign b_data_d[i] = b_fill ? a_data_q[i] : data_corrected_i[i];
+        assign data_corrector_o[i] = b_data_q[i]; // expose Bs current content out as the data corrector signal, which can be used to correct the A register content in the next cycle if needed. Note that this assumes the error is detected in the same cycle when B is filled, and the correction is applied in the next cycle when A is filled. 
+        assign b_data_d[i] = b_fill ? a_data_q[i] : data_corrected_i[i]; // filling: take from A as normal
       end else begin : gen_no_data_corrector
-        assign data_corrector_o[i] = '0;
-        assign b_data_d[i] = b_fill ? a_data_q[i] : b_data_q[i];
+        assign data_corrector_o[i] = '0; // filling: take from A
+        assign b_data_d[i] = b_fill ? a_data_q[i] : b_data_q[i]; // idle: hold  current value 
       end
 
       TMR_voter_fail #(
