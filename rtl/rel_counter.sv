@@ -44,7 +44,8 @@ module rel_counter #(
 
     rel_delta_counter #(
         .WIDTH          (WIDTH),
-        .STICKY_OVERFLOW (STICKY_OVERFLOW)
+        .STICKY_OVERFLOW (STICKY_OVERFLOW),
+        .TmrStatus      (TmrStatus)
     ) i_counter (
         .clk_i,
         .rst_ni,
