@@ -50,6 +50,7 @@ sources:
   - rtl/rel_fifo.sv
   - rtl/rel_rr_arb_tree.sv
   - rtl/rel_spill_register.sv
+  - rtl/rel_counter.sv
 
   - target: any(deprecated, axi_ecc, hci_ecc, pulp_ecc, test)
     files:
