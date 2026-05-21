@@ -47,6 +47,8 @@
 /// signal is usually less as than `DataWidth`.
 
 /// TODO: unfair arb or external priority may not be reliable!
+(* no_ungroup *)
+(* no_boundary_optimization *)
 module rel_rr_arb_tree #(
   /// Number of inputs to be arbitrated.
   parameter int unsigned NumIn      = 64,

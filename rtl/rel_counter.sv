@@ -56,6 +56,7 @@ module rel_counter #(
         .delta_i({{WIDTH-1{1'b0}}, 1'b1}),
         .d_i,
         .q_o,
-        .overflow_o
+        .overflow_o,
+        .fault_o    ( )
     );
 endmodule
