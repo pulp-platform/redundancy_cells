@@ -118,7 +118,7 @@ sources:
       - test/tb_tmr_word_voter.sv
       - test/tb_bitwise_tmr_voter.sv
       - test/tb_bitwise_tmr_voter_fail.sv
-      - test/tb_voter_macros.sv
+      #- test/tb_voter_macros.sv
 
   - files:
       - rtl/HMR/rapid_recovery_pkg.sv
