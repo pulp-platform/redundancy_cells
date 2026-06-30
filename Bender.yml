@@ -104,7 +104,7 @@ sources:
       - rtl/pulpissimo_tcls
     files:
       - rtl/pulpissimo_tcls/TCLS_unit.sv
-  - target: test
+  - target: redundancy_cells_test
     files:
       - test/tb_ecc_scrubber.sv
       - test/tb_ecc_secded.sv
