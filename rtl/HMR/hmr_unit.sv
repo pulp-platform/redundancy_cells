@@ -921,8 +921,6 @@ module hmr_unit #(
      *** DMR only ***
      *****************/
     if (DMRFixed && NumCores % 2 != 0) $warning("Extra cores added not properly handled! :)");
-    // Binding DMR outputs to zero for now
-    assign dmr_failure_o     = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam int unsigned SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
