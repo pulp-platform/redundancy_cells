@@ -26,7 +26,8 @@ module rel_counter #(
     input  logic [HsWidth-1:0]    down_i,  // downcount, default is up
     input  logic [WIDTH-1:0]      d_i,
     output logic [2:0][WIDTH-1:0] q_o,
-    output logic [2:0]            overflow_o
+    output logic [2:0]            overflow_o,
+    output logic                  fault_o
 );  
 
     logic [2:0] clear, en, load, down;
@@ -53,10 +54,10 @@ module rel_counter #(
         .en_i(en),
         .load_i(load),
         .down_i(down),
-        .delta_i({{WIDTH-1{1'b0}}, 1'b1}),
+        .delta_i({3{{{WIDTH-1{1'b0}}, 1'b1}}}),
         .d_i,
         .q_o,
         .overflow_o,
-        .fault_o    ( )
+        .fault_o(fault_o)
     );
 endmodule
