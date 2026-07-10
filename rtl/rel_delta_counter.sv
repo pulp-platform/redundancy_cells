@@ -24,7 +24,7 @@ module rel_delta_counter #(
   input  logic [HsWidth-1:0]    en_i,       // enable the counter
   input  logic [HsWidth-1:0]    load_i,     // load a new value
   input  logic [HsWidth-1:0]    down_i,     // downcount, default is up
-  input  logic [WIDTH-1:0]      delta_i,
+  input  logic [2:0][WIDTH-1:0] delta_i,
   input  logic [WIDTH-1:0]      d_i,
   output logic [2:0][WIDTH-1:0] q_o,        
   output logic [2:0]            overflow_o, 
@@ -72,7 +72,7 @@ module rel_delta_counter #(
       .en_i                ( en[i]                  ),
       .load_i              ( load[i]                ),
       .down_i              ( down[i]                ),
-      .delta_i             ( delta_i                ),
+      .delta_i             ( delta_i[i]             ),
       .d_i                 ( d_i                    ),
       .alt_counter_sync_i  ( alt_counter_sync[i]    ),
       .counter_sync_o      ( counter_sync[i]        ),
