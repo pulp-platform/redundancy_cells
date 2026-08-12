@@ -236,7 +236,7 @@ module rel_spill_reg_tmr_part #(
   );
 
   TMR_voter_fail #(
-    .VoterType ( 0 ) // Classical_MV
+    .VoterType ( 1 ) //
   ) i_b_full_tmr (
     .a_i              ( b_full_q_sync_o ),
     .b_i              ( alt_b_full_q_sync_i[0] ),
