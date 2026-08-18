@@ -65,7 +65,7 @@ module rel_fifo #(
   // TODO: DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
   localparam int unsigned EccDataWidth = DataWidth;
 
-  logic [9:0] tmr_faults;
+  logic [10:0] tmr_faults;
 
   logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
   assign fault_o = |tmr_faults;
@@ -103,6 +103,7 @@ module rel_fifo #(
 
   logic [2:0][EccDataWidth-1:0][AddrDepth:0] read_pointer_next;
   logic [2:0][EccDataWidth-1:0] use_fallthrough;
+  logic [EccDataWidth-1:0] rd_ptr_oor;
 
   logic [EccDataWidth-1:0] data_out_faults;
   assign tmr_faults[0] = |data_out_faults;
@@ -111,6 +112,7 @@ module rel_fifo #(
     logic [AddrDepth:0] read_pointer_next_local;
     logic use_fallthrough_local;
     logic [1:0] local_faults;
+    logic [AddrDepth-1:0] rd_addr;
     assign data_out_faults[i] = |local_faults;
     bitwise_TMR_voter_fail #(
       .DataWidth(AddrDepth+1)
@@ -130,9 +132,13 @@ module rel_fifo #(
       .majority_o(use_fallthrough_local),
       .fault_detected_o(local_faults[1])
     );
+    assign rd_ptr_oor[i] = (read_pointer_next_local[AddrDepth-1:0] >= FifoDepth);
+    assign rd_addr       = rd_ptr_oor[i] ? '0 : read_pointer_next_local[AddrDepth-1:0];
+
     assign data_out[i] = use_fallthrough_local ?
-                         data_in[i] : mem_q[read_pointer_next_local[AddrDepth-1:0]][i];
+                         data_in[i] : mem_q[rd_addr][i];
   end
+  assign tmr_faults[10] = |rd_ptr_oor;
 
   if (TmrStatus) begin : gen_tmr_status
     assign full_o = full;
