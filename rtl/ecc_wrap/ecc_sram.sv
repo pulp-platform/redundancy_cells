@@ -13,16 +13,17 @@
 module ecc_sram #(
   parameter  int unsigned NumWords         = 256,
   parameter  int unsigned UnprotectedWidth = 32,
-  parameter  int unsigned ProtectedWidth   = 39,
+  parameter  int unsigned ProtectedWidth   = UnprotectedWidth + hsiao_ecc_pkg::min_ecc(UnprotectedWidth),
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
   parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
   parameter  int unsigned ByteWidth        = 8,
+  parameter  int unsigned BankAccessLatency = 1,
   // Set params
   localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
   localparam int unsigned ByteEnWidth      = UnprotectedWidth/ByteWidth,
-  localparam int unsigned BankAddrWidth    = $clog2(NumWords)
+  localparam int unsigned BankAddrWidth    = (NumWords > 32'd1) ? $clog2(NumWords) : 32'd1
 ) (
   input  logic                     clk_i,
   input  logic                     rst_ni,
@@ -84,7 +85,9 @@ module ecc_sram #(
   typedef enum logic { NORMAL, READ_MODIFY_WRITE } store_state_e;
   store_state_e store_state_d, store_state_q;
 
-  typedef logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0] rmw_count_t;
+  localparam int unsigned RMWWaitCycles =
+      (BankAccessLatency > 0 ? BankAccessLatency - 1 : 0) + NumRMWCuts;
+  typedef logic [cf_math_pkg::idx_width(RMWWaitCycles + 1)-1:0] rmw_count_t;
   rmw_count_t rmw_count_d, rmw_count_q;
 
   logic [  DataInWidth-1:0] input_buffer_d, input_buffer_q;
@@ -208,7 +211,7 @@ module ecc_sram #(
       if (req_i & (be_i != {ByteEnWidth{1'b1}}) & internal_we) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
-        rmw_count_d   = rmw_count_t'(NumRMWCuts);
+        rmw_count_d   = rmw_count_t'(RMWWaitCycles);
       end
     end else begin
       gnt_o           = 1'b0;
@@ -280,7 +283,7 @@ module ecc_sram #(
 `ifndef TARGET_SYNTHESIS
     .SimInit   ( SimInit        ),
 `endif
-    .Latency   ( 1              ) // Latency when the read data is available
+    .Latency   ( BankAccessLatency ) // Latency when the read data is available
   ) i_bank (
     .clk_i,                                                   // Clock
     .rst_ni,                                                  // Asynchronous reset active low
