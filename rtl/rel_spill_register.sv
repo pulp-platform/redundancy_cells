@@ -10,8 +10,18 @@
 
 // Author: Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
-(* no_ungroup *)
-(* no_boundary_optimization *)
+// Copyright 2025 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License. You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+
+// Author: Michael Rogenmoser <michaero@iis.ee.ethz.ch>
+
 module rel_spill_register #(
   parameter type T           = logic, // Assumed ECC protected
   parameter bit  Bypass      = 1'b0,   // make this spill register transparent
@@ -136,11 +146,11 @@ module rel_spill_register #(
         .fault_detected_o ( faults_here[1]       )
       );
       if (DataCorrector) begin : gen_data_corrector_connect
-        assign data_corrector_o[i] = b_data_q[i]; 
-        assign b_data_d[i] = b_fill ? a_data_q[i] : data_corrected_i[i]; 
+        assign data_corrector_o[i] = b_data_q[i];
+        assign b_data_d[i] = b_fill ? a_data_q[i] : data_corrected_i[i];
       end else begin : gen_no_data_corrector
-        assign data_corrector_o[i] = '0; 
-        assign b_data_d[i] = b_fill ? a_data_q[i] : b_data_q[i]; 
+        assign data_corrector_o[i] = '0;
+        assign b_data_d[i] = b_fill ? a_data_q[i] : b_data_q[i];
       end
 
       TMR_voter_fail #(
@@ -194,36 +204,25 @@ module rel_spill_reg_tmr_part #(
   output logic [1:0] faults_o
 );
 
+  logic a_full_q;
   logic a_fill, a_drain;
+  logic b_full_q;
   logic b_fill, b_drain;
 
   for (genvar i = 0; i < $bits(T); i++) begin : gen_tmr_fill
-    assign a_fill_tmr_o[i]   = a_fill;
-    assign b_fill_tmr_o[i]   = b_fill;
+    assign a_fill_tmr_o[i] = a_fill;
+    assign b_fill_tmr_o[i] = b_fill;
     assign b_full_q_tmr_o[i] = b_full_q_sync_o;
   end
 
-  // ===========================================================================
-  // 1. Independent Feed-Forward (Rail Isolation)
-  // ===========================================================================
-  // Combinational feed-forward controls strictly use raw, unvoted state. 
-  // A voter SET cannot fracture the handshake on this rail.
-  assign a_drain = (a_full_q_sync_o && !b_full_q_sync_o);
-  assign b_drain = (b_full_q_sync_o && ready_i);
 
-  assign ready_o = !a_full_q_sync_o || !b_full_q_sync_o;
-  assign valid_o = a_full_q_sync_o | b_full_q_sync_o;
 
-  assign a_fill  = valid_i && ready_o;
-  assign b_fill  = a_drain && (!ready_i);
-
-  // ===========================================================================
-  // 2. Voted Feedback (Self-Repair)
-  // ===========================================================================
-  logic a_full_voted, b_full_voted;
-  logic a_fill_voted, a_drain_voted;
-  logic b_fill_voted, b_drain_voted;
-  logic ready_o_voted;
+  always_ff @(posedge clk_i or negedge rst_ni) begin : ps_a_data
+    if (!rst_ni)
+      a_full_q_sync_o <= '0;
+    else if (a_fill || a_drain)
+      a_full_q_sync_o <= a_fill;
+  end
 
   TMR_voter_fail #(
     .VoterType ( 1 ) // KP_MV
@@ -231,45 +230,44 @@ module rel_spill_reg_tmr_part #(
     .a_i              ( a_full_q_sync_o ),
     .b_i              ( alt_a_full_q_sync_i[0] ),
     .c_i              ( alt_a_full_q_sync_i[1] ),
-    .majority_o       ( a_full_voted ),
+    .majority_o       ( a_full_q ),
     .fault_detected_o ( faults_o[0] )
   );
-
-  TMR_voter_fail #(
-    .VoterType ( 1 ) //
-  ) i_b_full_tmr (
-    .a_i              ( b_full_q_sync_o ),
-    .b_i              ( alt_b_full_q_sync_i[0] ),
-    .c_i              ( alt_b_full_q_sync_i[1] ),
-    .majority_o       ( b_full_voted ),
-    .fault_detected_o ( faults_o[1] )
-  );
-
-  // Compute next state logic based purely on voted consensus to ensure SEUs 
-  // do not bypass the repair mechanism during active handshakes.
-  assign ready_o_voted = !a_full_voted || !b_full_voted;
-  assign a_drain_voted = (a_full_voted && !b_full_voted);
-  assign a_fill_voted  = valid_i && ready_o_voted;
-
-  assign b_drain_voted = (b_full_voted && ready_i);
-  assign b_fill_voted  = a_drain_voted && (!ready_i);
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : ps_a_data
-    if (!rst_ni)
-      a_full_q_sync_o <= '0;
-    else if (a_fill_voted || a_drain_voted)
-      a_full_q_sync_o <= a_fill_voted;
-    else
-      a_full_q_sync_o <= a_full_voted; //  write-back self-repair
-  end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_b_data
     if (!rst_ni)
       b_full_q_sync_o <= '0;
-    else if (b_fill_voted || b_drain_voted)
-      b_full_q_sync_o <= b_fill_voted;
-    else
-      b_full_q_sync_o <= b_full_voted; // write-back self-repair
+    else if (b_fill || b_drain)
+      b_full_q_sync_o <= b_fill;
   end
+
+  TMR_voter_fail #(
+    .VoterType ( 0 ) // Classical_MV
+  ) i_b_full_tmr (
+    .a_i              ( b_full_q_sync_o ),
+    .b_i              ( alt_b_full_q_sync_i[0] ),
+    .c_i              ( alt_b_full_q_sync_i[1] ),
+    .majority_o       ( b_full_q ),
+    .fault_detected_o ( faults_o[1] )
+  );
+
+  // Fill the A register when the A or B register is empty. Drain the A register
+  // whenever it is full and being filled, or if a flush is requested.
+  assign a_fill = valid_i && ready_o;
+  assign a_drain = (a_full_q && !b_full_q);
+
+  // Fill the B register whenever the A register is drained, but the downstream
+  // circuit is not ready. Drain the B register whenever it is full and the
+  // downstream circuit is ready, or if a flush is requested.
+  assign b_fill = a_drain && (!ready_i);
+  assign b_drain = (b_full_q && ready_i);
+
+  // We can accept input as long as register B is not full.
+  // Note: flush_i and valid_i must not be high at the same time,
+  // otherwise an invalid handshake may occur
+  assign ready_o = !a_full_q || !b_full_q;
+
+  // The unit provides output as long as one of the registers is filled.
+  assign valid_o = a_full_q | b_full_q;
 
 endmodule
