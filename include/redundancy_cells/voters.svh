@@ -13,8 +13,7 @@
 
 // Helper Macro to use enums bitwise
 // This has no effect on array of bits, but does not work on plain logic!
-`define BITWISE(a) \
-  a[$bits(a)-1:0]
+`define BITWISE(a) {a}[$bits(a)-1:0]
 
 
 // Cell Instantiation Macros
