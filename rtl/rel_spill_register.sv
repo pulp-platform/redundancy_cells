@@ -15,7 +15,8 @@ module rel_spill_register #(
   parameter bit  Bypass      = 1'b0,   // make this spill register transparent
   parameter bit  TmrHandshake = 1'b1,    // use TMR handshake
   parameter bit  DataCorrector = 1'b0, // use 0-cycle data corrector signals
-  parameter int unsigned HsWidth = TmrHandshake ? 3 : 1 // width of the handshake signals
+  parameter int unsigned HsWidth = TmrHandshake ? 3 : 1, // width of the handshake signals
+  localparam int unsigned DataWidth = $bits(T) - $clog2($bits(T)) - 1
 ) (
   input  logic clk_i   ,
   input  logic rst_ni  ,
@@ -25,22 +26,22 @@ module rel_spill_register #(
   output logic [HsWidth-1:0] valid_o ,
   input  logic [HsWidth-1:0] ready_i ,
   output T      data_o,
-  output logic fault_o,
-  output T      data_corrector_o,
-  input  T      data_corrected_i
+  output logic [1:0] err_o
 );
 
   typedef logic [$bits(T)-1:0] T_vec_t;
-
+  
   if (Bypass) begin : gen_bypass
     assign valid_o = valid_i;
     assign ready_o = ready_i;
     assign data_o = data_i;
-    assign fault_o = 1'b0;
-    assign data_corrector_o = '0;
+    assign err_o = '0;
+    assign data_corrector = '0;
   end else begin : gen_spill_reg
     logic [7+$bits(T):0] faults;
-    assign fault_o = |faults;
+    logic [1:0] corr_err;
+    assign err_o[0] = |faults | corr_err[0];
+    assign err_o[1] = corr_err[1];
 
     logic [2:0] valid_in, ready_out, valid_out, ready_in;
     if (TmrHandshake) begin : gen_tmr_handshake
@@ -82,6 +83,22 @@ module rel_spill_register #(
 
     logic [2:0] a_full_q_sync, b_full_q_sync;
     logic [2:0][1:0] alt_a_full_q_sync, alt_b_full_q_sync;
+
+    T      data_corrector;
+    T      data_corrected;
+    if (DataCorrector) begin  
+      hsiao_ecc_cor #(
+        .DataWidth (DataWidth)
+      ) i_ecc_corr (
+        .in         ( data_corrector       ),
+        .out        ( data_corrected       ),
+        .syndrome_o (                      ),
+        .err_o      ( corr_err             )
+      );
+    end else begin
+      assign corr_err = '0;
+      assign data_corrected = '0;
+    end
 
     for (genvar i = 0; i < 3; i++) begin : gen_tmr_part
       for (genvar j = 0; j < 2; j++) begin : gen_sync
@@ -134,10 +151,10 @@ module rel_spill_register #(
         .fault_detected_o ( faults_here[1]       )
       );
       if (DataCorrector) begin : gen_data_corrector_connect
-        assign data_corrector_o[i] = b_data_q[i];
-        assign b_data_d[i] = b_fill ? a_data_q[i] : data_corrected_i[i];
+        assign data_corrector[i] = b_data_q[i];
+        assign b_data_d[i] = b_fill ? a_data_q[i] : data_corrected[i];
       end else begin : gen_no_data_corrector
-        assign data_corrector_o[i] = '0;
+        assign data_corrector[i] = '0;
         assign b_data_d[i] = b_fill ? a_data_q[i] : b_data_q[i];
       end
 

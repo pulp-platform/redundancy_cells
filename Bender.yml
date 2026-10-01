@@ -47,6 +47,9 @@ sources:
   - rtl/ecc_wrap/ecc_manager_reg_top.sv
   - rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
   - rtl/ecc_wrap/ecc_scrubber.sv
+  - rtl/rel_stream_fork.sv
+  - rtl/rel_stream_join.sv
+  - rtl/rel_stream_register.sv
   - rtl/rel_fifo.sv
   - rtl/rel_rr_arb_tree.sv
   - rtl/rel_spill_register.sv
