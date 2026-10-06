@@ -8,6 +8,8 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+(* no_ungroup *)
+(* no_boundary_optimization *)
 module rel_stream_fork #(
     parameter int unsigned N_OUP        = 0,        // Number of outputs
     parameter bit          TmrHandshake = 1'b1,     // Use TMR for handshake signals
@@ -145,7 +147,7 @@ module rel_stream_fork #(
     end else begin : gen_voter_per_copy
         // Independent voters per copy
         for (genvar copy = 0; copy < 3; copy++) begin : gen_voter
-            bitwise_TMR_voter_fail #(
+            rel_stream_fork_voter #(
                 .DataWidth(SEQ_BITS),
                 .VoterType(VoterType)
             ) i_seq_vote (
@@ -200,5 +202,32 @@ module rel_stream_fork #(
     // Error Reporting
     assign err_o[0] = |seq_err | |handshake_fault;
     assign err_o[1] = 1'b0;
+
+endmodule
+
+
+(* no_ungroup *)
+(* no_boundary_optimization *)
+module rel_stream_fork_voter #(
+    parameter int unsigned DataWidth = 1,
+    parameter int unsigned VoterType = 1
+) (
+    input  logic [DataWidth-1:0] a_i,
+    input  logic [DataWidth-1:0] b_i,
+    input  logic [DataWidth-1:0] c_i,
+    output logic [DataWidth-1:0] majority_o,
+    output logic                 fault_detected_o
+);
+
+    bitwise_TMR_voter_fail #(
+        .DataWidth(DataWidth),
+        .VoterType(VoterType)
+    ) i_voter (
+        .a_i              (a_i),
+        .b_i              (b_i),
+        .c_i              (c_i),
+        .majority_o       (majority_o),
+        .fault_detected_o (fault_detected_o)
+    );
 
 endmodule

@@ -225,8 +225,8 @@ module rel_spill_reg_tmr_part #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_a_data
     if (!rst_ni)
       a_full_q_sync_o <= '0;
-    else if (a_fill || a_drain)
-      a_full_q_sync_o <= a_fill;
+    else
+      a_full_q_sync_o <= (a_fill || a_drain) ? a_fill : a_full_q;
   end
 
   TMR_voter_fail #(
@@ -242,8 +242,8 @@ module rel_spill_reg_tmr_part #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_b_data
     if (!rst_ni)
       b_full_q_sync_o <= '0;
-    else if (b_fill || b_drain)
-      b_full_q_sync_o <= b_fill;
+    else
+      b_full_q_sync_o <= (b_fill || b_drain) ? b_fill : b_full_q;
   end
 
   TMR_voter_fail #(

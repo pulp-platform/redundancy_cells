@@ -210,10 +210,8 @@ module rel_stream_reg_tmr_part #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_full
     if (!rst_ni)
       full_q_sync_o <= 1'b0;
-    else if (clr_i)
-      full_q_sync_o <= 1'b0;
-    else if (upd)
-      full_q_sync_o <= valid_i;
+    else
+      full_q_sync_o <= upd ? valid_i : full_q;
   end
 
 endmodule
