@@ -878,11 +878,12 @@ module hmr_unit #(
         if (i >= NumTMRCores) begin
           core_setback_o [i] = '0;
         end
-      end
-      if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : gen_tmr_mode
-        assign core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
-      end else begin : gen_independent_mode
-        assign core_inputs_o[i] = sys_inputs_i[i];
+        
+        if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : gen_tmr_mode
+          core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
+        end else begin : gen_independent_mode
+          core_inputs_o[i] = sys_inputs_i[i];
+        end
       end
     end
 
