@@ -66,18 +66,15 @@ jobs:
           reviewdog_reporter: github-check
   gitlab-ci:
     runs-on: ubuntu-latest
-    env:
-      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
     steps:
       - name: Mirror and check
         uses: pulp-platform/pulp-actions/gitlab-ci@v2
         # Skip on forks or pull requests from forks due to missing secrets.
         if: >
-          env.GITLAB_TOKEN != '' &&
           github.repository == 'pulp-platform/redundancy_cells' &&
           (github.event_name != 'pull_request' ||
           github.event.pull_request.head.repo.full_name == github.repository)
         with:
           domain: iis-git.ee.ethz.ch
           repo: github-mirror/redundancy_cells
-          token: ${{ env.GITLAB_TOKEN }}
+          token: ${{ secrets.GITLAB_TOKEN }}
