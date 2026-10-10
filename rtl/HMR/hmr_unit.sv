@@ -631,8 +631,8 @@ module hmr_unit #(
         .req_t ( apb_req_t  ),
         .resp_t( apb_resp_t )
       ) i_apb_err_slv (
-        .apb_req_i   ( top_register_reqs[j][3] ),
-        .apb_resp_o  ( top_register_resps[j][3] )
+        .slv_req_i   ( top_register_reqs[j][3] ),
+        .slv_resp_o  ( top_register_resps[j][3] )
       );
     end
     assign tmr_incr_mismatches = '0;

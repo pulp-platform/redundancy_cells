@@ -27,8 +27,8 @@ module hmr_dmr_ctrl
   // input  logic       test_enable_i,
 
   // Register interface
-  input  apb_req_t   reg_req_i,
-  output apb_resp_t  reg_resp_o,
+  input  apb_req_t   apb_req_i,
+  output apb_resp_t  apb_resp_o,
 
   // CTRL from external (e.g. HMR ctrl regs)
   input  logic       dmr_enable_q_i,
@@ -84,7 +84,7 @@ module hmr_dmr_ctrl
   hmr_dmr_regs_reg_top i_dmr_regs (
     .clk(clk_i),
     .arst_n(rst_ni),
-    .s_apb_psel(reg_req_i.psel),
+    .s_apb_psel(apb_req_i.psel),
     .s_apb_penable(apb_req_i.penable),
     .s_apb_pwrite(apb_req_i.pwrite),
     .s_apb_pprot(apb_req_i.pprot),
