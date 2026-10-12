@@ -29,7 +29,7 @@ module hmr_unit #(
   /// General core outputs wrapping struct
   parameter  type         nominal_outputs_t = logic,
   /// Default nominal outputs when output ports are disabled
-  parameter  nominal_outputs_t DefaultNominalOutputs = '{ default: '0 },
+  parameter  nominal_outputs_t DefaultNominalOutputs = '0,
   /// Separates voters and checkers for data, which are then only checked if data request is valid
   parameter  bit          SeparateData   = 1'b0,
   /// Number of separate voters/checkers for individual buses (requires SeparateData)
@@ -37,7 +37,7 @@ module hmr_unit #(
   /// Bus outputs wrapping struct (requires SeparateData)
   parameter  type         bus_outputs_t  = logic,
   /// Default bus outputs when output ports are disabled (requires SeparateData)
-  parameter  bus_outputs_t DefaultBusOutputs = '{ default: '0 },
+  parameter  bus_outputs_t DefaultBusOutputs = '0,
   /// Register bus types
   parameter  type         reg_req_t      = logic,
   parameter  type         reg_rsp_t      = logic,
