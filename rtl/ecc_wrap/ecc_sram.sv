@@ -120,7 +120,7 @@ module ecc_sram #(
     //                  re-calculates ECC and stores correctly
 
     logic [DataInWidth-1:0] to_store;
-    logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0][DataInWidth-1:0] loaded;
+    logic [DataInWidth-1:0] loaded;
 
     logic [ProtectedWidth-1:0] decoder_in;
 
