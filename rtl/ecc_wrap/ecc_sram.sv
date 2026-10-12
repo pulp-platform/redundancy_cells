@@ -20,6 +20,11 @@ module ecc_sram #(
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
   parameter  int unsigned ByteWidth        = 8,
   parameter  int unsigned BankAccessLatency = 1,
+  // Memory-side accumulation, driven by accum_i
+  parameter  bit          AccumEnabled     = 0, // 0: no accumulation, no adders
+                                                // 1: one independent signed saturating adder
+                                                //    per AccumLaneWidth-bit lane
+  parameter  int unsigned AccumLaneWidth   = ByteWidth,
   // Set params
   localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
   localparam int unsigned ByteEnWidth      = UnprotectedWidth/ByteWidth,
@@ -37,6 +42,9 @@ module ecc_sram #(
   input  logic                     req_i,
   input  logic                     we_i,
   input  logic [  ByteEnWidth-1:0] be_i,
+  // Add wdata_i to the stored word instead of overwriting it,
+  // only on the bytes enabled by be_i. Ignored if AccumEnabled == 0.
+  input  logic                     accum_i,
   output logic [  DataInWidth-1:0] rdata_o,
   output logic                     gnt_o,
 
@@ -44,8 +52,26 @@ module ecc_sram #(
   output logic                     multi_error_o
 );
 
+  localparam int unsigned AccumNumLanes = UnprotectedWidth / AccumLaneWidth;
+
   logic [1:0] ecc_error;
   logic       valid_read_d, valid_read_q;
+
+  logic accum;
+  assign accum = AccumEnabled ? accum_i : 1'b0;
+
+// pragma translate_off
+`ifndef VERILATOR
+  initial begin : validate_accum_params
+    assert (!AccumEnabled || !InputECC)
+      else $fatal(1, "AccumEnabled requires InputECC == 0");
+    assert (!AccumEnabled || (UnprotectedWidth % AccumLaneWidth == 0))
+      else $fatal(1, "AccumLaneWidth must divide UnprotectedWidth");
+    assert (!AccumEnabled || (ByteWidth % AccumLaneWidth == 0))
+      else $fatal(1, "ByteWidth must be a multiple of AccumLaneWidth");
+  end
+`endif
+// pragma translate_on
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
     if(~rst_ni) begin
@@ -56,7 +82,7 @@ module ecc_sram #(
   end
 
   assign valid_read_d = req_i && gnt_o &&
-                        (~we_i || (be_i != {ByteEnWidth{1'b1}}));
+                        (~we_i || accum || (be_i != {ByteEnWidth{1'b1}}));
   assign single_error_o = ecc_error[0] && valid_read_q;
   assign multi_error_o  = ecc_error[1] && valid_read_q;
 
@@ -93,6 +119,7 @@ module ecc_sram #(
   logic [  DataInWidth-1:0] input_buffer_d, input_buffer_q;
   logic [BankAddrWidth-1:0] addr_buffer_d,  addr_buffer_q;
   logic [  ByteEnWidth-1:0] be_buffer_d,    be_buffer_q;
+  logic                     accum_buffer_d, accum_buffer_q;
 
   logic [UnprotectedWidth-1:0] be_selector;
   for (genvar i = 0; i < ByteEnWidth; i++) begin : gen_be_sel
@@ -146,9 +173,38 @@ module ecc_sram #(
 
     assign rdata_o   = loaded;
 
+    // Accumulation: loaded + the buffered addend. Only the byte-enabled lanes are written back,
+    // which the to_store mux takes care of, so the adders may run unconditionally.
+    logic [UnprotectedWidth-1:0] accumulated;
+    if (AccumEnabled) begin : gen_accum_sat
+      // One independent signed saturating adder per lane, no carry across lane boundaries: this
+      // is what lets a single request update several consecutive counters.
+      localparam logic [AccumLaneWidth-1:0] LaneMax = {1'b0, {(AccumLaneWidth - 1) {1'b1}}};
+      localparam logic [AccumLaneWidth-1:0] LaneMin = {1'b1, {(AccumLaneWidth - 1) {1'b0}}};
+      for (genvar i = 0; i < AccumNumLanes; i++) begin : gen_lane
+        logic signed [AccumLaneWidth:0] sum;
+        assign sum = $signed(loaded[i*AccumLaneWidth +: AccumLaneWidth]) +
+                     $signed(input_buffer_q[i*AccumLaneWidth +: AccumLaneWidth]);
+        always_comb begin
+          if (sum > $signed({1'b0, LaneMax})) begin
+            accumulated[i*AccumLaneWidth +: AccumLaneWidth] = LaneMax;
+          end else if (sum < $signed({1'b1, LaneMin})) begin
+            accumulated[i*AccumLaneWidth +: AccumLaneWidth] = LaneMin;
+          end else begin
+            accumulated[i*AccumLaneWidth +: AccumLaneWidth] = sum[AccumLaneWidth-1:0];
+          end
+        end
+      end
+    end else begin : gen_accum_none
+      assign accumulated = '0;
+    end
+
+    logic [UnprotectedWidth-1:0] merged;
+    assign merged = accum_buffer_q ? accumulated : input_buffer_q;
+
     assign to_store = store_state_q == NORMAL ?
                       wdata_i :
-                      (be_selector & input_buffer_q) | (~be_selector & loaded);
+                      (be_selector & merged) | (~be_selector & loaded);
 
   end else begin : gen_ecc_input
 
@@ -205,10 +261,12 @@ module ecc_sram #(
     input_buffer_d = wdata_i;
     addr_buffer_d  = addr_i;
     be_buffer_d    = be_i;
+    accum_buffer_d = accum;
     bank_req       = req_i;
     rmw_count_d    = rmw_count_q;
     if (store_state_q == NORMAL) begin
-      if (req_i & (be_i != {ByteEnWidth{1'b1}}) & internal_we) begin
+      // An accumulate always has to read the stored word first, even at full strobe
+      if (req_i & internal_we & ((be_i != {ByteEnWidth{1'b1}}) | accum)) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
         rmw_count_d   = rmw_count_t'(RMWWaitCycles);
@@ -220,6 +278,7 @@ module ecc_sram #(
       input_buffer_d  = input_buffer_q;
       addr_buffer_d   = addr_buffer_q;
       be_buffer_d     = be_buffer_q;
+      accum_buffer_d  = accum_buffer_q;
       if (rmw_count_q == '0) begin
         bank_req      = 1'b1;
       end else begin
@@ -236,12 +295,14 @@ module ecc_sram #(
       addr_buffer_q  <= '0;
       input_buffer_q <= '0;
       be_buffer_q    <= '0;
+      accum_buffer_q <= '0;
       rmw_count_q    <= '0;
     end else begin
       store_state_q  <= store_state_d;
       addr_buffer_q  <= addr_buffer_d;
       input_buffer_q <= input_buffer_d;
       be_buffer_q    <= be_buffer_d;
+      accum_buffer_q <= accum_buffer_d;
       rmw_count_q    <= rmw_count_d;
     end
   end

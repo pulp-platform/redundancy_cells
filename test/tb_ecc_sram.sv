@@ -163,6 +163,7 @@ module tb_ecc_sram;
     .req_i   ( req   ),
     .we_i    ( ~wen  ),
     .be_i    ( be    ),
+    .accum_i ( '0    ),
     .rdata_o ( rdata ),
     .gnt_o   ( gnt   ),
 
