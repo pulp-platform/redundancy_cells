@@ -10,7 +10,7 @@
 //
 // Author: Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
 //
-// TMR-protected stream fork, with triple-modular redundancy (TMR) on FSM states, 
+// TMR-protected stream fork, with triple-modular redundancy (TMR) on FSM states,
 // configurable handshakes, voting schemes, and real-time fault detection/reporting.
 
 (* no_ungroup *)
