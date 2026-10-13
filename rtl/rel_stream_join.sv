@@ -7,7 +7,11 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-
+//
+// Author: Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
+//
+// TMR-protected stream join, combining multiple input streams into a single output stream
+// with TMR, configurable handshakes, voting schemes, and fault detection.
 `include "common_cells/assertions.svh"
 
 module rel_stream_join #(

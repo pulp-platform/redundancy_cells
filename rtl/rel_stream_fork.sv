@@ -7,6 +7,11 @@
 // this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
+//
+// Author: Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
+//
+// TMR-protected stream fork, with triple-modular redundancy (TMR) on FSM states, 
+// configurable handshakes, voting schemes, and real-time fault detection/reporting.
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
@@ -49,7 +54,7 @@ module rel_stream_fork #(
 
     // FSM State Variables
     state_t inp_state_d[3], inp_state_q[3];
-    state_t oup_state_d[3][N_OUP], oup_state_q[0:2][N_OUP];
+    state_t oup_state_d[3][N_OUP], oup_state_q[3][N_OUP];
 
     // Combinational handshake signals per copy
     logic [2:0]            ready_out_single;

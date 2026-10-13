@@ -8,6 +8,8 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 //
+// Author: Danilo Cammarata <dcammarata@iis.ee.ethz.ch>
+//
 // Reliable (TMR + ECC-scrubbed) version of stream_register.
 // The stored word is assumed to be Hsiao SECDED protected:
 // DataWidth is the unprotected payload width, and the register
