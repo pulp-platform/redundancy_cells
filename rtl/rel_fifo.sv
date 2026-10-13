@@ -68,11 +68,12 @@ module rel_fifo #(
   //  [0]      : data-output mux voters (OR across EccDataWidth)
   //  [1]      : full flag voter        (only used when !TmrStatus)
   //  [2]      : empty flag voter       (only used when !TmrStatus)
-  //  [3]      : mem gate-clock voters  (OR across FifoDepth x EccDataWidth)
-  //  [6:4]    : tmr_part[0] {read_ptr, write_ptr, status_cnt} vote faults
-  //  [9:7]    : tmr_part[1] {read_ptr, write_ptr, status_cnt} vote faults
-  //  [12:10]  : tmr_part[2] {read_ptr, write_ptr, status_cnt} vote faults
-  logic [12:0] tmr_faults;
+  //  [3]      : usage flag voter       (only used when !TmrStatus)
+  //  [4]      : mem gate-clock voters  (OR across FifoDepth x EccDataWidth)
+  //  [7:5]    : tmr_part[0] {read_ptr, write_ptr, status_cnt} vote faults
+  //  [10:8]   : tmr_part[1] {read_ptr, write_ptr, status_cnt} vote faults
+  //  [13:11]  : tmr_part[2] {read_ptr, write_ptr, status_cnt} vote faults
+  logic [13:0] tmr_faults;
   logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
   assign fault_o = |tmr_faults;
 
@@ -86,6 +87,7 @@ module rel_fifo #(
                            status_cnt_n,
                            status_cnt_q;
   logic [2:0] full, empty, push, pop, flush;
+  logic [2:0][AddrDepth-1:0] usage;
 
   logic [EccDataWidth-1:0] data_in;
   logic [EccDataWidth-1:0] data_out;
@@ -148,8 +150,10 @@ module rel_fifo #(
     assign push = push_i;
     assign pop = pop_i;
     assign flush = flush_i;
+    assign usage_o = usage;
     assign tmr_faults[1] = '0;
     assign tmr_faults[2] = '0;
+    assign tmr_faults[3] = '0;
   end else begin : gen_voted_status
     assign push = {push_i, push_i, push_i};
     assign pop = {pop_i, pop_i, pop_i};
@@ -171,6 +175,15 @@ module rel_fifo #(
       .c_i(empty[2]),
       .majority_o(empty_o),
       .fault_detected_o(tmr_faults[2])
+    );
+    TMR_voter_fail #(
+      .VoterType(1)
+    ) i_usage_tmr_vote (
+      .a_i(usage[0]),
+      .b_i(usage[1]),
+      .c_i(usage[2]),
+      .majority_o(usage_o),
+      .fault_detected_o(tmr_faults[3])
     );
   end
 
@@ -210,13 +223,13 @@ module rel_fifo #(
       .write_pointer_n_sync_o(write_pointer_n_sync[i]),
       .alt_status_cnt_n_sync_i(alt_status_cnt_n_sync[i]),
       .status_cnt_n_sync_o(status_cnt_n_sync[i]),
-      .tmr_faults_o(tmr_faults[4 + 3*i +: 3])
+      .tmr_faults_o(tmr_faults[5 + 3*i +: 3])
     );
-    assign usage_o[i] = status_cnt_q[i][AddrDepth-1:0];
+    assign usage[i] = status_cnt_q[i][AddrDepth-1:0];
   end
 
 
-  assign tmr_faults[3] = |data_tmr_faults;
+  assign tmr_faults[4] = |data_tmr_faults;
 
   for (genvar i = 0; i < FifoDepth; i++) begin : gen_mem_ffs_depth
     for (genvar j = 0; j < EccDataWidth; j++) begin : gen_mem_ffs

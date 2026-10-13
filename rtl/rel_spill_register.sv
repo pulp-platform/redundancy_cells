@@ -36,7 +36,6 @@ module rel_spill_register #(
     assign ready_o = ready_i;
     assign data_o = data_i;
     assign err_o = '0;
-    assign data_corrector = '0;
   end else begin : gen_spill_reg
     logic [7+$bits(T):0] faults;
     logic [1:0] corr_err;

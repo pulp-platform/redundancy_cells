@@ -23,7 +23,7 @@ module rel_stream_fork #(
     output logic            [HsWidth-1:0] ready_o,
     output logic [N_OUP-1:0][HsWidth-1:0] valid_o,
     input  logic [N_OUP-1:0][HsWidth-1:0] ready_i,
-    output logic [1:0]                    err_o     // [0]: correctable, [1]: uncorrectable
+    output logic                          err_o     // [0]: correctable, [1]: uncorrectable
 );
 
     // Type definitions for FSM states
@@ -35,9 +35,9 @@ module rel_stream_fork #(
     localparam int unsigned SeqStateBits       = InpStateBits + (N_OUP * OupStateBits);
 
     // State registers, next-state, and voted state signals
-    logic [SeqStateBits-1:0] all_seq_d[0:2];
-    logic [SeqStateBits-1:0] all_seq_q[0:2];
-    logic [SeqStateBits-1:0] voter_q  [0:2];
+    logic [SeqStateBits-1:0] all_seq_d[3];
+    logic [SeqStateBits-1:0] all_seq_q[3];
+    logic [SeqStateBits-1:0] voter_q  [3];
 
     // Fault detection signals
     logic [2:0] seq_err;
@@ -48,8 +48,8 @@ module rel_stream_fork #(
     assign all_seq_rst = {state_t'(READY), {N_OUP{state_t'(READY)}}};
 
     // FSM State Variables
-    state_t inp_state_d[0:2], inp_state_q[0:2];
-    state_t oup_state_d[0:2][0:N_OUP-1], oup_state_q[0:2][0:N_OUP-1];
+    state_t inp_state_d[3], inp_state_q[3];
+    state_t oup_state_d[3][N_OUP], oup_state_q[0:2][N_OUP];
 
     // Combinational handshake signals per copy
     logic [2:0]            ready_out_single;
@@ -200,8 +200,7 @@ module rel_stream_fork #(
     end
 
     // Error Reporting
-    assign err_o[0] = |seq_err | |handshake_fault;
-    assign err_o[1] = 1'b0;
+    assign err_o = |seq_err | |handshake_fault;
 
 endmodule
 
