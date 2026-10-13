@@ -24,7 +24,7 @@ module rel_stream_join #(
   output logic            [HsWidth-1:0] oup_valid_o,
   /// Output stream ready handshake
   input  logic            [HsWidth-1:0] oup_ready_i,
-  /// Fault detection flag 
+  /// Fault detection flag
   output logic                          err_o
 );
 
@@ -34,7 +34,7 @@ module rel_stream_join #(
     logic [2:0]            oup_ready;
     logic [1:0]            faults   ;
 
-    if(TmrHandshake) begin
+    if(TmrHandshake) begin : gen_tmr_handshake
         assign faults = '0;
         for(genvar i=0; i<3; i++) begin: gen_tmr
             for(genvar j=0; j<N_INP; j++) begin: gen_inp
@@ -44,7 +44,7 @@ module rel_stream_join #(
         end
         assign oup_ready   = oup_ready_i;
         assign oup_valid_o = oup_valid  ;
-    end else begin
+    end else begin : gen_no_tmr_handshake
         TMR_voter_fail #(
             .VoterType(VoterType)
         ) i_oup_valid_voter (

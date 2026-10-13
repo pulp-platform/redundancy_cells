@@ -30,7 +30,7 @@ module rel_spill_register #(
 );
 
   typedef logic [$bits(T)-1:0] T_vec_t;
-  
+
   if (Bypass) begin : gen_bypass
     assign valid_o = valid_i;
     assign ready_o = ready_i;
@@ -86,7 +86,7 @@ module rel_spill_register #(
 
     T      data_corrector;
     T      data_corrected;
-    if (DataCorrector) begin  
+    if (DataCorrector) begin : gen_data_corrector
       hsiao_ecc_cor #(
         .DataWidth (DataWidth)
       ) i_ecc_corr (
@@ -95,7 +95,7 @@ module rel_spill_register #(
         .syndrome_o (                      ),
         .err_o      ( corr_err             )
       );
-    end else begin
+    end else begin : gen_no_data_corrector
       assign corr_err = '0;
       assign data_corrected = '0;
     end

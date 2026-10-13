@@ -30,26 +30,26 @@ module rel_stream_fork #(
     typedef enum logic {READY, WAIT} state_t;
 
     // Calculate required bits for sequential state
-    localparam int unsigned INP_STATE_BITS = $bits(state_t);
-    localparam int unsigned OUP_STATE_BITS = $bits(state_t);
-    localparam int unsigned SEQ_BITS       = INP_STATE_BITS + (N_OUP * OUP_STATE_BITS);
+    localparam int unsigned InpStateBits = $bits(state_t);
+    localparam int unsigned OupStateBits = $bits(state_t);
+    localparam int unsigned SeqStateBits       = InpStateBits + (N_OUP * OupStateBits);
 
     // State registers, next-state, and voted state signals
-    logic [SEQ_BITS-1:0] all_seq_d[2:0];
-    logic [SEQ_BITS-1:0] all_seq_q[2:0];
-    logic [SEQ_BITS-1:0] voter_q  [2:0];
+    logic [SeqStateBits-1:0] all_seq_d[0:2];
+    logic [SeqStateBits-1:0] all_seq_q[0:2];
+    logic [SeqStateBits-1:0] voter_q  [0:2];
 
     // Fault detection signals
     logic [2:0] seq_err;
     logic [2:0] handshake_fault;
 
     // Reset value for sequential state
-    logic [SEQ_BITS-1:0] all_seq_rst;
+    logic [SeqStateBits-1:0] all_seq_rst;
     assign all_seq_rst = {state_t'(READY), {N_OUP{state_t'(READY)}}};
 
     // FSM State Variables
-    state_t inp_state_d[2:0], inp_state_q[2:0];
-    state_t oup_state_d[2:0][N_OUP-1:0], oup_state_q[2:0][N_OUP-1:0];
+    state_t inp_state_d[0:2], inp_state_q[0:2];
+    state_t oup_state_d[0:2][0:N_OUP-1], oup_state_q[0:2][0:N_OUP-1];
 
     // Combinational handshake signals per copy
     logic [2:0]            ready_out_single;
@@ -109,11 +109,11 @@ module rel_stream_fork #(
             end
         end
     end
-    for (genvar copy = 0; copy < 3; copy++) begin
+    for (genvar copy = 0; copy < 3; copy++) begin : gen_tmr
         // Pack combinational next-state vector
-        assign all_seq_d[copy][INP_STATE_BITS-1:0] = inp_state_d[copy];
+        assign all_seq_d[copy][InpStateBits-1:0] = inp_state_d[copy];
         for (genvar i = 0; i < N_OUP; i++) begin : gen_pack_d
-            assign all_seq_d[copy][INP_STATE_BITS + i*OUP_STATE_BITS] = oup_state_d[copy][i];
+            assign all_seq_d[copy][InpStateBits + i*OupStateBits] = oup_state_d[copy][i];
         end
 
         // Sequential State Registers (Direct next-state loading)
@@ -130,7 +130,7 @@ module rel_stream_fork #(
     if (TmrVoting == 1'b0) begin : gen_single_voter
         // Single shared voter driving all 3 copies
         bitwise_TMR_voter_fail #(
-            .DataWidth(SEQ_BITS),
+            .DataWidth(SeqStateBits),
             .VoterType(VoterType)
         ) i_seq_vote (
             .a_i              (all_seq_q[0]),
@@ -148,7 +148,7 @@ module rel_stream_fork #(
         // Independent voters per copy
         for (genvar copy = 0; copy < 3; copy++) begin : gen_voter
             rel_stream_fork_voter #(
-                .DataWidth(SEQ_BITS),
+                .DataWidth(SeqStateBits),
                 .VoterType(VoterType)
             ) i_seq_vote (
                 .a_i              (all_seq_q[0]),
@@ -162,9 +162,9 @@ module rel_stream_fork #(
 
     // Unpack voted state vectors into FSM current-state logic
     for (genvar copy = 0; copy < 3; copy++) begin : gen_unpack_voter
-        assign inp_state_q[copy] = state_t'(voter_q[copy][INP_STATE_BITS-1:0]);
+        assign inp_state_q[copy] = state_t'(voter_q[copy][InpStateBits-1:0]);
         for (genvar i = 0; i < N_OUP; i++) begin : gen_unpack_oup
-            assign oup_state_q[copy][i] = state_t'(voter_q[copy][INP_STATE_BITS + i*OUP_STATE_BITS]);
+            assign oup_state_q[copy][i] = state_t'(voter_q[copy][InpStateBits+i*OupStateBits]);
         end
     end
 
