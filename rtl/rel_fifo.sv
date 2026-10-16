@@ -348,7 +348,12 @@ module rel_fifo_tmr_part #(
       end
     end
   end else begin : gen_status_calc
-    assign status_cnt_q_o = write_pointer_q_o - read_pointer_q_o;
+    // The wrap bit denotes a completed Depth-sized lap, not 2**AddrDepth.
+    assign status_cnt_q_o = (write_pointer_q_o[AddrDepth] == read_pointer_q_o[AddrDepth])
+      ? ({1'b0, write_pointer_q_o[AddrDepth-1:0]}
+         - {1'b0, read_pointer_q_o[AddrDepth-1:0]})
+      : ((AddrDepth+1)'(FifoDepth) + {1'b0, write_pointer_q_o[AddrDepth-1:0]}
+         - {1'b0, read_pointer_q_o[AddrDepth-1:0]});
     assign status_cnt_n_sync_o = '0;
     assign tmr_faults_o[2] = 1'b0;
   end
