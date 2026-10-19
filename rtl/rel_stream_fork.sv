@@ -28,7 +28,7 @@ module rel_stream_fork #(
     output logic            [HsWidth-1:0] ready_o,
     output logic [N_OUP-1:0][HsWidth-1:0] valid_o,
     input  logic [N_OUP-1:0][HsWidth-1:0] ready_i,
-    output logic                          err_o     // [0]: correctable, [1]: uncorrectable
+    output logic                          err_o
 );
 
     // Type definitions for FSM states
@@ -76,44 +76,84 @@ module rel_stream_fork #(
         end
     end
 
-    // --- FSM Logic & Packaging per Copy ---
-    always_comb begin : gen_fsm_copy
-        // Combinational Input Control FSM
-        for (int copy = 0; copy < 3; copy++) begin
-            logic all_outputs_hs;
+    // --- FSM Logic per Copy (same FSMs as common_cells stream_fork) ---
+    for (genvar copy = 0; copy < 3; copy++) begin : gen_fsm
+        logic [N_OUP-1:0] oup_ready, all_ones;
+        logic [N_OUP-1:0] valid_out_c, ready_in_c;
+        logic             ready_out_c;
 
-            inp_state_d[copy]     = inp_state_q[copy];
-            ready_out_single[copy] = 1'b0;
+        assign all_ones = '1;
+        assign ready_out_single[copy] = ready_out_c;
+        for (genvar i = 0; i < N_OUP; i++) begin : gen_oup_map
+            assign ready_in_c[i]             = ready_in[i][copy];
+            assign valid_out_single[i][copy] = valid_out_c[i];
+        end
 
-            // Check completion for all downstream channels
-            all_outputs_hs = 1'b1;
-            for (int i = 0; i < N_OUP; i++) begin
-                valid_out_single[i][copy] = 1'b0;
-                oup_state_d[copy][i]      = oup_state_q[copy][i];
-                if (oup_state_q[copy][i] == READY) begin
-                    valid_out_single[i][copy] = valid_in[copy];
-                    if (valid_in[copy] && ready_in[i][copy]) begin
-                        oup_state_d[copy][i] = WAIT;
+        // Input control FSM
+        always_comb begin
+            inp_state_d[copy] = inp_state_q[copy];
+
+            unique case (inp_state_q[copy])
+                READY: begin
+                    if (valid_in[copy]) begin
+                        if (valid_out_c == all_ones && ready_in_c == all_ones) begin
+                            ready_out_c = 1'b1;
+                        end else begin
+                            ready_out_c = 1'b0;
+                            inp_state_d[copy] = WAIT;
+                        end
                     end else begin
-                        all_outputs_hs = 1'b0;
+                        ready_out_c = 1'b0;
                     end
-                end else begin
-                    valid_out_single[i][copy] = 1'b0;
                 end
-            end
+                WAIT: begin
+                    if (valid_in[copy] && oup_ready == all_ones) begin
+                        ready_out_c = 1'b1;
+                        inp_state_d[copy] = READY;
+                    end else begin
+                        ready_out_c = 1'b0;
+                    end
+                end
+                default: begin
+                    inp_state_d[copy] = READY;
+                    ready_out_c = 1'b0;
+                end
+            endcase
+        end
 
-            // Process upstream stream readiness
-            if (valid_in[copy] && all_outputs_hs) begin
-                ready_out_single[copy] = 1'b1;
-                inp_state_d[copy]      = READY;
-                for (int i = 0; i < N_OUP; i++) begin
-                    oup_state_d[copy][i] = READY;
-                end
-            end else if (valid_in[copy]) begin
-                inp_state_d[copy] = WAIT;
+        // Output control FSMs
+        for (genvar i = 0; i < N_OUP; i++) begin : gen_oup_state
+            always_comb begin
+                oup_ready[i]         = 1'b1;
+                valid_out_c[i]       = 1'b0;
+                oup_state_d[copy][i] = oup_state_q[copy][i];
+
+                unique case (oup_state_q[copy][i])
+                    READY: begin
+                        if (valid_in[copy]) begin
+                            valid_out_c[i] = 1'b1;
+                            if (ready_in_c[i]) begin
+                                if (!ready_out_c) begin
+                                    oup_state_d[copy][i] = WAIT;
+                                end
+                            end else begin
+                                oup_ready[i] = 1'b0;
+                            end
+                        end
+                    end
+                    WAIT: begin
+                        if (valid_in[copy] && ready_out_c) begin
+                            oup_state_d[copy][i] = READY;
+                        end
+                    end
+                    default: begin
+                        oup_state_d[copy][i] = READY;
+                    end
+                endcase
             end
         end
     end
+
     for (genvar copy = 0; copy < 3; copy++) begin : gen_tmr
         // Pack combinational next-state vector
         assign all_seq_d[copy][InpStateBits-1:0] = inp_state_d[copy];
@@ -152,7 +192,7 @@ module rel_stream_fork #(
     end else begin : gen_voter_per_copy
         // Independent voters per copy
         for (genvar copy = 0; copy < 3; copy++) begin : gen_voter
-            rel_stream_fork_voter #(
+            bitwise_TMR_voter_fail #(
                 .DataWidth(SeqStateBits),
                 .VoterType(VoterType)
             ) i_seq_vote (
@@ -209,29 +249,3 @@ module rel_stream_fork #(
 
 endmodule
 
-
-(* no_ungroup *)
-(* no_boundary_optimization *)
-module rel_stream_fork_voter #(
-    parameter int unsigned DataWidth = 1,
-    parameter int unsigned VoterType = 1
-) (
-    input  logic [DataWidth-1:0] a_i,
-    input  logic [DataWidth-1:0] b_i,
-    input  logic [DataWidth-1:0] c_i,
-    output logic [DataWidth-1:0] majority_o,
-    output logic                 fault_detected_o
-);
-
-    bitwise_TMR_voter_fail #(
-        .DataWidth(DataWidth),
-        .VoterType(VoterType)
-    ) i_voter (
-        .a_i              (a_i),
-        .b_i              (b_i),
-        .c_i              (c_i),
-        .majority_o       (majority_o),
-        .fault_detected_o (fault_detected_o)
-    );
-
-endmodule

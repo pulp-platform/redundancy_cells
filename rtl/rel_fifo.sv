@@ -176,7 +176,8 @@ module rel_fifo #(
       .majority_o(empty_o),
       .fault_detected_o(tmr_faults[2])
     );
-    TMR_voter_fail #(
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth),
       .VoterType(1)
     ) i_usage_tmr_vote (
       .a_i(usage[0]),

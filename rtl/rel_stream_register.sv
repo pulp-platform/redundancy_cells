@@ -134,29 +134,43 @@ module rel_stream_register import hsiao_ecc_pkg::*; #(
       assign data_hold = data_q;
     end
 
+    logic [TotalWidth-1:0] fill;
+
     for (genvar i = 0; i < TotalWidth; i++) begin : gen_muxes
-      logic fill;
       TMR_voter_fail #(
         .VoterType ( 1 ) // KP_MV
       ) i_fill_tmr (
         .a_i              ( fill_tmr[0][i] ),
         .b_i              ( fill_tmr[1][i] ),
         .c_i              ( fill_tmr[2][i] ),
-        .majority_o       ( fill           ),
+        .majority_o       ( fill[i]        ),
         .fault_detected_o ( faults[5+i]    )
       );
 
-      assign data_d[i] = fill ? data_i[i] : data_hold[i];
+      assign data_d[i] = fill[i] ? data_i[i] : data_hold[i];
       assign data_o[i] = data_q[i];
     end
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin : ps_data
-      if (!rst_ni)
-        data_q <= '0;
-      else if (clr_i)
-        data_q <= '0;
-      else
-        data_q <= data_d;
+    if (DataCorrector) begin : gen_scrub_reg
+      always_ff @(posedge clk_i or negedge rst_ni) begin : ps_data
+        if (!rst_ni)
+          data_q <= '0;
+        else if (clr_i)
+          data_q <= '0;
+        else
+          data_q <= data_d;
+      end
+    end else begin : gen_load_enable_reg
+      for (genvar i = 0; i < TotalWidth; i++) begin : gen_ps_data
+        always_ff @(posedge clk_i or negedge rst_ni) begin : ps_data
+          if (!rst_ni)
+            data_q[i] <= 1'b0;
+          else if (clr_i)
+            data_q[i] <= 1'b0;
+          else if (fill[i])
+            data_q[i] <= data_i[i];
+        end
+      end
     end
   end
 
@@ -182,7 +196,7 @@ module rel_stream_reg_tmr_part #(
 );
 
   logic full_q;
-  logic upd, fill;
+  logic fill;
 
   for (genvar i = 0; i < TotalWidth; i++) begin : gen_tmr_fill
     assign fill_tmr_o[i] = fill;
@@ -203,17 +217,17 @@ module rel_stream_reg_tmr_part #(
   assign ready_o = ready_i | ~full_q;
   assign valid_o = full_q;
 
-  // The state register is updated (with valid_i, which may be 0 or 1)
-  // whenever ready_o is high; the data register is only loaded when valid
-  // data is actually being captured.
-  assign upd  = ready_o;
+  // The state register is loaded with valid_i whenever ready_o is high; the
+  // data register is only loaded when valid data is actually being captured.
   assign fill = valid_i & ready_o;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : ps_full
     if (!rst_ni)
       full_q_sync_o <= 1'b0;
-    else
-      full_q_sync_o <= upd ? valid_i : full_q;
+    else if (clr_i)
+      full_q_sync_o <= 1'b0;
+    else if (ready_o)
+      full_q_sync_o <= valid_i;
   end
 
 endmodule
