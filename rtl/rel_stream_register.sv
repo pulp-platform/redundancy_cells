@@ -157,7 +157,7 @@ module rel_stream_register import hsiao_ecc_pkg::*; #(
           data_q <= '0;
         else if (clr_i)
           data_q <= '0;
-        else
+        else if ((|fill) | rec_err)
           data_q <= data_d;
       end
     end else begin : gen_load_enable_reg
