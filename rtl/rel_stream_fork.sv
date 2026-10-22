@@ -46,7 +46,7 @@ module rel_stream_fork #(
 
     // Fault detection signals
     logic [2:0] seq_err;
-    logic [2:0] handshake_fault;
+    logic [N_OUP:0] handshake_fault;
 
     // Reset value for sequential state
     logic [SeqStateBits-1:0] all_seq_rst;
