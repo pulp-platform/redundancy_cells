@@ -31,6 +31,16 @@ module rel_spill_register #(
   input  T                   data_corrected_i,
   output logic [1:0]         err_o
 );
+  // pragma translate_off
+  `ifndef VERILATOR
+    initial begin
+      assert (!(DataCorrector && ExtDataCorrector))
+        else $fatal(1, "DataCorrector and ExtDataCorrector are mutually exclusive.");
+      assert (!DataCorrector || (DataWidth + hsiao_ecc_pkg::min_ecc(DataWidth) == $bits(T)))
+        else $fatal(1, "$bits(T) is not a valid Hsiao SECDED total width.");
+    end
+  `endif
+  // pragma translate_on
 
   typedef logic [$bits(T)-1:0] T_vec_t;
 
