@@ -42,7 +42,7 @@ module rel_fifo #(
   output logic [  HsWidth-1:0]                full_o,
   /// queue is empty
   output logic [  HsWidth-1:0]                empty_o,
-  /// fill pointer (unprotected, use full_o or empty_o)
+  /// fill pointer (TMR-voted when TmrStatus=0, triplicated when TmrStatus=1)
   output logic [  HsWidth-1:0][AddrDepth-1:0] usage_o,
   /// as long as the queue is not full we can push new data
   /// data to push into the queue
