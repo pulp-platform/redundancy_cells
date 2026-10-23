@@ -152,6 +152,7 @@ module ecc_scrubber #(
 
 endmodule
 
+(* keep_redundancy *)
 module ecc_scrubber_tmr_part #(
   parameter int unsigned BankSize       = 256,
   parameter int unsigned DataWidth      = 39,

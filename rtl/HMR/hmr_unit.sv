@@ -10,6 +10,7 @@
 //
 // Hybrid modular redundancy wrapping unit
 
+(* keep_redundancy *)
 module hmr_unit #(
   // Wrapper parameters
   /// Number of physical cores

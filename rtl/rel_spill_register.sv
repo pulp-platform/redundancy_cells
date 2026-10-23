@@ -209,6 +209,7 @@ endmodule
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
+(* keep_redundancy *)
 module rel_spill_reg_tmr_part #(
   parameter type T           = logic, // Assumed ECC protected
   parameter bit  Bypass      = 1'b0
