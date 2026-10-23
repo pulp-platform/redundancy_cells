@@ -185,7 +185,7 @@ module hmr_unit #(
   logic [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_failure_data;
   logic [NumDMRGroups-1:0][SysDataWidth-1:0] checkpoint_reg_q;
 
-  logic [(NumTMRGroups*HsWidth)+1+(NumDMRGroups*HsWidth)+1+2-1:0] ctrl_faults;
+  logic [(NumTMRGroups*HsWidth)+1+(NumDMRGroups*HsWidth)+1+2+1-1:0] ctrl_faults;
   assign ctrl_fault_o = |ctrl_faults;
 
   /**************************
@@ -383,6 +383,39 @@ module hmr_unit #(
   logic [HsWidth-1:0][NumCores-1:0] tmr_incr_mismatches;
   logic [HsWidth-1:0][NumCores-1:0] dmr_incr_mismatches;
 
+  // Per-core registers, one copy per internal TMR lane
+  hmr_core_regs_reg_pkg::hmr_core__out_t core_config_reg2hw [HsWidth][NumCores];
+  hmr_core_regs_reg_pkg::hmr_core__in_t  core_config_hw2reg [HsWidth][NumCores];
+
+  // Mismatch counters: with TmrInternals every lane reloads the voted count each cycle
+  // (plus its increment), so a corrupted copy repairs itself; a disagreement is reported
+  // in ctrl_fault_o. Without TmrInternals the single copy only counts.
+  logic [NumCores-1:0][31:0] mismatches_voted;
+  logic [NumCores-1:0]       mismatches_vote_err;
+
+  if (TmrInternals) begin : gen_mismatches_voter
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core
+      logic [2:0] error_cba;
+      bitwise_TMR_voter #(
+        .DataWidth ( 32 )
+      ) i_mismatches_voter (
+        .a_i         ( core_config_reg2hw[0][i].mismatches.mismatches.value ),
+        .b_i         ( core_config_reg2hw[1][i].mismatches.mismatches.value ),
+        .c_i         ( core_config_reg2hw[2][i].mismatches.mismatches.value ),
+        .majority_o  ( mismatches_voted[i] ),
+        .error_o     (),
+        .error_cba_o ( error_cba )
+      );
+      assign mismatches_vote_err[i] = |error_cba;
+    end
+  end else begin : gen_no_mismatches_voter
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core
+      assign mismatches_voted[i] = core_config_reg2hw[0][i].mismatches.mismatches.value;
+    end
+    assign mismatches_vote_err = '0;
+  end
+  assign ctrl_faults[$high(ctrl_faults)] = |mismatches_vote_err;
+
   for (genvar j = 0; j < HsWidth; j++) begin : gen_core_regs_tmr_part
 
     // 4 words per core
@@ -397,9 +430,6 @@ module hmr_unit #(
       .mst_req_o  ( core_register_reqs[j]    ),
       .mst_resp_i ( core_register_resps[j]   )
     );
-
-    hmr_core_regs_reg_pkg::hmr_core__out_t core_config_reg2hw [NumCores];
-    hmr_core_regs_reg_pkg::hmr_core__in_t  core_config_hw2reg [NumCores];
 
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_registers
@@ -416,25 +446,26 @@ module hmr_unit #(
         .s_apb_pready  ( core_register_resps[j][i].pready ),
         .s_apb_prdata  ( core_register_resps[j][i].prdata ),
         .s_apb_pslverr ( core_register_resps[j][i].pslverr ),
-        .hwif_out ( core_config_reg2hw [i] ),
-        .hwif_in  ( core_config_hw2reg [i] )
+        .hwif_out ( core_config_reg2hw [j][i] ),
+        .hwif_in  ( core_config_hw2reg [j][i] )
       );
 
-      // TODO: add reliability support for mismatches?
-      assign core_config_hw2reg[i].mismatches.mismatches.next =
-            core_config_reg2hw[i].mismatches.mismatches.value + 1;
-      assign core_config_hw2reg[i].mismatches.mismatches.we = tmr_incr_mismatches[j][i] |
-                                                              dmr_incr_mismatches[j][i];
+      // Count from the voted value (see gen_mismatches_voter); with TmrInternals load it
+      // every cycle so that each copy is repaired. Software write-1-clear has precedence.
+      assign core_config_hw2reg[j][i].mismatches.mismatches.next = mismatches_voted[i] +
+            32'(tmr_incr_mismatches[j][i] | dmr_incr_mismatches[j][i]);
+      assign core_config_hw2reg[j][i].mismatches.mismatches.we = TmrInternals |
+            tmr_incr_mismatches[j][i] | dmr_incr_mismatches[j][i];
       always_comb begin
-        core_config_hw2reg[i].current_mode.rd_data = '{default: '0};
-        core_config_hw2reg[i].current_mode.rd_data.independent = core_in_independent[j][i];
-        core_config_hw2reg[i].current_mode.rd_data.dual        = core_in_dmr[j][i];
-        core_config_hw2reg[i].current_mode.rd_data.triple      = core_in_tmr[j][i];
-        core_config_hw2reg[i].current_mode.rd_ack = core_config_reg2hw[i].current_mode.req &&
-                                                  !core_config_reg2hw[i].current_mode.req_is_wr;
+        core_config_hw2reg[j][i].current_mode.rd_data = '{default: '0};
+        core_config_hw2reg[j][i].current_mode.rd_data.independent = core_in_independent[j][i];
+        core_config_hw2reg[j][i].current_mode.rd_data.dual        = core_in_dmr[j][i];
+        core_config_hw2reg[j][i].current_mode.rd_data.triple      = core_in_tmr[j][i];
+        core_config_hw2reg[j][i].current_mode.rd_ack = core_config_reg2hw[j][i].current_mode.req &&
+                                                  !core_config_reg2hw[j][i].current_mode.req_is_wr;
       end
-      assign sp_store_is_zero[j][i] = core_config_reg2hw[i].sp_store.sp_store.value == '0;
-      assign sp_store_will_be_zero[j][i] = core_config_reg2hw[i].sp_store.sp_store.swmod &&
+      assign sp_store_is_zero[j][i] = core_config_reg2hw[j][i].sp_store.sp_store.value == '0;
+      assign sp_store_will_be_zero[j][i] = core_config_reg2hw[j][i].sp_store.sp_store.swmod &&
                                         core_register_reqs[j][i].pwdata == '0;
     end
   end
