@@ -30,32 +30,32 @@ module rel_fifo #(
   parameter int unsigned HsWidth     = TmrStatus ? 3 : 1
 )(
   /// Clock
-  input  logic                 clk_i,
+  input  logic                                clk_i,
   /// Asynchronous reset active low
-  input  logic                 rst_ni,
+  input  logic                                rst_ni,
   /// flush the queue
-  input  logic [  HsWidth-1:0] flush_i,
+  input  logic [  HsWidth-1:0]                flush_i,
   /// test_mode to bypass clock gating
-  input  logic                 testmode_i,
+  input  logic                                testmode_i,
   /// status flags:
   /// queue is full
-  output logic [  HsWidth-1:0] full_o,
+  output logic [  HsWidth-1:0]                full_o,
   /// queue is empty
-  output logic [  HsWidth-1:0] empty_o,
-  /// fill pointer (unprotected, use full_o or empty_o)
-  output logic [AddrDepth-1:0] usage_o,
+  output logic [  HsWidth-1:0]                empty_o,
+  /// fill pointer (TMR-voted when TmrStatus=0, triplicated when TmrStatus=1)
+  output logic [  HsWidth-1:0][AddrDepth-1:0] usage_o,
   /// as long as the queue is not full we can push new data
   /// data to push into the queue
-  input  logic [DataWidth-1:0] data_i,
+  input  logic [DataWidth-1:0]                data_i,
   /// data is valid and can be pushed to the queue
-  input  logic [  HsWidth-1:0] push_i,
+  input  logic [  HsWidth-1:0]                push_i,
   /// as long as the queue is not empty we can pop new elements
   /// output data
-  output logic [DataWidth-1:0] data_o,
+  output logic [DataWidth-1:0]                data_o,
   /// pop head from queue
-  input  logic [  HsWidth-1:0] pop_i,
+  input  logic [  HsWidth-1:0]                pop_i,
   /// tmr fault output signal
-  output logic                 fault_o
+  output logic                                fault_o
 );
   // local parameter
   // FIFO depth - handle the case of pass-through, synthesizer will do constant propagation
@@ -64,7 +64,16 @@ module rel_fifo #(
   // TODO: DataHasEcc ? data_t : logic [hsiao_pkg::min_ecc(DataWidth)+DataWidth-1:0];
   localparam int unsigned EccDataWidth = DataWidth;
 
-  logic [9:0] tmr_faults;
+  // fault bit map:
+  //  [0]      : data-output mux voters (OR across EccDataWidth)
+  //  [1]      : full flag voter        (only used when !TmrStatus)
+  //  [2]      : empty flag voter       (only used when !TmrStatus)
+  //  [3]      : usage flag voter       (only used when !TmrStatus)
+  //  [4]      : mem gate-clock voters  (OR across FifoDepth x EccDataWidth)
+  //  [7:5]    : tmr_part[0] {read_ptr, write_ptr, status_cnt} vote faults
+  //  [10:8]   : tmr_part[1] {read_ptr, write_ptr, status_cnt} vote faults
+  //  [13:11]  : tmr_part[2] {read_ptr, write_ptr, status_cnt} vote faults
+  logic [13:0] tmr_faults;
   logic [FifoDepth-1:0][EccDataWidth-1:0] data_tmr_faults;
   assign fault_o = |tmr_faults;
 
@@ -78,6 +87,7 @@ module rel_fifo #(
                            status_cnt_n,
                            status_cnt_q;
   logic [2:0] full, empty, push, pop, flush;
+  logic [2:0][AddrDepth-1:0] usage;
 
   logic [EccDataWidth-1:0] data_in;
   logic [EccDataWidth-1:0] data_out;
@@ -95,9 +105,11 @@ module rel_fifo #(
   end
 
   logic [2:0][AddrDepth:0] read_pointer_n_sync,
-                           write_pointer_n_sync;
+                           write_pointer_n_sync,
+                           status_cnt_n_sync;
   logic [2:0][1:0][AddrDepth:0] alt_read_pointer_n_sync,
-                                alt_write_pointer_n_sync;
+                                alt_write_pointer_n_sync,
+                                alt_status_cnt_n_sync;
 
   logic [2:0][EccDataWidth-1:0][AddrDepth:0] read_pointer_next;
   logic [2:0][EccDataWidth-1:0] use_fallthrough;
@@ -138,8 +150,10 @@ module rel_fifo #(
     assign push = push_i;
     assign pop = pop_i;
     assign flush = flush_i;
+    assign usage_o = usage;
     assign tmr_faults[1] = '0;
     assign tmr_faults[2] = '0;
+    assign tmr_faults[3] = '0;
   end else begin : gen_voted_status
     assign push = {push_i, push_i, push_i};
     assign pop = {pop_i, pop_i, pop_i};
@@ -162,12 +176,23 @@ module rel_fifo #(
       .majority_o(empty_o),
       .fault_detected_o(tmr_faults[2])
     );
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth),
+      .VoterType(1)
+    ) i_usage_tmr_vote (
+      .a_i(usage[0]),
+      .b_i(usage[1]),
+      .c_i(usage[2]),
+      .majority_o(usage_o),
+      .fault_detected_o(tmr_faults[3])
+    );
   end
 
   for (genvar i = 0; i < 3; i++) begin : gen_tmr_parts
     for (genvar j = 0; j < 2; j++) begin : gen_alt_sync
       assign alt_read_pointer_n_sync[i][j]  = read_pointer_n_sync[(i+j+1) % 3];
       assign alt_write_pointer_n_sync[i][j] = write_pointer_n_sync[(i+j+1) % 3];
+      assign alt_status_cnt_n_sync[i][j]    = status_cnt_n_sync[(i+j+1) % 3];
     end
     rel_fifo_tmr_part #(
       .FallThrough(FallThrough),
@@ -197,13 +222,15 @@ module rel_fifo #(
       .read_pointer_n_sync_o(read_pointer_n_sync[i]),
       .alt_write_pointer_n_sync_i(alt_write_pointer_n_sync[i]),
       .write_pointer_n_sync_o(write_pointer_n_sync[i]),
-      .tmr_faults_o(tmr_faults[5+(2*i):4+(2*i)])
+      .alt_status_cnt_n_sync_i(alt_status_cnt_n_sync[i]),
+      .status_cnt_n_sync_o(status_cnt_n_sync[i]),
+      .tmr_faults_o(tmr_faults[5 + 3*i +: 3])
     );
+    assign usage[i] = status_cnt_q[i][AddrDepth-1:0];
   end
 
-  assign usage_o = status_cnt_q[0][AddrDepth-1:0];
 
-  assign tmr_faults[3] = |data_tmr_faults;
+  assign tmr_faults[4] = |data_tmr_faults;
 
   for (genvar i = 0; i < FifoDepth; i++) begin : gen_mem_ffs_depth
     for (genvar j = 0; j < EccDataWidth; j++) begin : gen_mem_ffs
@@ -277,7 +304,9 @@ module rel_fifo_tmr_part #(
   output logic      [AddrDepth:0] read_pointer_n_sync_o,
   input  logic [1:0][AddrDepth:0] alt_write_pointer_n_sync_i,
   output logic      [AddrDepth:0] write_pointer_n_sync_o,
-  output logic [1:0] tmr_faults_o
+  input  logic [1:0][AddrDepth:0] alt_status_cnt_n_sync_i,
+  output logic      [AddrDepth:0] status_cnt_n_sync_o,
+  output logic [2:0] tmr_faults_o
 );
 
   logic [AddrDepth:0] read_pointer_next, write_pointer_next;
@@ -290,22 +319,44 @@ module rel_fifo_tmr_part #(
   end
 
   if (StatusFF) begin : gen_status_ff
-    $error("unimplemented");
-    // logic [2:0][AddrDepth:0] status_cnt_d;
+    // Dedicated, TMR-voted register for the status counter (usage_o / full_o / empty_o
+    // source). Mirrors the read/write pointer scheme: each of the 3 tmr_part replicas
+    // keeps its own local register (status_cnt_reg), exports it (status_cnt_n_sync_o),
+    // and the majority vote of all 3 replicas' registers is used as status_cnt_q_o.
+    logic [AddrDepth:0] status_cnt_reg;
 
-    // always_comb begin
-    //   if ()
-    // end
+    assign status_cnt_n_sync_o = status_cnt_reg;
 
-    // always_ff @(posedge clk_i or negedge rst_ni) begin : proc_status_cnt
-    //   if(!rst_ni) begin
-    //     status_cnt_q_o <= '0;
-    //   end else begin
-    //     status_cnt_q_o <= status_cnt_d;
-    //   end
-    // end
+    bitwise_TMR_voter_fail #(
+      .DataWidth(AddrDepth+1)
+    ) i_status_cnt_vote (
+      .a_i(status_cnt_reg),
+      .b_i(alt_status_cnt_n_sync_i[0]),
+      .c_i(alt_status_cnt_n_sync_i[1]),
+      .majority_o(status_cnt_q_o),
+      .fault_detected_o(tmr_faults_o[2])
+    );
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_status_cnt
+      if (!rst_ni) begin
+        status_cnt_reg <= '0;
+      end else begin
+        if (flush_i) begin
+          status_cnt_reg <= '0;
+        end else begin
+          status_cnt_reg <= status_cnt_n_o;
+        end
+      end
+    end
   end else begin : gen_status_calc
-    assign status_cnt_q_o = write_pointer_q_o - read_pointer_q_o;
+    // The wrap bit denotes a completed Depth-sized lap, not 2**AddrDepth.
+    assign status_cnt_q_o = (write_pointer_q_o[AddrDepth] == read_pointer_q_o[AddrDepth])
+      ? ({1'b0, write_pointer_q_o[AddrDepth-1:0]}
+         - {1'b0, read_pointer_q_o[AddrDepth-1:0]})
+      : ((AddrDepth+1)'(FifoDepth) + {1'b0, write_pointer_q_o[AddrDepth-1:0]}
+         - {1'b0, read_pointer_q_o[AddrDepth-1:0]});
+    assign status_cnt_n_sync_o = '0;
+    assign tmr_faults_o[2] = 1'b0;
   end
 
   if (Depth == 0) begin : gen_pass_through
