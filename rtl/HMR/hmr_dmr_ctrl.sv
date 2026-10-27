@@ -215,7 +215,7 @@ module hmr_dmr_ctrl
       cores_synch_q_int <= cores_synch_i;
     end
   end
-  assign dmr_red_mode_q = sync_reg_voted[1:0];
+  assign dmr_red_mode_q = dmr_mode_e'(sync_reg_voted[1:0]);
   assign synch_req_sent_q = sync_reg_voted[2];
   assign resynch_req_sent_q = sync_reg_voted[3];
   assign cores_synch_q = sync_reg_voted[4];
