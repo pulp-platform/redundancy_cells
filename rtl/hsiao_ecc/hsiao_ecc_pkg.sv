@@ -13,15 +13,6 @@
 
 package hsiao_ecc_pkg;
 
-  function automatic int unsigned min_ecc(int unsigned data_width);
-    for (int unsigned i = 0; i < 10; i++) begin
-      if (2**i >= data_width + i + 1) begin
-        return i + 1;
-      end
-    end
-    // min_ecc = $clog2(data_width)+2;
-  endfunction
-
   /// Static parameters for synthesizability (avoiding dynamic arrays)
   /// Maximum reasonable Data Width
   localparam int unsigned MaxDataWidth = 1024;
@@ -32,6 +23,15 @@ package hsiao_ecc_pkg;
   localparam int unsigned MaxTotalWidth = MaxDataWidth + MaxParityWidth;
   /// Maximum allowed result for n_choose_k to limit excessive array sizes (20 choose 3).
   localparam int unsigned MaxChoose = 1140;
+
+  function automatic int unsigned min_ecc(int unsigned data_width);
+    for (int unsigned i = 0; i < MaxParityWidth; i++) begin
+      if (2**i >= data_width + i + 1) begin
+        return i + 1;
+      end
+    end
+    $fatal(1, "Data Width too large for MaxParityWidth, please adjust ECC package");
+  endfunction
 
   function automatic int unsigned max_vec(int unsigned vec[MaxParityWidth], int unsigned size);
     max_vec = 0;
@@ -61,7 +61,10 @@ package hsiao_ecc_pkg;
   endfunction
 
   function automatic int unsigned n_choose_k(int unsigned n, int unsigned k);
-    n_choose_k = factorial(n)/(factorial(k)*factorial(n-k));
+    n_choose_k = 1;
+    for (int unsigned i = 0; i < k; i++) begin
+      n_choose_k = n_choose_k * (n - i) / (i + 1);
+    end
   endfunction
 
   function automatic int unsigned ideal_fanin(int unsigned k, int unsigned m);
