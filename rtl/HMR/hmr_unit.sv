@@ -38,9 +38,9 @@ module hmr_unit #(
   parameter  type         bus_outputs_t  = logic,
   /// Default bus outputs when output ports are disabled (requires SeparateData)
   parameter  bus_outputs_t DefaultBusOutputs = '{ default: '0 },
-  /// Register bus types
-  parameter  type         reg_req_t      = logic,
-  parameter  type         reg_rsp_t      = logic,
+  /// APB bus types for config registers
+  parameter  type         apb_req_t      = logic,
+  parameter  type         apb_resp_t     = logic,
   /// Enables rapid recovery feature
   parameter  bit          RapidRecovery  = 1'b0,
   /// Address width of the core register file (in RISC-V it should be always 6) (requires RapidRecovery)
@@ -72,8 +72,8 @@ module hmr_unit #(
   input  logic      rst_ni,
 
   /// Port to configuration unit
-  input  reg_req_t  reg_request_i ,
-  output reg_rsp_t  reg_response_o,
+  input  apb_req_t  apb_req_i ,
+  output apb_resp_t apb_resp_o,
 
   /// TMR signals
   /// Indicates if the TMR group has multiple mismatches
@@ -241,119 +241,156 @@ module hmr_unit #(
                                            '0;
   end
 
-  reg_req_t [3:0] top_register_reqs;
-  reg_rsp_t [3:0] top_register_resps;
+  apb_req_t  [3:0] top_register_reqs;
+  apb_resp_t [3:0] top_register_resps;
 
   // 0x000-0x100 -> Top config
   // 0x100-0x200 -> Core configs
   // 0x200-0x300 -> DMR configs
   // 0x300-0x400 -> TMR configs
 
-  reg_demux #(
-    .NoPorts    ( 4 ),
-    .req_t      ( reg_req_t   ),
-    .rsp_t      ( reg_rsp_t   )
+  apb_demux #(
+    .NoMstPorts ( 4          ),
+    .req_t      ( apb_req_t  ),
+    .resp_t     ( apb_resp_t )
   ) i_reg_demux (
-    .clk_i,
-    .rst_ni,
-    .in_select_i( reg_request_i.addr[9:8] ),
-    .in_req_i   ( reg_request_i      ),
-    .in_rsp_o   ( reg_response_o     ),
-    .out_req_o  ( top_register_reqs  ),
-    .out_rsp_i  ( top_register_resps )
+    .select_i   ( apb_req_i.paddr[9:8] ),
+    .slv_req_i  ( apb_req_i            ),
+    .slv_resp_o ( apb_resp_o           ),
+    .mst_req_o  ( top_register_reqs    ),
+    .mst_resp_i ( top_register_resps   )
   );
 
   // Global config registers
 
-  hmr_registers_reg_pkg::hmr_registers_hw2reg_t hmr_hw2reg;
-  hmr_registers_reg_pkg::hmr_registers_reg2hw_t hmr_reg2hw;
+  hmr_registers_reg_pkg::hmr__in_t hmr_hw2reg;
+  hmr_registers_reg_pkg::hmr__out_t hmr_reg2hw;
 
-  hmr_registers_reg_top #(
-    .reg_req_t( reg_req_t ),
-    .reg_rsp_t( reg_rsp_t )
-  ) i_hmr_registers (
-    .clk_i,
-    .rst_ni,
-    .reg_req_i(top_register_reqs[0] ),
-    .reg_rsp_o(top_register_resps[0]),
-    .reg2hw   (hmr_reg2hw),
-    .hw2reg   (hmr_hw2reg),
-    .devmode_i('0)
+  hmr_registers_reg_top i_hmr_registers (
+    .clk           (clk_i),
+    .arst_n        (rst_ni),
+    .s_apb_psel    (top_register_reqs[0].psel),
+    .s_apb_penable (top_register_reqs[0].penable),
+    .s_apb_pwrite  (top_register_reqs[0].pwrite),
+    .s_apb_pprot   (top_register_reqs[0].pprot),
+    .s_apb_paddr   (top_register_reqs[0].paddr[4:0]),
+    .s_apb_pwdata  (top_register_reqs[0].pwdata),
+    .s_apb_pstrb   (top_register_reqs[0].pstrb),
+    .s_apb_pready  (top_register_resps[0].pready),
+    .s_apb_prdata  (top_register_resps[0].prdata),
+    .s_apb_pslverr (top_register_resps[0].pslverr),
+    .hwif_out       (hmr_reg2hw),
+    .hwif_in        (hmr_hw2reg)
   );
 
-  assign hmr_hw2reg.avail_config.independent.d = ~(TMRFixed | DMRFixed);
-  assign hmr_hw2reg.avail_config.dual.d = DMRFixed | DMRSupported;
-  assign hmr_hw2reg.avail_config.triple.d = TMRFixed | TMRSupported;
-  assign hmr_hw2reg.avail_config.rapid_recovery.d = RapidRecovery;
-
   always_comb begin : proc_reg_status
-    hmr_hw2reg.cores_en.d = '0;
-    hmr_hw2reg.cores_en.d = core_en_as_master;
+    hmr_hw2reg.avail_config.rd_data = '{default: '0};
+    hmr_hw2reg.avail_config.rd_data.independent = ~(TMRFixed | DMRFixed);
+    hmr_hw2reg.avail_config.rd_data.dual = DMRFixed | DMRSupported;
+    hmr_hw2reg.avail_config.rd_data.triple = TMRFixed | TMRSupported;
+    hmr_hw2reg.avail_config.rd_data.rapid_recovery = RapidRecovery;
 
-    hmr_hw2reg.dmr_enable.d = '0;
-    hmr_hw2reg.dmr_enable.d[NumDMRGroups-1:0] = ~dmr_grp_in_independent;
-    hmr_hw2reg.tmr_enable.d = '0;
-    hmr_hw2reg.tmr_enable.d[NumTMRGroups-1:0] = ~tmr_grp_in_independent;
+    hmr_hw2reg.cores_en.rd_data = '{default: '0};
+    hmr_hw2reg.cores_en.rd_data.cores_en = core_en_as_master;
+
+    hmr_hw2reg.dmr_enable.rd_data = '{default: '0};
+    hmr_hw2reg.dmr_enable.rd_data.dmr_enable[NumDMRGroups-1:0] = ~dmr_grp_in_independent;
+
+    hmr_hw2reg.tmr_enable.rd_data = '{default: '0};
+    hmr_hw2reg.tmr_enable.rd_data.tmr_enable[NumTMRGroups-1:0] = ~tmr_grp_in_independent;
+
+    hmr_hw2reg.tmr_config.rd_data = '{default: '0};
+    hmr_hw2reg.tmr_config.rd_data.delay_resynch = '0;
+    hmr_hw2reg.tmr_config.rd_data.setback = '0;
+    hmr_hw2reg.tmr_config.rd_data.reload_setback  = '0;
+    hmr_hw2reg.tmr_config.rd_data.force_resynch = '0;
+    hmr_hw2reg.tmr_config.rd_data.rapid_recovery = '0;
+
+    hmr_hw2reg.dmr_config.rd_data = '{default: '0};
+    hmr_hw2reg.dmr_config.rd_data.rapid_recovery = '0;
+    hmr_hw2reg.dmr_config.rd_data.force_recovery = '0;
   end
+  assign hmr_hw2reg.avail_config.rd_ack = hmr_reg2hw.avail_config.req &&
+                                         !hmr_reg2hw.avail_config.req_is_wr;
+  assign hmr_hw2reg.cores_en.rd_ack     = hmr_reg2hw.cores_en.req &&
+                                         !hmr_reg2hw.cores_en.req_is_wr;
+  assign hmr_hw2reg.dmr_enable.rd_ack   = hmr_reg2hw.dmr_enable.req &&
+                                         !hmr_reg2hw.dmr_enable.req_is_wr;
+  assign hmr_hw2reg.dmr_enable.wr_ack   = hmr_reg2hw.dmr_enable.req &&
+                                          hmr_reg2hw.dmr_enable.req_is_wr;
+  assign hmr_hw2reg.tmr_enable.rd_ack   = hmr_reg2hw.tmr_enable.req &&
+                                         !hmr_reg2hw.tmr_enable.req_is_wr;
+  assign hmr_hw2reg.tmr_enable.wr_ack   = hmr_reg2hw.tmr_enable.req &&
+                                          hmr_reg2hw.tmr_enable.req_is_wr;
 
-  assign hmr_hw2reg.tmr_config.delay_resynch.d = '0;
-  assign hmr_hw2reg.tmr_config.setback.d = '0;
-  assign hmr_hw2reg.tmr_config.reload_setback.d  = '0;
-  assign hmr_hw2reg.tmr_config.force_resynch.d = '0;
-  assign hmr_hw2reg.tmr_config.rapid_recovery.d = '0;
+  assign hmr_hw2reg.tmr_config.rd_ack   = hmr_reg2hw.tmr_config.req &&
+                                         !hmr_reg2hw.tmr_config.req_is_wr;
+  assign hmr_hw2reg.tmr_config.wr_ack   = hmr_reg2hw.tmr_config.req &&
+                                          hmr_reg2hw.tmr_config.req_is_wr;
 
-  assign hmr_hw2reg.dmr_config.rapid_recovery.d = '0;
-  assign hmr_hw2reg.dmr_config.force_recovery.d = '0;
+  assign hmr_hw2reg.dmr_config.rd_ack   = hmr_reg2hw.dmr_config.req &&
+                                         !hmr_reg2hw.dmr_config.req_is_wr;
+  assign hmr_hw2reg.dmr_config.wr_ack   = hmr_reg2hw.dmr_config.req &&
+                                          hmr_reg2hw.dmr_config.req_is_wr;
 
   // Core Config Registers
 
-  reg_req_t [NumCores-1:0] core_register_reqs;
-  reg_rsp_t [NumCores-1:0] core_register_resps;
+  apb_req_t  [NumCores-1:0] core_register_reqs;
+  apb_resp_t [NumCores-1:0] core_register_resps;
 
   // 4 words per core
 
-  reg_demux #(
-    .NoPorts    ( NumCores ),
-    .req_t      ( reg_req_t   ),
-    .rsp_t      ( reg_rsp_t   )
+  apb_demux #(
+    .NoMstPorts ( NumCores    ),
+    .req_t      ( apb_req_t   ),
+    .resp_t     ( apb_resp_t  )
   ) i_core_reg_demux (
-    .clk_i,
-    .rst_ni,
-    .in_select_i( top_register_reqs [1].addr[4+$clog2(NumCores)-1:4] ),
-    .in_req_i   ( top_register_reqs [1] ),
-    .in_rsp_o   ( top_register_resps[1] ),
-    .out_req_o  ( core_register_reqs ),
-    .out_rsp_i  ( core_register_resps )
+    .select_i   ( top_register_reqs [1].paddr[4+$clog2(NumCores)-1:4] ),
+    .slv_req_i  ( top_register_reqs [1] ),
+    .slv_resp_o ( top_register_resps[1] ),
+    .mst_req_o  ( core_register_reqs    ),
+    .mst_resp_i ( core_register_resps   )
   );
 
-  hmr_core_regs_reg_pkg::hmr_core_regs_reg2hw_t [NumCores-1:0] core_config_reg2hw;
-  hmr_core_regs_reg_pkg::hmr_core_regs_hw2reg_t [NumCores-1:0] core_config_hw2reg;
+  hmr_core_regs_reg_pkg::hmr_core__out_t core_config_reg2hw [NumCores];
+  hmr_core_regs_reg_pkg::hmr_core__in_t  core_config_hw2reg [NumCores];
 
   logic [NumCores-1:0] tmr_incr_mismatches;
   logic [NumCores-1:0] dmr_incr_mismatches;
 
   for (genvar i = 0; i < NumCores; i++) begin : gen_core_registers
-    hmr_core_regs_reg_top #(
-      .reg_req_t(reg_req_t),
-      .reg_rsp_t(reg_rsp_t)
-    ) icore_registers (
-      .clk_i,
-      .rst_ni,
-      .reg_req_i( core_register_reqs [i] ),
-      .reg_rsp_o( core_register_resps[i] ),
-      .reg2hw   ( core_config_reg2hw [i] ),
-      .hw2reg   ( core_config_hw2reg [i] ),
-      .devmode_i('0)
+    hmr_core_regs_reg_top i_core_registers (
+      .clk (clk_i),
+      .arst_n (rst_ni),
+      .s_apb_psel    ( core_register_reqs [i].psel ),
+      .s_apb_penable ( core_register_reqs [i].penable ),
+      .s_apb_pwrite  ( core_register_reqs [i].pwrite ),
+      .s_apb_pprot   ( core_register_reqs [i].pprot ),
+      .s_apb_paddr   ( core_register_reqs [i].paddr[3:0] ),
+      .s_apb_pwdata  ( core_register_reqs [i].pwdata ),
+      .s_apb_pstrb   ( core_register_reqs [i].pstrb ),
+      .s_apb_pready  ( core_register_resps[i].pready ),
+      .s_apb_prdata  ( core_register_resps[i].prdata ),
+      .s_apb_pslverr ( core_register_resps[i].pslverr ),
+      .hwif_out ( core_config_reg2hw [i] ),
+      .hwif_in  ( core_config_hw2reg [i] )
     );
 
-    assign core_config_hw2reg[i].mismatches.d = core_config_reg2hw[i].mismatches.q + 1;
-    assign core_config_hw2reg[i].mismatches.de = tmr_incr_mismatches[i] | dmr_incr_mismatches[i];
-    assign core_config_hw2reg[i].current_mode.independent.d = core_in_independent[i];
-    assign core_config_hw2reg[i].current_mode.dual.d        = core_in_dmr[i];
-    assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
-    assign sp_store_is_zero[i] = core_config_reg2hw[i].sp_store.q == '0;
-    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe &&
-                                      core_register_reqs[i].wdata == '0;
+    assign core_config_hw2reg[i].mismatches.mismatches.next =
+           core_config_reg2hw[i].mismatches.mismatches.value + 1;
+    assign core_config_hw2reg[i].mismatches.mismatches.we = tmr_incr_mismatches[i] |
+                                                            dmr_incr_mismatches[i];
+    always_comb begin
+      core_config_hw2reg[i].current_mode.rd_data = '{default: '0};
+      core_config_hw2reg[i].current_mode.rd_data.independent = core_in_independent[i];
+      core_config_hw2reg[i].current_mode.rd_data.dual        = core_in_dmr[i];
+      core_config_hw2reg[i].current_mode.rd_data.triple      = core_in_tmr[i];
+      core_config_hw2reg[i].current_mode.rd_ack = core_config_reg2hw[i].current_mode.req &&
+                                                 !core_config_reg2hw[i].current_mode.req_is_wr;
+    end
+    assign sp_store_is_zero[i] = core_config_reg2hw[i].sp_store.sp_store.value == '0;
+    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.sp_store.swmod &&
+                                      core_register_reqs[i].pwdata == '0;
   end
 
   /**********************************************************
@@ -363,8 +400,8 @@ module hmr_unit #(
   if (TMRSupported || TMRFixed) begin : gen_tmr_logic
     if (TMRFixed && NumCores % 3 != 0) $warning("Extra cores added not properly handled!");
 
-    reg_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
-    reg_rsp_t [NumTMRGroups-1:0] tmr_register_resps;
+    apb_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
+    apb_resp_t [NumTMRGroups-1:0] tmr_register_resps;
     logic [NumTMRGroups-1:0] tmr_sw_resynch_req, tmr_sw_synch_req;
 
     localparam int unsigned TMRSelWidth = $clog2(NumTMRGroups);
@@ -376,18 +413,16 @@ module hmr_unit #(
       assign tmr_register_reqs[0] = top_register_reqs[3];
       assign top_register_resps[3] = tmr_register_resps[0];
     end else begin : gen_multi_tmr_group_reg_connect
-      reg_demux #(
-        .NoPorts    ( NumTMRGroups ),
-        .req_t      ( reg_req_t    ),
-        .rsp_t      ( reg_rsp_t   )
+      apb_demux #(
+        .NoMstPorts ( NumTMRGroups ),
+        .req_t      ( apb_req_t    ),
+        .resp_t     ( apb_resp_t   )
       ) i_reg_demux (
-        .clk_i,
-        .rst_ni,
-        .in_select_i( top_register_reqs[3].addr[4+$clog2(NumTMRGroups)-1:4] ),
-        .in_req_i   ( top_register_reqs[3]           ),
-        .in_rsp_o   ( top_register_resps[3]          ),
-        .out_req_o  ( tmr_register_reqs              ),
-        .out_rsp_i  ( tmr_register_resps             )
+        .select_i   ( top_register_reqs[3].paddr[4+$clog2(NumTMRGroups)-1:4] ),
+        .slv_req_i  ( top_register_reqs[3]  ),
+        .slv_resp_o ( top_register_resps[3] ),
+        .mst_req_o  ( tmr_register_reqs     ),
+        .mst_resp_i ( tmr_register_resps    )
       );
     end
 
@@ -400,8 +435,8 @@ module hmr_unit #(
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
 
       hmr_tmr_ctrl #(
-        .reg_req_t      ( reg_req_t      ),
-        .reg_resp_t     ( reg_rsp_t     ),
+        .apb_req_t      ( apb_req_t      ),
+        .apb_resp_t     ( apb_resp_t     ),
         .TMRFixed       ( TMRFixed       ),
         .InterleaveGrps ( InterleaveGrps ),
         .DefaultInTMR   ( 1'b0           ),
@@ -410,21 +445,33 @@ module hmr_unit #(
         .clk_i,
         .rst_ni,
 
-        .reg_req_i            ( tmr_register_reqs[i] ),
-        .reg_resp_o           ( tmr_register_resps[i] ),
+        .apb_req_i            ( tmr_register_reqs[i] ),
+        .apb_resp_o           ( tmr_register_resps[i] ),
 
-        .tmr_enable_q_i       ( hmr_reg2hw.tmr_enable.q[i] ),
-        .tmr_enable_qe_i      ( hmr_reg2hw.tmr_enable.qe ),
-        .delay_resynch_q_i    ( hmr_reg2hw.tmr_config.delay_resynch.q ),
-        .delay_resynch_qe_i   ( hmr_reg2hw.tmr_config.delay_resynch.qe ),
-        .setback_q_i          ( hmr_reg2hw.tmr_config.setback.q ),
-        .setback_qe_i         ( hmr_reg2hw.tmr_config.setback.qe ),
-        .reload_setback_q_i   ( hmr_reg2hw.tmr_config.reload_setback.q ),
-        .reload_setback_qe_i  ( hmr_reg2hw.tmr_config.reload_setback.qe ),
-        .rapid_recovery_q_i   ( hmr_reg2hw.tmr_config.rapid_recovery.q ),
-        .rapid_recovery_qe_i  ( hmr_reg2hw.tmr_config.rapid_recovery.qe ),
-        .force_resynch_q_i    ( hmr_reg2hw.tmr_config.force_resynch.q ),
-        .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
+        .tmr_enable_q_i       ( hmr_reg2hw.tmr_enable.wr_data.tmr_enable[i] ),
+        .tmr_enable_qe_i      ( hmr_reg2hw.tmr_enable.req &
+                                hmr_reg2hw.tmr_enable.req_is_wr &
+                                hmr_reg2hw.tmr_enable.wr_data.tmr_enable[i] ),
+        .delay_resynch_q_i    ( hmr_reg2hw.tmr_config.wr_data.delay_resynch ),
+        .delay_resynch_qe_i   ( hmr_reg2hw.tmr_config.req &
+                                hmr_reg2hw.tmr_config.req_is_wr &
+                                hmr_reg2hw.tmr_config.wr_data.delay_resynch ),
+        .setback_q_i          ( hmr_reg2hw.tmr_config.wr_data.setback ),
+        .setback_qe_i         ( hmr_reg2hw.tmr_config.req &
+                                hmr_reg2hw.tmr_config.req_is_wr &
+                                hmr_reg2hw.tmr_config.wr_data.setback ),
+        .reload_setback_q_i   ( hmr_reg2hw.tmr_config.wr_data.reload_setback ),
+        .reload_setback_qe_i  ( hmr_reg2hw.tmr_config.req &
+                                hmr_reg2hw.tmr_config.req_is_wr &
+                                hmr_reg2hw.tmr_config.wr_data.reload_setback ),
+        .rapid_recovery_q_i   ( hmr_reg2hw.tmr_config.wr_data.rapid_recovery ),
+        .rapid_recovery_qe_i  ( hmr_reg2hw.tmr_config.req &
+                                hmr_reg2hw.tmr_config.req_is_wr &
+                                hmr_reg2hw.tmr_config.wr_data.rapid_recovery ),
+        .force_resynch_q_i    ( hmr_reg2hw.tmr_config.wr_data.force_resynch ),
+        .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.req &
+                                hmr_reg2hw.tmr_config.req_is_wr &
+                                hmr_reg2hw.tmr_config.wr_data.force_resynch ),
 
         .setback_o            ( tmr_setback_q[i] ),
         .sw_resynch_req_o     ( tmr_sw_resynch_req[i] ),
@@ -508,9 +555,13 @@ module hmr_unit #(
     assign tmr_failure      = '0;
     assign tmr_nominal_outputs = DefaultNominalOutputs;
     assign tmr_bus_outputs     = DefaultBusOutputs;
-    assign top_register_resps[3].rdata = '0;
-    assign top_register_resps[3].error = 1'b1;
-    assign top_register_resps[3].ready = 1'b1;
+    apb_err_slv #(
+      .req_t ( apb_req_t  ),
+      .resp_t( apb_resp_t )
+    ) i_apb_err_slv (
+      .apb_req_i   ( top_register_reqs[3] ),
+      .apb_resp_o  ( top_register_resps[3] )
+    );
     assign tmr_incr_mismatches = '0;
     assign tmr_grp_in_independent = '1;
     assign tmr_setback_q = '0;
@@ -524,11 +575,8 @@ module hmr_unit #(
 
   if (DMRSupported || DMRFixed) begin: gen_dmr_logic
 
-    hmr_dmr_regs_reg_pkg::hmr_dmr_regs_reg2hw_t [NumDMRGroups-1:0] dmr_reg2hw;
-    hmr_dmr_regs_reg_pkg::hmr_dmr_regs_hw2reg_t [NumDMRGroups-1:0] dmr_hw2reg;
-
-    reg_req_t  [NumDMRGroups-1:0] dmr_register_reqs;
-    reg_rsp_t [NumDMRGroups-1:0] dmr_register_resps;
+    apb_req_t  [NumDMRGroups-1:0] dmr_register_reqs;
+    apb_resp_t [NumDMRGroups-1:0] dmr_register_resps;
     logic [NumDMRGroups-1:0] dmr_sw_synch_req;
     logic [NumDMRGroups-1:0] dmr_sw_resynch_req;
 
@@ -541,18 +589,16 @@ module hmr_unit #(
       assign dmr_register_reqs[0] = top_register_reqs[2];
       assign top_register_resps[2] = dmr_register_resps[0];
     end else begin : gen_multi_dmr_group_reg_connect
-      reg_demux #(
-        .NoPorts    ( NumDMRGroups ),
-        .req_t      ( reg_req_t    ),
-        .rsp_t      ( reg_rsp_t   )
+      apb_demux #(
+        .NoMstPorts ( NumDMRGroups ),
+        .req_t      ( apb_req_t    ),
+        .resp_t     ( apb_resp_t   )
       ) i_reg_demux (
-        .clk_i,
-        .rst_ni,
-        .in_select_i( top_register_reqs[2].addr[4+$clog2(NumDMRGroups)-1:4] ),
-        .in_req_i   ( top_register_reqs[2]           ),
-        .in_rsp_o   ( top_register_resps[2]          ),
-        .out_req_o  ( dmr_register_reqs              ),
-        .out_rsp_i  ( dmr_register_resps             )
+        .select_i   ( top_register_reqs[2].paddr[4+$clog2(NumDMRGroups)-1:4] ),
+        .slv_req_i  ( top_register_reqs[2]           ),
+        .slv_resp_o ( top_register_resps[2]          ),
+        .mst_req_o  ( dmr_register_reqs              ),
+        .mst_resp_i ( dmr_register_resps             )
       );
     end
 
@@ -565,8 +611,8 @@ module hmr_unit #(
     for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_groups
 
       hmr_dmr_ctrl #(
-        .reg_req_t     ( reg_req_t ),
-        .reg_resp_t    ( reg_rsp_t ),
+        .apb_req_t     ( apb_req_t ),
+        .apb_resp_t    ( apb_resp_t ),
         .DataWidth     ( SysDataWidth ),
         .InterleaveGrps( InterleaveGrps ),
         .DMRFixed      ( DMRFixed ),
@@ -576,15 +622,21 @@ module hmr_unit #(
         .clk_i,
         .rst_ni,
 
-        .reg_req_i             ( dmr_register_reqs [i] ),
-        .reg_resp_o            ( dmr_register_resps[i] ),
+        .apb_req_i             ( dmr_register_reqs [i] ),
+        .apb_resp_o            ( dmr_register_resps[i] ),
 
-        .dmr_enable_q_i        ( hmr_reg2hw.dmr_enable.q[i] ),
-        .dmr_enable_qe_i       ( hmr_reg2hw.dmr_enable.qe ),
-        .rapid_recovery_q_i    ( hmr_reg2hw.dmr_config.rapid_recovery.q ),
-        .rapid_recovery_qe_i   ( hmr_reg2hw.dmr_config.rapid_recovery.qe ),
-        .force_recovery_q_i    ( hmr_reg2hw.dmr_config.force_recovery.q ),
-        .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.force_recovery.qe ),
+        .dmr_enable_q_i        ( hmr_reg2hw.dmr_enable.wr_data.dmr_enable[i] ),
+        .dmr_enable_qe_i       ( hmr_reg2hw.dmr_enable.req &
+                                 hmr_reg2hw.dmr_enable.req_is_wr &
+                                 hmr_reg2hw.dmr_enable.wr_biten.dmr_enable[i] ),
+        .rapid_recovery_q_i    ( hmr_reg2hw.dmr_config.wr_data.rapid_recovery ),
+        .rapid_recovery_qe_i   ( hmr_reg2hw.dmr_config.req &
+                                 hmr_reg2hw.dmr_config.req_is_wr &
+                                 hmr_reg2hw.dmr_config.wr_biten.rapid_recovery ),
+        .force_recovery_q_i    ( hmr_reg2hw.dmr_config.wr_data.force_recovery ),
+        .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.req &
+                                 hmr_reg2hw.dmr_config.req_is_wr &
+                                 hmr_reg2hw.dmr_config.wr_biten.force_recovery ),
 
         .setback_o             ( dmr_setback_q         [i] ),
         .sw_resynch_req_o      ( dmr_sw_resynch_req    [i] ),
@@ -715,9 +767,13 @@ module hmr_unit #(
     assign dmr_incr_mismatches = '0;
     assign dmr_nominal_outputs = DefaultNominalOutputs;
     assign dmr_bus_outputs     = DefaultBusOutputs;
-    assign top_register_resps[2].rdata = '0;
-    assign top_register_resps[2].error = 1'b1;
-    assign top_register_resps[2].ready = 1'b1;
+    apb_err_slv #(
+      .req_t ( apb_req_t ),
+      .resp_t( apb_resp_t )
+    ) i_dmr_err_slv (
+      .slv_req_i ( top_register_reqs[2] ),
+      .slv_resp_o( top_register_resps[2] )
+    );
     assign dmr_sw_synch_req_o = '0;
     assign dmr_resynch_req_o = '0;
     assign dmr_grp_in_independent = '1;

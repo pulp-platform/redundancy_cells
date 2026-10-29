@@ -15,16 +15,16 @@ module hmr_tmr_ctrl #(
   parameter bit  TMRFixed       = 1'b0,
   parameter bit  DefaultInTMR   = TMRFixed ? 1'b1 : 1'b0,
   parameter bit  RapidRecovery  = 1'b0,
-  parameter type reg_req_t      = logic,
-  parameter type reg_resp_t     = logic
+  parameter type apb_req_t      = logic,
+  parameter type apb_resp_t     = logic
 ) (
   input  logic       clk_i,
   input  logic       rst_ni,
   // input  logic       test_enable_i,
 
   // Register interface
-  input  reg_req_t   reg_req_i,
-  output reg_resp_t  reg_resp_o,
+  input  apb_req_t   apb_req_i,
+  output apb_resp_t  apb_resp_o,
 
   // CTRL from external (e.g. HMR ctrl regs)
   input  logic       tmr_enable_q_i,
@@ -65,45 +65,49 @@ module hmr_tmr_ctrl #(
   typedef enum logic [2:0] {NON_TMR, TMR_RUN, TMR_UNLOAD, TMR_RELOAD, TMR_RAPID} tmr_mode_e;
   localparam tmr_mode_e DefaultTMRMode = DefaultInTMR || TMRFixed ? TMR_RUN : NON_TMR;
 
-  hmr_tmr_regs_reg_pkg::hmr_tmr_regs_reg2hw_t tmr_reg2hw;
-  hmr_tmr_regs_reg_pkg::hmr_tmr_regs_hw2reg_t tmr_hw2reg;
+  hmr_tmr_regs_reg_pkg::hmr_tmr__out_t tmr_reg2hw;
+  hmr_tmr_regs_reg_pkg::hmr_tmr__in_t tmr_hw2reg;
 
   tmr_mode_e tmr_red_mode_d, tmr_red_mode_q;
 
   assign grp_in_independent_o = tmr_red_mode_q == NON_TMR;
   assign tmr_resynch_req_o = tmr_red_mode_q == TMR_UNLOAD;
-  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.q & RapidRecovery;
+  assign rapid_recovery_en_o = tmr_reg2hw.tmr_config.rapid_recovery.value & RapidRecovery;
 
   assign sw_synch_req_o = synch_req & ~synch_req_sent_q;
   assign synch_req_sent_d = synch_req;
   assign sw_resynch_req_o = resynch_req & ~resynch_req_sent_q;
   assign resynch_req_sent_d = resynch_req;
 
-  hmr_tmr_regs_reg_top #(
-    .reg_req_t(reg_req_t),
-    .reg_rsp_t(reg_resp_t)
-  ) i_tmr_regs (
-    .clk_i,
-    .rst_ni,
-    .reg_req_i(reg_req_i),
-    .reg_rsp_o(reg_resp_o),
-    .reg2hw   (tmr_reg2hw),
-    .hw2reg   (tmr_hw2reg),
-    .devmode_i('0)
+  hmr_tmr_regs_reg_top i_tmr_regs (
+    .clk (clk_i),
+    .arst_n (rst_ni),
+    .s_apb_psel (apb_req_i.psel),
+    .s_apb_penable (apb_req_i.penable),
+    .s_apb_pwrite (apb_req_i.pwrite),
+    .s_apb_pprot (apb_req_i.pprot),
+    .s_apb_paddr (apb_req_i.paddr[2:0]),
+    .s_apb_pwdata (apb_req_i.pwdata),
+    .s_apb_pstrb (apb_req_i.pstrb),
+    .s_apb_pready (apb_resp_o.pready),
+    .s_apb_prdata (apb_resp_o.prdata),
+    .s_apb_pslverr (apb_resp_o.pslverr),
+    .hwif_in (tmr_hw2reg),
+    .hwif_out (tmr_reg2hw)
   );
 
   // Global config update
-  assign tmr_hw2reg.tmr_enable.de = tmr_enable_qe_i;
-  assign tmr_hw2reg.tmr_enable.d  = tmr_enable_q_i;
-  assign tmr_hw2reg.tmr_config.delay_resynch.de  = delay_resynch_qe_i;
-  assign tmr_hw2reg.tmr_config.delay_resynch.d   = delay_resynch_q_i;
-  assign tmr_hw2reg.tmr_config.setback.de        = setback_qe_i;
-  assign tmr_hw2reg.tmr_config.setback.d         = setback_q_i;
-  assign tmr_hw2reg.tmr_config.reload_setback.de = reload_setback_qe_i;
-  assign tmr_hw2reg.tmr_config.reload_setback.d  = reload_setback_q_i;
-  assign tmr_hw2reg.tmr_config.rapid_recovery.de = rapid_recovery_qe_i;
-  assign tmr_hw2reg.tmr_config.rapid_recovery.d  = rapid_recovery_q_i;
-  assign tmr_hw2reg.tmr_config.force_resynch.d   = force_resynch_qe_i ? force_resynch_q_i : 1'b0;
+  assign tmr_hw2reg.tmr_enable.tmr_enable.we       = tmr_enable_qe_i;
+  assign tmr_hw2reg.tmr_enable.tmr_enable.next     = tmr_enable_q_i;
+  assign tmr_hw2reg.tmr_config.delay_resynch.we    = delay_resynch_qe_i;
+  assign tmr_hw2reg.tmr_config.delay_resynch.next  = delay_resynch_q_i;
+  assign tmr_hw2reg.tmr_config.setback.we          = setback_qe_i;
+  assign tmr_hw2reg.tmr_config.setback.next        = setback_q_i;
+  assign tmr_hw2reg.tmr_config.reload_setback.we   = reload_setback_qe_i;
+  assign tmr_hw2reg.tmr_config.reload_setback.next = reload_setback_q_i;
+  assign tmr_hw2reg.tmr_config.rapid_recovery.we   = rapid_recovery_qe_i;
+  assign tmr_hw2reg.tmr_config.rapid_recovery.next = rapid_recovery_q_i;
+  assign tmr_hw2reg.tmr_config.force_resynch.next  = force_resynch_qe_i ? force_resynch_q_i : 1'b0;
 
   /**************************
    *  FSM for TMR lockstep  *
@@ -116,16 +120,16 @@ module hmr_tmr_ctrl #(
     resynch_req = 1'b0;
     synch_req = 1'b0;
 
-    tmr_hw2reg.tmr_config.force_resynch.de = force_resynch_qe_i;
+    tmr_hw2reg.tmr_config.force_resynch.we = force_resynch_qe_i;
 
     case (tmr_red_mode_q)
       TMR_RUN: begin
         // If forced execute resynchronization
-        if (tmr_reg2hw.tmr_config.force_resynch.q) begin
-          tmr_hw2reg.tmr_config.force_resynch.de = 1'b1;
-          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1 && RapidRecovery) begin
+        if (tmr_reg2hw.tmr_config.force_resynch.value) begin
+          tmr_hw2reg.tmr_config.force_resynch.we = 1'b1;
+          if (tmr_reg2hw.tmr_config.rapid_recovery.value == 1'b1 && RapidRecovery) begin
             tmr_red_mode_d = TMR_RAPID;
-          end else if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
+          end else if (tmr_reg2hw.tmr_config.delay_resynch.value == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
             // TODO: buffer the restoration until delay_resynch is disabled
           end
@@ -138,9 +142,9 @@ module hmr_tmr_ctrl #(
           if (tmr_error_i[1]) tmr_incr_mismatches_o[1] = 1'b1;
           if (tmr_error_i[2]) tmr_incr_mismatches_o[2] = 1'b1;
 
-          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1 && RapidRecovery) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.value == 1'b1 && RapidRecovery) begin
             tmr_red_mode_d = TMR_RAPID;
-          end else if (tmr_reg2hw.tmr_config.delay_resynch.q == '0) begin
+          end else if (tmr_reg2hw.tmr_config.delay_resynch.value == '0) begin
             tmr_red_mode_d = TMR_UNLOAD;
             // TODO: buffer the restoration until delay_resynch is disabled
           end
@@ -152,7 +156,7 @@ module hmr_tmr_ctrl #(
         // If unload complete, go to reload (and reset)
         if (!sp_store_is_zero) begin
           tmr_red_mode_d = TMR_RELOAD;
-          if (tmr_reg2hw.tmr_config.setback.q) begin
+          if (tmr_reg2hw.tmr_config.setback.value) begin
             setback_o = 3'b111;
           end
         end
@@ -164,8 +168,8 @@ module hmr_tmr_ctrl #(
           // $display("[HMR-triple] %t - mismatch restored", $realtime);
           tmr_red_mode_d = TMR_RUN;
         end else begin
-          if ((tmr_single_mismatch_i || tmr_failure_i) && tmr_reg2hw.tmr_config.setback.q &&
-              tmr_reg2hw.tmr_config.reload_setback.q &&
+          if ((tmr_single_mismatch_i || tmr_failure_i) && tmr_reg2hw.tmr_config.setback.value &&
+              tmr_reg2hw.tmr_config.reload_setback.value &&
               !sp_store_will_be_zero) begin
             setback_o = 3'b111;
           end
@@ -188,14 +192,14 @@ module hmr_tmr_ctrl #(
     // Logic to switch in and out of TMR
     if (!TMRFixed) begin
       // Set TMR mode on external signal that cores are synchronized
-      if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.q == 1'b1) begin
+      if (tmr_red_mode_q == NON_TMR && tmr_reg2hw.tmr_enable.tmr_enable.value == 1'b1) begin
         synch_req = 1'b1;
         if (cores_synch_q == 1'b1) begin
-          if (tmr_reg2hw.tmr_config.rapid_recovery.q == 1'b1 && RapidRecovery) begin
+          if (tmr_reg2hw.tmr_config.rapid_recovery.value == 1'b1 && RapidRecovery) begin
             tmr_red_mode_d = TMR_RAPID;
           end else begin
             tmr_red_mode_d = TMR_RELOAD;
-            if (tmr_reg2hw.tmr_config.setback.q == 1'b1) begin
+            if (tmr_reg2hw.tmr_config.setback.value == 1'b1) begin
               setback_o = 3'b111;
             end
           end
@@ -203,7 +207,7 @@ module hmr_tmr_ctrl #(
       end
       // Before core startup: set TMR mode from reg2hw.tmr_enable
       if (fetch_en_i == 0) begin
-        if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
+        if (tmr_reg2hw.tmr_enable.tmr_enable.value == 1'b0) begin
           tmr_red_mode_d = NON_TMR;
         end else begin
           tmr_red_mode_d = TMR_RUN;
@@ -212,8 +216,8 @@ module hmr_tmr_ctrl #(
       end
       // split tolerant mode to performance mode anytime (but require correct core state)
       if (tmr_red_mode_q == TMR_RUN) begin
-        if (tmr_reg2hw.tmr_enable.q == 1'b0) begin
-          if (tmr_reg2hw.tmr_config.setback.q) begin
+        if (tmr_reg2hw.tmr_enable.tmr_enable.value == 1'b0) begin
+          if (tmr_reg2hw.tmr_config.setback.value) begin
             setback_o = 3'b110;
           end
           tmr_red_mode_d = NON_TMR;

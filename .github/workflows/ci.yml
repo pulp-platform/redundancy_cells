@@ -26,9 +26,11 @@ jobs:
         run: make bender
       - name: Python Requirements
         run: pip install -r requirements.txt
+      - name: Checkout dependencies
+        run: ./bender checkout
       - name: Check clean make targets
         run: |
-          make -B gen_ODRG gen_TCLS gen_ecc_registers gen_ECC
+          make -B gen_ODRG gen_TCLS gen_ecc_registers gen_ECC gen_HMR
           git status && test -z "$(git status --porcelain)"
   lint-verilog:
     runs-on: ubuntu-latest
@@ -59,6 +61,7 @@ jobs:
             ./rtl/HMR/hmr_registers_reg_top.sv
             ./rtl/HMR/hmr_tmr_regs_reg_pkg.sv
             ./rtl/HMR/hmr_tmr_regs_reg_top.sv
+            ./rtl/HMR/hmr_registers_reg_addr_pkg.sv
             ./rtl/pulpissimo_tcls/tcls_manager_reg_pkg.sv
             ./rtl/pulpissimo_tcls/tcls_manager_reg_top.sv
           extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal --waiver_files .github/waiver.verible"
