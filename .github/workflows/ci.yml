@@ -30,6 +30,8 @@ jobs:
         run: |
           make -B gen_ODRG gen_TCLS gen_ecc_registers gen_ECC
           git status && test -z "$(git status --porcelain)"
+      - name: Check Hsiao tables
+        run: python util/gen_hsiao_tables.py --check
   lint-verilog:
     runs-on: ubuntu-latest
     needs: [check-stale]
