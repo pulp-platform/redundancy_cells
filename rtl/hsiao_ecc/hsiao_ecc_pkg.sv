@@ -264,6 +264,7 @@ package hsiao_ecc_pkg;
     bit [MaxTotalWidth-1:0]      row;
     bit [MaxParityWidth-1:0]     cols[MaxDataWidth];
     bit [MaxParityWidth-1:0]     combs[MaxChoose];
+    bit [MaxParityWidth-1:0]     comb;
     bit                          comb_used[MaxChoose];
     int unsigned                 pos[MaxParityWidth];
     int unsigned                 fanins[MaxParityWidth];
@@ -333,8 +334,10 @@ package hsiao_ecc_pkg;
             end
           end
         end
-        combs[i] = '0;
-        for (int unsigned l = 0; l < step; l++) combs[i][pos[l]] = 1'b1;
+        // Build the mask in a plain variable for Verilator users
+        comb = '0;
+        for (int unsigned l = 0; l < step; l++) comb[pos[l]] = 1'b1;
+        combs[i] = comb;
       end
 
       if (total_combinations < needed) begin
