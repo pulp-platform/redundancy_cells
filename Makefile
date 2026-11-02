@@ -14,7 +14,7 @@
 
 SHELL=bash
 
-BENDER ?= ./bender
+BENDER ?= bender
 REG_PATH = $(shell $(BENDER) path register_interface)
 # use if you need to hardcode location of regtool
 # REG_PATH = ../register_interface
@@ -113,14 +113,3 @@ gen_ecc_registers:
 gen_ECC:
 	$(BENDER) vendor init
 	cd util/lowrisc_opentitan && ./util/design/secded_gen.py --no_fpv --outdir ../../rtl/lowrisc_ecc
-
-bender:
-ifeq (,$(wildcard ./bender))
-	curl --proto '=https' --tlsv1.2 -sSf https://pulp-platform.github.io/bender/init \
-		| bash -s -- 0.28.2
-	touch bender
-endif
-
-.PHONY: bender-rm
-bender-rm:
-	rm -f bender

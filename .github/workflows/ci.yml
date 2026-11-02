@@ -23,7 +23,7 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
       - name: Install Bender
-        run: make bender
+        uses: pulp-platform/pulp-actions/bender-install@v2.5.1
       - name: Python Requirements
         run: pip install -r requirements.txt
       - name: Check clean make targets
