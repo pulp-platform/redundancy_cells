@@ -16,7 +16,8 @@ module ecc_sram #(
   parameter  int unsigned ProtectedWidth   = UnprotectedWidth + hsiao_ecc_pkg::min_ecc(UnprotectedWidth),
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
-  parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
+  parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path,
+                                                // more than 1 gives no timing benefit
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
   parameter  int unsigned ByteWidth        = 8,
   parameter  int unsigned BankAccessLatency = 1,
@@ -44,7 +45,7 @@ module ecc_sram #(
   output logic                     multi_error_o
 );
 
-  logic [1:0] ecc_error;
+  logic [1:0] rd_error;
   logic       valid_read_d, valid_read_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
@@ -57,14 +58,14 @@ module ecc_sram #(
 
   assign valid_read_d = req_i && gnt_o &&
                         (~we_i || (be_i != {ByteEnWidth{1'b1}}));
-  assign single_error_o = ecc_error[0] && valid_read_q;
-  assign multi_error_o  = ecc_error[1] && valid_read_q;
+  assign single_error_o = rd_error[0] && valid_read_q;
+  assign multi_error_o  = rd_error[1] && valid_read_q;
 
 `ifndef TARGET_SYNTHESIS
   always @(posedge clk_i) begin
-    if ((ecc_error[0] && valid_read_q) == 1)
+    if ((rd_error[0] && valid_read_q) == 1)
       $display("[ECC] %t - single error detected", $realtime);
-    if ((ecc_error[1] && valid_read_q) == 1)
+    if ((rd_error[1] && valid_read_q) == 1)
       $display("[ECC] %t - multi error detected", $realtime);
   end
 `endif
@@ -99,18 +100,26 @@ module ecc_sram #(
     assign be_selector [i*ByteWidth +: ByteWidth] = {ByteWidth{be_buffer_q[i]}};
   end
 
+  // Read-modify-write cut, breaking the long single-cycle path
+  // SRAM read -> decode -> merge -> encode -> SRAM write.
   logic [ProtectedWidth-1:0] rmw_buffer_end;
-  logic [ProtectedWidth-1:0] rmw_buffer_0;
-  assign rmw_buffer_0 = bank_rdata;
   shift_reg #(
     .dtype(logic[ProtectedWidth-1:0]),
     .Depth(NumRMWCuts)
   ) i_rmw_buffer (
     .clk_i,
     .rst_ni,
-    .d_i   (rmw_buffer_0),
+    .d_i   (bank_rdata),
     .d_o   (rmw_buffer_end)
   );
+
+  // Read-modify-write operands, plain data in the write-back cycle:
+  //   rmw_old    stored word, read and decoded
+  //   rmw_new    write data, decoded if InputECC == 1
+  //   rmw_merged rmw_new on the enabled bytes, rmw_old elsewhere, to be encoded and
+  //              written back
+  // An uncorrectable error in rmw_old or rmw_new thus ends up stored with valid ECC.
+  logic [UnprotectedWidth-1:0] rmw_old, rmw_new, rmw_merged;
 
   if ( !InputECC ) begin : gen_no_ecc_input
     // Loads  -> loads full data
@@ -119,22 +128,43 @@ module ecc_sram #(
     //   If be_i != '1: loads stored and buffers input (responds success to store command)
     //                  re-calculates ECC and stores correctly
 
-    logic [DataInWidth-1:0] to_store;
-    logic [DataInWidth-1:0] loaded;
-
-    logic [ProtectedWidth-1:0] decoder_in;
-
-    assign decoder_in = store_state_q == NORMAL ? bank_rdata : rmw_buffer_end;
+    logic [UnprotectedWidth-1:0] to_store;
+    logic [UnprotectedWidth-1:0] loaded;
 
     hsiao_ecc_dec #(
       .DataWidth (UnprotectedWidth),
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) ecc_decode (
-      .in        ( decoder_in ),
+      .in        ( bank_rdata ),
       .out       ( loaded ),
       .syndrome_o(),
-      .err_o     ( ecc_error )
+      .err_o     ( rd_error )
     );
+
+    assign rdata_o = loaded;
+
+    if (NumRMWCuts == 0) begin : gen_rmw_shared_decode
+      // Without a cut the RMW reads the bank in its write-back cycle and shares the read decoder.
+      assign rmw_old = loaded;
+    end else begin : gen_rmw_decode
+      // With a cut the RMW has its own decoder behind the cut. Sharing the read decoder would
+      // need a mux on its input, which leaves a combinational path from the SRAM output through
+      // the decoder and the merge back into the SRAM. That path is false, the two mux legs are
+      // used in different states, but timing analysis still reports it and the cut has no effect.
+      hsiao_ecc_dec #(
+        .DataWidth (UnprotectedWidth),
+        .ProtWidth (ProtectedWidth - UnprotectedWidth)
+      ) rmw_decode (
+        .in        ( rmw_buffer_end ),
+        .out       ( rmw_old ),
+        .syndrome_o(),
+        .err_o     ()
+      );
+    end
+
+    assign rmw_new = input_buffer_q;
+
+    assign to_store = store_state_q == NORMAL ? wdata_i : rmw_merged;
 
     hsiao_ecc_enc #(
       .DataWidth (UnprotectedWidth),
@@ -144,27 +174,21 @@ module ecc_sram #(
       .out ( bank_wdata )
     );
 
-    assign rdata_o   = loaded;
-
-    assign to_store = store_state_q == NORMAL ?
-                      wdata_i :
-                      (be_selector & input_buffer_q) | (~be_selector & loaded);
-
   end else begin : gen_ecc_input
+    // Plain reads and full writes pass the codeword through unchecked, the requester and the
+    // interconnect protect it end to end. Only a RMW decodes.
 
-    assign ecc_error = '0;
-    logic [  ProtectedWidth-1:0] lns_wdata;
-    logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
+    logic [ProtectedWidth-1:0] lns_wdata;
 
-    assign bank_wdata = store_state_q == NORMAL ? wdata_i : lns_wdata;
-    assign rdata_o   = bank_rdata;
+    assign rdata_o  = bank_rdata;
+    assign rd_error = '0;
 
     hsiao_ecc_dec #(
       .DataWidth (UnprotectedWidth),
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) ld_decode (
       .in        ( rmw_buffer_end ),
-      .out       ( intermediate_data_ld ),
+      .out       ( rmw_old ),
       .syndrome_o(),
       .err_o     ()
     );
@@ -174,7 +198,7 @@ module ecc_sram #(
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) st_decode (
       .in        ( input_buffer_q ),
-      .out       ( intermediate_data_st ),
+      .out       ( rmw_new ),
       .syndrome_o(),
       .err_o     ()
     );
@@ -183,11 +207,15 @@ module ecc_sram #(
       .DataWidth (UnprotectedWidth),
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) lns_encode (
-      .in  ( (be_selector & intermediate_data_st) | (~be_selector & intermediate_data_ld)   ),
+      .in  ( rmw_merged ),
       .out ( lns_wdata )
     );
 
+    assign bank_wdata = store_state_q == NORMAL ? wdata_i : lns_wdata;
+
   end
+
+  assign rmw_merged = (be_selector & rmw_new) | (~be_selector & rmw_old);
 
   // It might happen (especially with HWPEs driving part of the byte enable to zero) that sometimes
   // a write happens with be_i = '0 but with a non-zero data on the wdata_i bus. In this particular
