@@ -215,6 +215,7 @@ module tb_ecc_sram #(
     .req_i   ( req       ),
     .we_i    ( we        ),
     .be_i    ( be        ),
+    .accum_i ( '0        ),
     .rdata_o ( dut_rdata ),
     .gnt_o   ( gnt       ),
 
