@@ -21,6 +21,11 @@ module ecc_sram #(
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
   parameter  int unsigned ByteWidth        = 8,
   parameter  int unsigned BankAccessLatency = 1,
+  // Memory-side accumulation, driven by accum_i
+  parameter  bit          AccumEnabled     = 0, // 0: no accumulation, no adders
+                                                // 1: one independent signed saturating adder
+                                                //    per AccumLaneWidth-bit lane
+  parameter  int unsigned AccumLaneWidth   = ByteWidth,
   // Set params
   localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
   localparam int unsigned ByteEnWidth      = UnprotectedWidth/ByteWidth,
@@ -38,12 +43,35 @@ module ecc_sram #(
   input  logic                     req_i,
   input  logic                     we_i,
   input  logic [  ByteEnWidth-1:0] be_i,
+  // Add wdata_i to the stored word instead of overwriting it,
+  // only on the bytes enabled by be_i. Ignored if AccumEnabled == 0.
+  input  logic                     accum_i,
   output logic [  DataInWidth-1:0] rdata_o,
   output logic                     gnt_o,
 
   output logic                     single_error_o,
   output logic                     multi_error_o
 );
+
+  localparam int unsigned AccumNumLanes = UnprotectedWidth / AccumLaneWidth;
+
+  logic accum;
+  assign accum = AccumEnabled ? accum_i : 1'b0;
+
+// pragma translate_off
+`ifndef VERILATOR
+  initial begin : validate_accum_params
+    // TODO(chenwu): Support accumulation with InputECC == 1.
+    // It should be already supported currently, just need to be tested
+    assert (!AccumEnabled || !InputECC)
+      else $fatal(1, "AccumEnabled requires InputECC == 0");
+    assert (!AccumEnabled || (UnprotectedWidth % AccumLaneWidth == 0))
+      else $fatal(1, "AccumLaneWidth must divide UnprotectedWidth");
+    assert (!AccumEnabled || (ByteWidth % AccumLaneWidth == 0))
+      else $fatal(1, "ByteWidth must be a multiple of AccumLaneWidth");
+  end
+`endif
+// pragma translate_on
 
   logic                      internal_we;
   logic                      bank_req;
@@ -69,6 +97,7 @@ module ecc_sram #(
   logic [  DataInWidth-1:0] input_buffer_d, input_buffer_q;
   logic [BankAddrWidth-1:0] addr_buffer_d,  addr_buffer_q;
   logic [  ByteEnWidth-1:0] be_buffer_d,    be_buffer_q;
+  logic                     accum_buffer_d, accum_buffer_q;
 
   logic [UnprotectedWidth-1:0] be_selector;
   for (genvar i = 0; i < ByteEnWidth; i++) begin : gen_be_sel
@@ -90,9 +119,9 @@ module ecc_sram #(
 
   // Read-modify-write operands, plain data in the write-back cycle:
   //   rmw_old    stored word, read and decoded
-  //   rmw_new    write data, decoded if InputECC == 1
-  //   rmw_merged rmw_new on the enabled bytes, rmw_old elsewhere, to be encoded and
-  //              written back
+  //   rmw_new    write data (the addend for an accumulate), decoded if InputECC == 1
+  //   rmw_merged rmw_new (or rmw_old + rmw_new) on the enabled bytes, rmw_old elsewhere,
+  //              to be encoded and written back
   // An uncorrectable error in rmw_old or rmw_new thus ends up stored with valid ECC. Only
   // multi_error_o reports it.
   logic [UnprotectedWidth-1:0] rmw_old, rmw_new, rmw_merged;
@@ -197,7 +226,35 @@ module ecc_sram #(
 
   end
 
-  assign rmw_merged = (be_selector & rmw_new) | (~be_selector & rmw_old);
+  // Accumulation: rmw_old + rmw_new. Only the byte-enabled lanes are written back, which the
+  // merge below takes care of, so the adders may run unconditionally.
+  logic [UnprotectedWidth-1:0] accumulated;
+  if (AccumEnabled) begin : gen_accum_sat
+    // One independent signed saturating adder per lane, no carry across lane boundaries: this
+    // is what lets a single request update several consecutive counters.
+    localparam logic [AccumLaneWidth-1:0] LaneMax = {1'b0, {(AccumLaneWidth - 1) {1'b1}}};
+    localparam logic [AccumLaneWidth-1:0] LaneMin = {1'b1, {(AccumLaneWidth - 1) {1'b0}}};
+    for (genvar i = 0; i < AccumNumLanes; i++) begin : gen_lane
+      logic signed [AccumLaneWidth:0] sum;
+      assign sum = $signed(rmw_old[i*AccumLaneWidth +: AccumLaneWidth]) +
+                   $signed(rmw_new[i*AccumLaneWidth +: AccumLaneWidth]);
+      always_comb begin
+        if (sum > $signed({1'b0, LaneMax})) begin
+          accumulated[i*AccumLaneWidth +: AccumLaneWidth] = LaneMax;
+        end else if (sum < $signed({1'b1, LaneMin})) begin
+          accumulated[i*AccumLaneWidth +: AccumLaneWidth] = LaneMin;
+        end else begin
+          accumulated[i*AccumLaneWidth +: AccumLaneWidth] = sum[AccumLaneWidth-1:0];
+        end
+      end
+    end
+  end else begin : gen_accum_none
+    assign accumulated = '0;
+  end
+
+  logic [UnprotectedWidth-1:0] merged;
+  assign merged     = accum_buffer_q ? accumulated : rmw_new;
+  assign rmw_merged = (be_selector & merged) | (~be_selector & rmw_old);
 
   // It might happen (especially with HWPEs driving part of the byte enable to zero) that sometimes
   // a write happens with be_i = '0 but with a non-zero data on the wdata_i bus. In this particular
@@ -215,10 +272,12 @@ module ecc_sram #(
     input_buffer_d = wdata_i;
     addr_buffer_d  = addr_i;
     be_buffer_d    = be_i;
+    accum_buffer_d = accum;
     bank_req       = req_i;
     rmw_count_d    = rmw_count_q;
     if (store_state_q == NORMAL) begin
-      if (req_i & (be_i != {ByteEnWidth{1'b1}}) & internal_we) begin
+      // An accumulate always has to read the stored word first, even at full strobe
+      if (req_i & internal_we & ((be_i != {ByteEnWidth{1'b1}}) | accum)) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
         rmw_count_d   = rmw_count_t'(RMWWaitCycles);
@@ -230,6 +289,7 @@ module ecc_sram #(
       input_buffer_d  = input_buffer_q;
       addr_buffer_d   = addr_buffer_q;
       be_buffer_d     = be_buffer_q;
+      accum_buffer_d  = accum_buffer_q;
       if (rmw_count_q == '0) begin
         bank_req      = 1'b1;
       end else begin
@@ -246,12 +306,14 @@ module ecc_sram #(
       addr_buffer_q  <= '0;
       input_buffer_q <= '0;
       be_buffer_q    <= '0;
+      accum_buffer_q <= '0;
       rmw_count_q    <= '0;
     end else begin
       store_state_q  <= store_state_d;
       addr_buffer_q  <= addr_buffer_d;
       input_buffer_q <= input_buffer_d;
       be_buffer_q    <= be_buffer_d;
+      accum_buffer_q <= accum_buffer_d;
       rmw_count_q    <= rmw_count_d;
     end
   end
