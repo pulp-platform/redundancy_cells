@@ -13,16 +13,18 @@
 module ecc_sram #(
   parameter  int unsigned NumWords         = 256,
   parameter  int unsigned UnprotectedWidth = 32,
-  parameter  int unsigned ProtectedWidth   = 39,
+  parameter  int unsigned ProtectedWidth   = UnprotectedWidth + hsiao_ecc_pkg::min_ecc(UnprotectedWidth),
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
-  parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path
+  parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path,
+                                                // more than 1 gives no timing benefit
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
   parameter  int unsigned ByteWidth        = 8,
+  parameter  int unsigned BankAccessLatency = 1,
   // Set params
   localparam int unsigned DataInWidth      = InputECC ? ProtectedWidth : UnprotectedWidth,
   localparam int unsigned ByteEnWidth      = UnprotectedWidth/ByteWidth,
-  localparam int unsigned BankAddrWidth    = $clog2(NumWords)
+  localparam int unsigned BankAddrWidth    = (NumWords > 32'd1) ? $clog2(NumWords) : 32'd1
 ) (
   input  logic                     clk_i,
   input  logic                     rst_ni,
@@ -43,31 +45,6 @@ module ecc_sram #(
   output logic                     multi_error_o
 );
 
-  logic [1:0] ecc_error;
-  logic       valid_read_d, valid_read_q;
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_valid_read
-    if(~rst_ni) begin
-      valid_read_q <= '0;
-    end else begin
-      valid_read_q <= valid_read_d;
-    end
-  end
-
-  assign valid_read_d = req_i && gnt_o &&
-                        (~we_i || (be_i != {ByteEnWidth{1'b1}}));
-  assign single_error_o = ecc_error[0] && valid_read_q;
-  assign multi_error_o  = ecc_error[1] && valid_read_q;
-
-`ifndef TARGET_SYNTHESIS
-  always @(posedge clk_i) begin
-    if ((ecc_error[0] && valid_read_q) == 1)
-      $display("[ECC] %t - single error detected", $realtime);
-    if ((ecc_error[1] && valid_read_q) == 1)
-      $display("[ECC] %t - multi error detected", $realtime);
-  end
-`endif
-
   logic                      internal_we;
   logic                      bank_req;
   logic                      bank_we;
@@ -84,7 +61,9 @@ module ecc_sram #(
   typedef enum logic { NORMAL, READ_MODIFY_WRITE } store_state_e;
   store_state_e store_state_d, store_state_q;
 
-  typedef logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0] rmw_count_t;
+  localparam int unsigned RMWWaitCycles =
+      (BankAccessLatency > 0 ? BankAccessLatency - 1 : 0) + NumRMWCuts;
+  typedef logic [cf_math_pkg::idx_width(RMWWaitCycles + 1)-1:0] rmw_count_t;
   rmw_count_t rmw_count_d, rmw_count_q;
 
   logic [  DataInWidth-1:0] input_buffer_d, input_buffer_q;
@@ -96,18 +75,29 @@ module ecc_sram #(
     assign be_selector [i*ByteWidth +: ByteWidth] = {ByteWidth{be_buffer_q[i]}};
   end
 
+  // Read-modify-write cut, breaking the long single-cycle path
+  // SRAM read -> decode -> merge -> encode -> SRAM write.
   logic [ProtectedWidth-1:0] rmw_buffer_end;
-  logic [ProtectedWidth-1:0] rmw_buffer_0;
-  assign rmw_buffer_0 = bank_rdata;
   shift_reg #(
     .dtype(logic[ProtectedWidth-1:0]),
     .Depth(NumRMWCuts)
   ) i_rmw_buffer (
     .clk_i,
     .rst_ni,
-    .d_i   (rmw_buffer_0),
+    .d_i   (bank_rdata),
     .d_o   (rmw_buffer_end)
   );
+
+  // Read-modify-write operands, plain data in the write-back cycle:
+  //   rmw_old    stored word, read and decoded
+  //   rmw_new    write data, decoded if InputECC == 1
+  //   rmw_merged rmw_new on the enabled bytes, rmw_old elsewhere, to be encoded and
+  //              written back
+  // An uncorrectable error in rmw_old or rmw_new thus ends up stored with valid ECC. Only
+  // multi_error_o reports it.
+  logic [UnprotectedWidth-1:0] rmw_old, rmw_new, rmw_merged;
+  // ECC errors seen by plain reads and by the read of a RMW
+  logic [1:0] rd_error, rmw_error;
 
   if ( !InputECC ) begin : gen_no_ecc_input
     // Loads  -> loads full data
@@ -116,22 +106,44 @@ module ecc_sram #(
     //   If be_i != '1: loads stored and buffers input (responds success to store command)
     //                  re-calculates ECC and stores correctly
 
-    logic [DataInWidth-1:0] to_store;
-    logic [cf_math_pkg::idx_width(NumRMWCuts)-1:0][DataInWidth-1:0] loaded;
-
-    logic [ProtectedWidth-1:0] decoder_in;
-
-    assign decoder_in = store_state_q == NORMAL ? bank_rdata : rmw_buffer_end;
+    logic [UnprotectedWidth-1:0] to_store;
+    logic [UnprotectedWidth-1:0] loaded;
 
     hsiao_ecc_dec #(
       .DataWidth (UnprotectedWidth),
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) ecc_decode (
-      .in        ( decoder_in ),
+      .in        ( bank_rdata ),
       .out       ( loaded ),
       .syndrome_o(),
-      .err_o     ( ecc_error )
+      .err_o     ( rd_error )
     );
+
+    assign rdata_o = loaded;
+
+    if (NumRMWCuts == 0) begin : gen_rmw_shared_decode
+      // Without a cut the RMW reads the bank in its write-back cycle and shares the read decoder.
+      assign rmw_old   = loaded;
+      assign rmw_error = rd_error;
+    end else begin : gen_rmw_decode
+      // With a cut the RMW has its own decoder behind the cut. Sharing the read decoder would
+      // need a mux on its input, which leaves a combinational path from the SRAM output through
+      // the decoder and the merge back into the SRAM. That path is false, the two mux legs are
+      // used in different states, but timing analysis still reports it and the cut has no effect.
+      hsiao_ecc_dec #(
+        .DataWidth (UnprotectedWidth),
+        .ProtWidth (ProtectedWidth - UnprotectedWidth)
+      ) rmw_decode (
+        .in        ( rmw_buffer_end ),
+        .out       ( rmw_old ),
+        .syndrome_o(),
+        .err_o     ( rmw_error )
+      );
+    end
+
+    assign rmw_new = input_buffer_q;
+
+    assign to_store = store_state_q == NORMAL ? wdata_i : rmw_merged;
 
     hsiao_ecc_enc #(
       .DataWidth (UnprotectedWidth),
@@ -141,29 +153,24 @@ module ecc_sram #(
       .out ( bank_wdata )
     );
 
-    assign rdata_o   = loaded;
-
-    assign to_store = store_state_q == NORMAL ?
-                      wdata_i :
-                      (be_selector & input_buffer_q) | (~be_selector & loaded);
-
   end else begin : gen_ecc_input
+    // Plain reads and full writes pass the codeword through unchecked, the requester and the
+    // interconnect protect it end to end. Only a RMW decodes, so only a RMW reports ECC errors.
 
-    assign ecc_error = '0;
-    logic [  ProtectedWidth-1:0] lns_wdata;
-    logic [UnprotectedWidth-1:0] intermediate_data_ld, intermediate_data_st;
+    logic [ProtectedWidth-1:0] lns_wdata;
+    logic [1:0] ld_error, st_error;
 
-    assign bank_wdata = store_state_q == NORMAL ? wdata_i : lns_wdata;
-    assign rdata_o   = bank_rdata;
+    assign rdata_o  = bank_rdata;
+    assign rd_error = '0;
 
     hsiao_ecc_dec #(
       .DataWidth (UnprotectedWidth),
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) ld_decode (
       .in        ( rmw_buffer_end ),
-      .out       ( intermediate_data_ld ),
+      .out       ( rmw_old ),
       .syndrome_o(),
-      .err_o     ()
+      .err_o     ( ld_error )
     );
 
     hsiao_ecc_dec #(
@@ -171,20 +178,26 @@ module ecc_sram #(
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) st_decode (
       .in        ( input_buffer_q ),
-      .out       ( intermediate_data_st ),
+      .out       ( rmw_new ),
       .syndrome_o(),
-      .err_o     ()
+      .err_o     ( st_error )
     );
+
+    assign rmw_error = ld_error | st_error;
 
     hsiao_ecc_enc #(
       .DataWidth (UnprotectedWidth),
       .ProtWidth (ProtectedWidth - UnprotectedWidth)
     ) lns_encode (
-      .in  ( (be_selector & intermediate_data_st) | (~be_selector & intermediate_data_ld)   ),
+      .in  ( rmw_merged ),
       .out ( lns_wdata )
     );
 
+    assign bank_wdata = store_state_q == NORMAL ? wdata_i : lns_wdata;
+
   end
+
+  assign rmw_merged = (be_selector & rmw_new) | (~be_selector & rmw_old);
 
   // It might happen (especially with HWPEs driving part of the byte enable to zero) that sometimes
   // a write happens with be_i = '0 but with a non-zero data on the wdata_i bus. In this particular
@@ -208,7 +221,7 @@ module ecc_sram #(
       if (req_i & (be_i != {ByteEnWidth{1'b1}}) & internal_we) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
-        rmw_count_d   = rmw_count_t'(NumRMWCuts);
+        rmw_count_d   = rmw_count_t'(RMWWaitCycles);
       end
     end else begin
       gnt_o           = 1'b0;
@@ -242,6 +255,35 @@ module ecc_sram #(
       rmw_count_q    <= rmw_count_d;
     end
   end
+
+  // ECC error reporting. A plain read reports when its data leaves the bank, BankAccessLatency
+  // cycles after the grant. A RMW reports in its write-back cycle, where the RMW decoders see the
+  // word it read. The two never coincide: the bank grants nothing from the grant of a RMW to its
+  // write-back, and earlier reads return before the write-back.
+  logic plain_read, plain_read_valid, rmw_write;
+  assign plain_read = req_i & gnt_o & ~internal_we;
+  shift_reg #(
+    .dtype(logic),
+    .Depth(BankAccessLatency)
+  ) i_plain_read_valid (
+    .clk_i,
+    .rst_ni,
+    .d_i   (plain_read),
+    .d_o   (plain_read_valid)
+  );
+  assign rmw_write = (store_state_q == READ_MODIFY_WRITE) && (rmw_count_q == '0);
+
+  assign single_error_o = (rd_error[0] & plain_read_valid) | (rmw_error[0] & rmw_write);
+  assign multi_error_o  = (rd_error[1] & plain_read_valid) | (rmw_error[1] & rmw_write);
+
+`ifndef TARGET_SYNTHESIS
+  always @(posedge clk_i) begin
+    if (single_error_o)
+      $display("[ECC] %t - single error detected", $realtime);
+    if (multi_error_o)
+      $display("[ECC] %t - multi error detected", $realtime);
+  end
+`endif
 
   ecc_scrubber #(
     .BankSize       ( NumWords       ),
@@ -280,7 +322,7 @@ module ecc_sram #(
 `ifndef TARGET_SYNTHESIS
     .SimInit   ( SimInit        ),
 `endif
-    .Latency   ( 1              ) // Latency when the read data is available
+    .Latency   ( BankAccessLatency ) // Latency when the read data is available
   ) i_bank (
     .clk_i,                                                   // Clock
     .rst_ni,                                                  // Asynchronous reset active low

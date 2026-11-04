@@ -44,6 +44,13 @@ call_vsim tb_tmr_word_voter
 call_vsim tb_bitwise_tmr_voter
 call_vsim tb_bitwise_tmr_voter_fail
 call_vsim tb_ecc_sram -voptargs="+acc=nr"
+# Read-modify-write cuts and bank latency, both ECC modes
+for cuts in 0 1 2; do
+  call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GNumRMWCuts=$cuts
+  call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GNumRMWCuts=$cuts -GInputECC=1
+done
+call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GBankAccessLatency=2
+call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GBankAccessLatency=2 -GInputECC=1
 call_vsim -GDataWidth=8 tb_ecc_secded
 call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded
