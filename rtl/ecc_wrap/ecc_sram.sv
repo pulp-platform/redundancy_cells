@@ -10,15 +10,19 @@
 //
 // ECC-protected SRAM, with enconding and decoding (if needed), bytewise access, and scrubbing
 
+`include "common_cells/registers.svh"
+
 module ecc_sram #(
   parameter  int unsigned NumWords         = 256,
   parameter  int unsigned UnprotectedWidth = 32,
-  parameter  int unsigned ProtectedWidth   = UnprotectedWidth + hsiao_ecc_pkg::min_ecc(UnprotectedWidth),
+  parameter  int unsigned ProtectedWidth   = UnprotectedWidth +
+                                             hsiao_ecc_pkg::min_ecc(UnprotectedWidth),
   parameter  bit          InputECC         = 0, // 0: no ECC on input
                                                 // 1: SECDED on input
   parameter  int unsigned NumRMWCuts       = 0, // Number of cuts in the read-modify-write path,
                                                 // more than 1 gives no timing benefit
   parameter               SimInit          = "random", // ("zeros", "ones", "random", "none")
+  parameter  bit          HwInitEnabled    = 0, // Only support zero initialization
   parameter  int unsigned ByteWidth        = 8,
   parameter  int unsigned BankAccessLatency = 1,
   // Memory-side accumulation, driven by accum_i
@@ -79,6 +83,15 @@ module ecc_sram #(
   logic [ BankAddrWidth-1:0] bank_addr;
   logic [ProtectedWidth-1:0] bank_wdata;
   logic [ProtectedWidth-1:0] bank_rdata;
+
+  // Bank port after the hardware initialization mux
+  logic                      init_busy;
+  logic [ BankAddrWidth-1:0] init_addr;
+  logic                      req;
+  logic                      sram_req;
+  logic                      sram_we;
+  logic [ BankAddrWidth-1:0] sram_addr;
+  logic [ProtectedWidth-1:0] sram_wdata;
 
   logic                      bank_scrub_req;
   logic                      bank_scrub_we;
@@ -264,20 +277,52 @@ module ecc_sram #(
   // decide if we need to make a RMW or not.
   assign internal_we = we_i & (be_i != '0);
 
+  // Hardware initialization: after reset, write zeros to every word of the bank,
+  // No gnt, no scrubbing, no ECC errors are reported during this phase.
+  if (HwInitEnabled) begin : gen_hw_init
+    typedef enum logic { INIT, READY } init_state_e;
+    init_state_e init_state_d, init_state_q;
+
+    counter #(
+      .WIDTH ( BankAddrWidth )
+    ) i_init_addr (
+      .clk_i,
+      .rst_ni,
+      .clear_i    ( 1'b0      ),
+      .en_i       ( init_busy ),
+      .load_i     ( 1'b0      ),
+      .down_i     ( 1'b0      ),
+      .d_i        ( '0        ),
+      .q_o        ( init_addr ),
+      .overflow_o ()
+    );
+
+    assign init_busy    = init_state_q == INIT;
+    assign init_state_d = (init_busy && init_addr == BankAddrWidth'(NumWords - 1)) ?
+                                                        READY : init_state_q;
+
+    `FF(init_state_q, init_state_d, INIT)
+  end else begin : gen_no_hw_init
+    assign init_busy = 1'b0;
+    assign init_addr = '0;
+  end
+
+  assign req = req_i & ~init_busy;
+
   always_comb begin
     store_state_d  = NORMAL;
-    gnt_o          = 1'b1;
+    gnt_o          = ~init_busy;
     bank_addr      = addr_i;
     bank_we        = internal_we;
     input_buffer_d = wdata_i;
     addr_buffer_d  = addr_i;
     be_buffer_d    = be_i;
     accum_buffer_d = accum;
-    bank_req       = req_i;
+    bank_req       = req;
     rmw_count_d    = rmw_count_q;
     if (store_state_q == NORMAL) begin
       // An accumulate always has to read the stored word first, even at full strobe
-      if (req_i & internal_we & ((be_i != {ByteEnWidth{1'b1}}) | accum)) begin
+      if (req & internal_we & ((be_i != {ByteEnWidth{1'b1}}) | accum)) begin
         store_state_d = READ_MODIFY_WRITE;
         bank_we       = 1'b0;
         rmw_count_d   = rmw_count_t'(RMWWaitCycles);
@@ -300,30 +345,19 @@ module ecc_sram #(
     end
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_read_modify_write_ff
-    if(!rst_ni) begin
-      store_state_q  <= NORMAL;
-      addr_buffer_q  <= '0;
-      input_buffer_q <= '0;
-      be_buffer_q    <= '0;
-      accum_buffer_q <= '0;
-      rmw_count_q    <= '0;
-    end else begin
-      store_state_q  <= store_state_d;
-      addr_buffer_q  <= addr_buffer_d;
-      input_buffer_q <= input_buffer_d;
-      be_buffer_q    <= be_buffer_d;
-      accum_buffer_q <= accum_buffer_d;
-      rmw_count_q    <= rmw_count_d;
-    end
-  end
+  `FF(store_state_q,  store_state_d,  NORMAL)
+  `FF(addr_buffer_q,  addr_buffer_d,  '0)
+  `FF(input_buffer_q, input_buffer_d, '0)
+  `FF(be_buffer_q,    be_buffer_d,    '0)
+  `FF(accum_buffer_q, accum_buffer_d, '0)
+  `FF(rmw_count_q,    rmw_count_d,    '0)
 
   // ECC error reporting. A plain read reports when its data leaves the bank, BankAccessLatency
   // cycles after the grant. A RMW reports in its write-back cycle, where the RMW decoders see the
   // word it read. The two never coincide: the bank grants nothing from the grant of a RMW to its
   // write-back, and earlier reads return before the write-back.
   logic plain_read, plain_read_valid, rmw_write;
-  assign plain_read = req_i & gnt_o & ~internal_we;
+  assign plain_read = req & gnt_o & ~internal_we;
   shift_reg #(
     .dtype(logic),
     .Depth(BankAccessLatency)
@@ -347,6 +381,11 @@ module ecc_sram #(
   end
 `endif
 
+  assign sram_req   = init_busy | bank_req;
+  assign sram_we    = init_busy | bank_we;
+  assign sram_addr  = init_busy ? init_addr : bank_addr;
+  assign sram_wdata = init_busy ? '0        : bank_wdata;
+
   ecc_scrubber #(
     .BankSize       ( NumWords       ),
     .UseExternalECC ( 0              ),
@@ -359,10 +398,10 @@ module ecc_sram #(
     .bit_corrected_o ( scrubber_fix_o        ),
     .uncorrectable_o ( scrub_uncorrectable_o ),
 
-    .intc_req_i      ( bank_req              ),
-    .intc_we_i       ( bank_we               ),
-    .intc_add_i      ( bank_addr             ),
-    .intc_wdata_i    ( bank_wdata            ),
+    .intc_req_i      ( sram_req              ),
+    .intc_we_i       ( sram_we               ),
+    .intc_add_i      ( sram_addr             ),
+    .intc_wdata_i    ( sram_wdata            ),
     .intc_rdata_o    ( bank_rdata            ),
 
     .bank_req_o      ( bank_scrub_req        ),

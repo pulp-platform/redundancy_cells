@@ -20,6 +20,7 @@ module tb_ecc_sram #(
   parameter bit          InputECC          = 1'b0,
   parameter int unsigned NumRMWCuts        = 1,
   parameter int unsigned BankAccessLatency = 1,
+  parameter bit          HwInitEnabled     = 1'b0,
   parameter int unsigned NoReq             = 200000 // Number of random requests
 );
 
@@ -200,7 +201,8 @@ module tb_ecc_sram #(
     .ProtectedWidth    ( ProtectedWidth    ),
     .InputECC          ( InputECC          ),
     .NumRMWCuts        ( NumRMWCuts        ),
-    .SimInit           ( "zeros"           ),
+    .SimInit           ( HwInitEnabled ? "random" : "zeros" ),
+    .HwInitEnabled     ( HwInitEnabled     ),
     .BankAccessLatency ( BankAccessLatency )
   ) i_dut (
     .clk_i        ( clk ),
@@ -436,6 +438,21 @@ module tb_ecc_sram #(
     end
   endtask : run_directed
 
+  // Read every word back after the hardware initialization. Zero data without any ECC error, on
+  // the DUT flags or on the testbench-side decoder, means the stored codeword is all zeros.
+  task automatic check_hw_init();
+    automatic longint unsigned gnt_cycle;
+    automatic data_t           rdata_;
+    automatic logic [1:0]      rdata_error_;
+
+    for (int unsigned i = 0; i < BankSize; i++) begin
+      directed_req(1'b0, addr_t'(i), '0, '0, FlipNone, '0, gnt_cycle, rdata_, rdata_error_);
+      check_data($sformatf("hw init 0x%02h: read data", i), '0, rdata_);
+      check_data($sformatf("hw init 0x%02h: tb-side ECC error", i), '0, data_t'(rdata_error_));
+      check_flags($sformatf("hw init 0x%02h: flags", i), '0, 1'b0, 1'b0);
+    end
+  endtask : check_hw_init
+
   /****************
    *  Test Bench  *
    ****************/
@@ -458,7 +475,7 @@ module tb_ecc_sram #(
     test_cnt     = '0;
     error_cnt    = '0;
     cycle        = '0;
-    random_phase = 1'b1;
+    random_phase = 1'b0;
 
     for (int i = 0; i < BankSize; i++) begin
       memory[i] = '0;
@@ -474,6 +491,9 @@ module tb_ecc_sram #(
     repeat(10) @(posedge clk);
     #ApplTime;
 
+    if (HwInitEnabled) check_hw_init();
+
+    random_phase = 1'b1;
     fork
       run_apply();
       run_collect();
@@ -490,8 +510,8 @@ module tb_ecc_sram #(
     repeat (BankAccessLatency + NumRMWCuts + 2) next_cycle();
     run_directed();
 
-    $display("InputECC %0d NumRMWCuts %0d BankAccessLatency %0d",
-             InputECC, NumRMWCuts, BankAccessLatency);
+    $display("InputECC %0d NumRMWCuts %0d BankAccessLatency %0d HwInitEnabled %0d",
+             InputECC, NumRMWCuts, BankAccessLatency, HwInitEnabled);
     $display("Checked %0d tests, found %0d mismatches.", test_cnt, error_cnt);
     if (error_cnt) $fatal(1, "Found %0d mismatches.", error_cnt);
     $finish();
