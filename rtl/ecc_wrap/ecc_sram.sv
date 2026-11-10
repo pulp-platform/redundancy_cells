@@ -42,9 +42,9 @@ module ecc_sram #(
   output logic                     scrubber_fix_o,
   output logic                     scrub_uncorrectable_o,
 
-  // Synchronous active-high reset of the hardware initialization (HwInitEnabled). 
-  // From the cycle after it rises, the bank grants nothing. 
-  // After it falls, the bank zeroes every word, then grants again. 
+  // Synchronous active-high reset of the hardware initialization (HwInitEnabled).
+  // From the cycle after it rises, the bank grants nothing.
+  // After it falls, the bank zeroes every word, then grants again.
   // One cycle high is enough, rising again during the initialization restarts it.
   // Tie to 1'b0 to disable. Synchronous to clk_i.
   input  logic                     init_i,
@@ -395,9 +395,11 @@ module ecc_sram #(
   assign sram_wdata = init_busy ? '0        : bank_wdata;
 
   ecc_scrubber #(
-    .BankSize       ( NumWords       ),
-    .UseExternalECC ( 0              ),
-    .DataWidth      ( ProtectedWidth )
+    .BankSize       ( NumWords                          ),
+    .UseExternalECC ( 0                                 ),
+    .DataWidth      ( ProtectedWidth                    ),
+    .ProtWidth      ( ProtectedWidth - UnprotectedWidth ),
+    .Latency        ( BankAccessLatency                 )
   ) i_scrubber (
     .clk_i,
     .rst_ni,

@@ -12,10 +12,10 @@
 // based on tb_tc_sram.sv in tech_cells_generic
 //
 // A random phase checks the data against a golden model (test/ecc_sram_fault_injection.tcl flips
-// one bit per word halfway through it). With HwInitEnabled, it also pulses init_i at random, which
-// zeroes the golden model. A directed phase then injects bit flips into the SRAM read data, the
-// read-modify-write cut and the write data, and checks the data and the cycle in which
-// single_error_o / multi_error_o report them.
+// one bit per word halfway through it). It triggers the scrubber at random, and with HwInitEnabled
+// it also pulses init_i at random, which zeroes the golden model. A directed phase then injects
+// bit flips into the SRAM read data, the read-modify-write cut and the write data, and checks the
+// data and the cycle in which single_error_o / multi_error_o report them.
 
 module tb_ecc_sram #(
   parameter bit          InputECC          = 1'b0,
@@ -141,6 +141,7 @@ module tb_ecc_sram #(
   endfunction : generate_stimuli
 
   logic                 req, we, gnt, hw_init;
+  logic                 scrub_trigger, scrub_fix, scrub_uncorrectable;
   logic [AddrWidth-1:0] addr;
   logic [DataWidth-1:0] wdata, rdata;
   logic [  BEWidth-1:0] be;
@@ -225,9 +226,9 @@ module tb_ecc_sram #(
     .clk_i        ( clk ),
     .rst_ni       ( rst_n ),
 
-    .scrub_trigger_i      ('0),
-    .scrubber_fix_o       (),
-    .scrub_uncorrectable_o(),
+    .scrub_trigger_i      (scrub_trigger),
+    .scrubber_fix_o       (scrub_fix),
+    .scrub_uncorrectable_o(scrub_uncorrectable),
 
     .init_i  ( hw_init   ),
 
@@ -296,6 +297,28 @@ module tb_ecc_sram #(
 
   flag_t flag_queue [$];
   logic  random_phase;
+
+  /**************
+   *  Scrubber  *
+   **************/
+
+  // Triggered at random during the random phase only, the directed phase checks exact flags
+  longint scrub_fix_cnt;
+
+  always @(posedge clk) begin
+    #ApplTime;
+    scrub_trigger = random_phase & ($urandom_range(0, 1) == 1);
+  end
+
+  always @(posedge clk) begin
+    #TestTime;
+    if (scrub_fix) scrub_fix_cnt++;
+    // The fault injection flips a single bit per word
+    if (scrub_uncorrectable) begin
+      $warning("ERROR! Scrubber reported an uncorrectable word in cycle %0d.", cycle);
+      error_cnt++;
+    end
+  end
 
   always @(posedge clk) begin
     #TestTime;
@@ -493,8 +516,10 @@ module tb_ecc_sram #(
     // Initialize variables
     test_cnt     = '0;
     error_cnt    = '0;
-    cycle        = '0;
-    random_phase = 1'b0;
+    cycle         = '0;
+    random_phase  = 1'b0;
+    scrub_trigger = 1'b0;
+    scrub_fix_cnt = '0;
 
     for (int i = 0; i < BankSize; i++) begin
       memory[i] = '0;
@@ -533,6 +558,7 @@ module tb_ecc_sram #(
 
     $display("InputECC %0d NumRMWCuts %0d BankAccessLatency %0d HwInitEnabled %0d",
              InputECC, NumRMWCuts, BankAccessLatency, HwInitEnabled);
+    $display("Scrubber corrected %0d words.", scrub_fix_cnt);
     $display("Checked %0d tests, found %0d mismatches.", test_cnt, error_cnt);
     if (error_cnt) $fatal(1, "Found %0d mismatches.", error_cnt);
     $finish();

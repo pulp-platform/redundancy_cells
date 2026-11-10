@@ -11,12 +11,15 @@
 // Scrubber for ecc
 //   - iteratively steps through memory bank
 //   - corrects *only* correctable errors
+//   - writes a correction back only if the bank has not been written since the scrub read
 
 module ecc_scrubber #(
   parameter int unsigned BankSize       = 256,
   parameter bit          UseExternalECC = 0,
   parameter int unsigned DataWidth      = 39,
-  parameter int unsigned ProtWidth      = 7
+  parameter int unsigned ProtWidth      = 7,
+  /// Read latency of the bank, at least 1
+  parameter int unsigned Latency        = 1
 ) (
   input  logic                        clk_i,
   input  logic                        rst_ni,
@@ -60,6 +63,9 @@ module ecc_scrubber #(
   logic [$clog2(BankSize)-1:0] working_add_d, working_add_q;
   assign scrub_add = working_add_q;
 
+  logic [$clog2(Latency):0] wait_d, wait_q;
+  logic                     intc_wrote_d, intc_wrote_q;
+
   assign bank_req_o   = intc_req_i || scrub_req;
   assign intc_rdata_o = bank_rdata_i;
   assign scrub_rdata  = bank_rdata_i;
@@ -71,7 +77,7 @@ module ecc_scrubber #(
     bank_wdata_o = intc_wdata_i;
 
     // If scrubber active and outside is not, do scrub
-    if ( (state_q == Read || state_q == Write) && intc_req_i == 1'b0) begin
+    if (scrub_req && intc_req_i == 1'b0) begin
       bank_we_o    = scrub_we;
       bank_add_o   = scrub_add;
       bank_wdata_o = scrub_wdata;
@@ -100,6 +106,8 @@ module ecc_scrubber #(
     scrub_req     = 1'b0;
     scrub_we      = 1'b0;
     working_add_d = working_add_q;
+    wait_d        = wait_q;
+    intc_wrote_d  = intc_wrote_q;
     bit_corrected_o = 1'b0;
     uncorrectable_o = 1'b0;
 
@@ -114,11 +122,17 @@ module ecc_scrubber #(
       scrub_req = 1'b1;
       // Request only active if outside is inactive
       if (intc_req_i == 1'b0) begin
-        state_d = Write;
+        state_d      = Write;
+        wait_d       = Latency - 1;
+        intc_wrote_d = 1'b0;
       end
 
     end else if (state_q == Write) begin
-      if (ecc_err[0] == 1'b0) begin   // No correctable Error
+      if (wait_q != '0) begin         // Read data not there yet
+        wait_d       = wait_q - 1;
+        intc_wrote_d = intc_wrote_q | (intc_req_i & intc_we_i);
+
+      end else if (ecc_err[0] == 1'b0) begin   // No correctable Error
         // Return to idle state
         state_d       = Idle;
         working_add_d = (working_add_q + 1) % BankSize; // increment address
@@ -129,8 +143,9 @@ module ecc_scrubber #(
         scrub_req = 1'b1;
         scrub_we  = 1'b1;
 
-        // INTC interference - retry read and write
-        if (intc_req_i == 1'b1) begin
+        // INTC interference - retry read and write. A write since the read may have changed the
+        // word, the correction of the old data must not overwrite it.
+        if (intc_req_i == 1'b1 || intc_wrote_q) begin
           state_d = Read;
         end else begin                // Error corrected
           state_d       = Idle;
@@ -149,6 +164,16 @@ module ecc_scrubber #(
     end
   end
 
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_wait
+    if(!rst_ni) begin
+      wait_q       <= '0;
+      intc_wrote_q <= 1'b0;
+    end else begin
+      wait_q       <= wait_d;
+      intc_wrote_q <= intc_wrote_d;
+    end
+  end
+
   always_ff @(posedge clk_i or negedge rst_ni) begin : proc_FSM
     if(!rst_ni) begin
       state_q <= Idle;
@@ -156,5 +181,11 @@ module ecc_scrubber #(
       state_q <= state_d;
     end
   end
+
+  // pragma translate_off
+  initial begin : validate_params
+    assert (Latency >= 1) else $fatal(1, "ecc_scrubber: Latency must be at least 1");
+  end
+  // pragma translate_on
 
 endmodule
