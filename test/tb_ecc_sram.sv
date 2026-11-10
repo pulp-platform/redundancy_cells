@@ -12,8 +12,9 @@
 // based on tb_tc_sram.sv in tech_cells_generic
 //
 // A random phase checks the data against a golden model (test/ecc_sram_fault_injection.tcl flips
-// one bit per word halfway through it). A directed phase then injects bit flips into the SRAM read
-// data, the read-modify-write cut and the write data, and checks the data and the cycle in which
+// one bit per word halfway through it). With HwInitEnabled, it also pulses init_i at random, which
+// zeroes the golden model. A directed phase then injects bit flips into the SRAM read data, the
+// read-modify-write cut and the write data, and checks the data and the cycle in which
 // single_error_o / multi_error_o report them.
 
 module tb_ecc_sram #(
@@ -81,12 +82,19 @@ module tb_ecc_sram #(
   typedef logic [       BEWidth-1:0] be_t;
 
   class stimuli_t;
-    rand data_t wdata;
-    rand addr_t addr;
-    rand be_t   be;
-    rand logic  we;
+    rand data_t       wdata;
+    rand addr_t       addr;
+    rand be_t         be;
+    rand logic        we;
+    // Instead of a request, hold init_i high for hw_init_cycles
+    rand logic        hw_init;
+    rand int unsigned hw_init_cycles;
 
     constraint limit_addr {addr < BankSize;}
+    constraint limit_hw_init {
+      hw_init dist {1'b1 := HwInitEnabled, 1'b0 := 999};
+      hw_init_cycles inside {[1:20]};
+    }
   endclass : stimuli_t
 
   typedef struct {
@@ -117,7 +125,10 @@ module tb_ecc_sram #(
       // Randomize
       if (stimuli.randomize()) begin
         stimuli_queue.push_back(stimuli);
-        if (!stimuli.we) begin
+        // Everything before an initialization is overwritten with zeros, it returns no data
+        if (stimuli.hw_init) begin
+          foreach (memory[i]) memory[i] = '0;
+        end else if (!stimuli.we) begin
           golden_queue.push_back('{check: 1'b1, data: memory[stimuli.addr]});
         end else begin
           golden_queue.push_back('{check: 1'b0, data: 'x});
@@ -129,7 +140,7 @@ module tb_ecc_sram #(
     end
   endfunction : generate_stimuli
 
-  logic                 req, we, gnt;
+  logic                 req, we, gnt, hw_init;
   logic [AddrWidth-1:0] addr;
   logic [DataWidth-1:0] wdata, rdata;
   logic [  BEWidth-1:0] be;
@@ -144,6 +155,12 @@ module tb_ecc_sram #(
     wait (stimuli_queue.size() != '0);
 
     stimuli = stimuli_queue.pop_front();
+    if (stimuli.hw_init) begin
+      hw_init = 1'b1;
+      repeat (stimuli.hw_init_cycles) next_cycle();
+      hw_init = 1'b0;
+      return;
+    end
     req     = 1'b1;
     we      = stimuli.we;
     addr    = stimuli.addr;
@@ -211,6 +228,8 @@ module tb_ecc_sram #(
     .scrub_trigger_i      ('0),
     .scrubber_fix_o       (),
     .scrub_uncorrectable_o(),
+
+    .init_i  ( hw_init   ),
 
     .wdata_i ( dut_wdata ),
     .addr_i  ( addr      ),
@@ -487,9 +506,11 @@ module tb_ecc_sram #(
     addr       = '0;
     be         = '0;
     wdata_flip = '0;
+    hw_init    = HwInitEnabled;
     @(posedge rst_n)
     repeat(10) @(posedge clk);
     #ApplTime;
+    hw_init = 1'b0;
 
     if (HwInitEnabled) check_hw_init();
 

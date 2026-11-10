@@ -42,6 +42,13 @@ module ecc_sram #(
   output logic                     scrubber_fix_o,
   output logic                     scrub_uncorrectable_o,
 
+  // Synchronous active-high reset of the hardware initialization (HwInitEnabled). 
+  // From the cycle after it rises, the bank grants nothing. 
+  // After it falls, the bank zeroes every word, then grants again. 
+  // One cycle high is enough, rising again during the initialization restarts it.
+  // Tie to 1'b0 to disable. Synchronous to clk_i.
+  input  logic                     init_i,
+
   input  logic [  DataInWidth-1:0] wdata_i,
   input  logic [BankAddrWidth-1:0] addr_i,
   input  logic                     req_i,
@@ -277,8 +284,8 @@ module ecc_sram #(
   // decide if we need to make a RMW or not.
   assign internal_we = we_i & (be_i != '0);
 
-  // Hardware initialization: after reset, write zeros to every word of the bank,
-  // No gnt, no scrubbing, no ECC errors are reported during this phase.
+  // Hardware initialization: after init_i (a synchronous reset of this phase, one cycle is enough),
+  // write zeros to every word of the bank. No gnt/scrubbing/ECCreporting during this phase.
   if (HwInitEnabled) begin : gen_hw_init
     typedef enum logic { INIT, READY } init_state_e;
     init_state_e init_state_d, init_state_q;
@@ -288,7 +295,7 @@ module ecc_sram #(
     ) i_init_addr (
       .clk_i,
       .rst_ni,
-      .clear_i    ( 1'b0      ),
+      .clear_i    ( init_i    ),
       .en_i       ( init_busy ),
       .load_i     ( 1'b0      ),
       .down_i     ( 1'b0      ),
@@ -298,10 +305,11 @@ module ecc_sram #(
     );
 
     assign init_busy    = init_state_q == INIT;
-    assign init_state_d = (init_busy && init_addr == BankAddrWidth'(NumWords - 1)) ?
-                                                        READY : init_state_q;
+    assign init_state_d = init_i ? INIT :
+                          (init_busy && init_addr == BankAddrWidth'(NumWords - 1)) ? READY :
+                          init_state_q;
 
-    `FF(init_state_q, init_state_d, INIT)
+    `FF(init_state_q, init_state_d, READY)
   end else begin : gen_no_hw_init
     assign init_busy = 1'b0;
     assign init_addr = '0;
