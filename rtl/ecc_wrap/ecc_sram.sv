@@ -48,6 +48,8 @@ module ecc_sram #(
   // One cycle high is enough, rising again during the initialization restarts it.
   // Tie to 1'b0 to disable. Synchronous to clk_i.
   input  logic                     init_i,
+  // High while the hardware initialization runs, gnt_o is low meanwhile. 0 if HwInitEnabled is 0.
+  output logic                     init_busy_o,
 
   input  logic [  DataInWidth-1:0] wdata_i,
   input  logic [BankAddrWidth-1:0] addr_i,
@@ -315,6 +317,7 @@ module ecc_sram #(
     assign init_addr = '0;
   end
 
+  assign init_busy_o = init_busy;
   assign req = req_i & ~init_busy;
 
   always_comb begin

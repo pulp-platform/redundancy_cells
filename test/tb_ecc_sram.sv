@@ -230,7 +230,8 @@ module tb_ecc_sram #(
     .scrubber_fix_o       (scrub_fix),
     .scrub_uncorrectable_o(scrub_uncorrectable),
 
-    .init_i  ( hw_init   ),
+    .init_i      ( hw_init   ),
+    .init_busy_o (           ),
 
     .wdata_i ( dut_wdata ),
     .addr_i  ( addr      ),
