@@ -54,8 +54,10 @@ module rel_stream_to_mem #(
   input  mem_resp_t mem_resp_i,
   /// Memory response interface, payload is valid
   input  logic      mem_resp_valid_i,
-  /// Fault indication of the protected response buffer (rel_fifo TMR fault or ECC error)
-  output logic      fifo_fault_o
+  /// Fault outputs of the protected response buffer
+  output logic      ecc_correctable_o,
+  output logic      ecc_uncorrectable_o,
+  output logic      fifo_correctable_o
 );
 
   typedef logic [$clog2(BufDepth+1):0] cnt_t;
@@ -101,7 +103,9 @@ module rel_stream_to_mem #(
       .valid_o    ( resp_valid_o     ),
       .ready_i    ( resp_ready_i     ),
       .usage_o    ( /* unused */     ),
-      .fifo_fault_o ( fifo_fault_o   )
+      .ecc_correctable_o   ( ecc_correctable_o   ),
+      .ecc_uncorrectable_o ( ecc_uncorrectable_o ),
+      .fifo_correctable_o  ( fifo_correctable_o  )
     );
 
     // Register
@@ -115,7 +119,9 @@ module rel_stream_to_mem #(
 
     // Forward responses.
     assign resp_o = mem_resp_i;
-    assign fifo_fault_o = 1'b0;
+    assign ecc_correctable_o   = 1'b0;
+    assign ecc_uncorrectable_o = 1'b0;
+    assign fifo_correctable_o  = 1'b0;
   end
 
   // Forward requests.

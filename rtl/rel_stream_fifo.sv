@@ -34,8 +34,10 @@ module rel_stream_fifo #(
     output T                      data_o,     // output data
     output logic                  valid_o,    // fifo is not empty
     input  logic                  ready_i,    // pop head from fifo
-    // fault indication: rel_fifo internal TMR fault or ECC error on the popped word
-    output logic                  fifo_fault_o
+    // fault outputs
+    output logic                  ecc_correctable_o,   // single-bit ECC error on the head word (corrected)
+    output logic                  ecc_uncorrectable_o, // double-bit ECC error on the head word
+    output logic                  fifo_correctable_o   // rel_fifo internal TMR fault (masked)
 );
 
     logic push, pop;
@@ -112,6 +114,8 @@ module rel_stream_fifo #(
 
     assign data_o       = T'(data_raw_out);
     // ecc_err is only meaningful while the head of the FIFO holds valid data
-    assign fifo_fault_o = rel_fifo_fault | (valid_o & (|ecc_err));
+    assign ecc_correctable_o   = valid_o & ecc_err[0];
+    assign ecc_uncorrectable_o = valid_o & ecc_err[1];
+    assign fifo_correctable_o  = rel_fifo_fault;
 
 endmodule

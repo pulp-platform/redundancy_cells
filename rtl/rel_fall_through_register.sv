@@ -28,8 +28,10 @@ module rel_fall_through_register #(
     output logic    valid_o,
     input  logic    ready_i,
     output T        data_o,
-    // Correctable (TMR-masked) fault reported by the FIFO.
-    output logic    fifo_fault_o
+    // Fault outputs
+    output logic    ecc_correctable_o,   // single-bit ECC error on the stored word (corrected)
+    output logic    ecc_uncorrectable_o, // double-bit ECC error on the stored word
+    output logic    fifo_correctable_o   // rel_fifo internal TMR fault (masked)
 );
 
     logic   fifo_empty,
@@ -119,7 +121,9 @@ module rel_fall_through_register #(
 
     assign data_o       = T'(data_raw_out);
     // ecc_err is only meaningful while the FIFO holds valid data
-    assign fifo_fault_o = rel_fifo_fault | (valid_o & (|ecc_err));
+    assign ecc_correctable_o   = valid_o & ecc_err[0];
+    assign ecc_uncorrectable_o = valid_o & ecc_err[1];
+    assign fifo_correctable_o  = rel_fifo_fault;
 
     assign ready_o = ~fifo_full;
     assign valid_o = ~fifo_empty;
