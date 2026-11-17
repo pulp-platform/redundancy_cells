@@ -9,6 +9,8 @@
 // specific language governing permissions and limitations under the License.
 
 // Author: Georg Rutishauser <georgr@iis.ee.ethz.ch>
+//         Maoyuan Cai <maoyuan.cai@unibo.it>
+
 
 module rel_stream_fifo #(
     /// FIFO is in fall-through mode

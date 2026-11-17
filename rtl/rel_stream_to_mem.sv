@@ -10,6 +10,7 @@
 
 // Authors:
 // - Andreas Kurth <akurth@iis.ee.ethz.ch>
+// - Maoyuan Cai <maoyuan.cai@unibo.it>
 
 `include "common_cells/registers.svh"
 `include "common_cells/assertions.svh"
