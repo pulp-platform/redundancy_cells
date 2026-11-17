@@ -8,11 +8,17 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-// Fall-through register with a simple stream-like ready/valid handshake.
+// Reliable fall-through register with a simple stream-like ready/valid handshake.
 // This register does not cut the combinatorial path on the valid and data signals.
 // It only cuts the combinatorial path on the ready signal.
 // In case the module at its output is ready to accept data within the same clock cycle, they are forwarded.
 // Use this module to get a 'default ready' behavior towards the input.
+
+// Data is protected by a Hsiao SECDED code.
+// Rel_fifo is used to store the codeword, and its' handshake is protected by TMR.
+
+// Author: Maoyuan Cai <maoyuan.cai@unibo.it>
+
 module rel_fall_through_register #(
     parameter type T = logic  // Vivado requires a default value for type parameters.
 ) (
@@ -37,24 +43,6 @@ module rel_fall_through_register #(
     logic   fifo_empty,
             fifo_full;
 
-    // fifo_v3 #(
-    //     .FALL_THROUGH   (1'b1),
-    //     .DEPTH          (1),
-    //     .dtype          (T)
-    // ) i_fifo (
-    //     .clk_i          (clk_i),
-    //     .rst_ni         (rst_ni),
-    //     .flush_i        (clr_i),
-    //     .testmode_i     (testmode_i),
-    //     .full_o         (fifo_full),
-    //     .empty_o        (fifo_empty),
-    //     .usage_o        (),
-    //     .data_i         (data_i),
-    //     .push_i         (valid_i & ~fifo_full),
-    //     .data_o         (data_o),
-    //     .pop_i          (ready_i & ~fifo_empty)
-    // );
-
     // The FIFO storage is protected by a Hsiao SECDED code: the data is encoded
     // before it enters rel_fifo and decoded (and corrected) after it leaves.
     localparam int unsigned DataW    = $bits(T);
@@ -66,21 +54,21 @@ module rel_fall_through_register #(
     logic [1:0]          ecc_err;
     logic                rel_fifo_fault;
 
-    // Simulation only: unused bits of the payload (e.g. rs2 of an FP convert)
+    // Simulation only: unused bits of the payload (e.g. rs2 of a single operand instruction)
     // may arrive as X. One X bit would poison the whole Hsiao codeword (syndrome
     // becomes X, so the decoder output is all X). Replace X bits by 0 before
     // encoding. In silicon these bits are plain 0/1, so nothing is needed.
-`ifndef TARGET_SYNTHESIS
-    always_comb begin
-      logic [DataW-1:0] data_in_vec;
-      data_in_vec = data_i;
-      for (int unsigned b = 0; b < DataW; b++) begin
-        data_raw_in[b] = $isunknown(data_in_vec[b]) ? 1'b0 : data_in_vec[b];
-      end
-    end
-`else
+// `ifndef TARGET_SYNTHESIS
+//     always_comb begin
+//       logic [DataW-1:0] data_in_vec;
+//       data_in_vec = data_i;
+//       for (int unsigned b = 0; b < DataW; b++) begin
+//         data_raw_in[b] = $isunknown(data_in_vec[b]) ? 1'b0 : data_in_vec[b];
+//       end
+//     end
+// `else
     assign data_raw_in = data_i;
-`endif
+// `endif
 
     hsiao_ecc_enc #(
         .DataWidth ( DataW ),
