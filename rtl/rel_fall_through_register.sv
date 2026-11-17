@@ -65,7 +65,7 @@ module rel_fall_through_register #(
     );
 
     rel_fifo #(
-        .FallThrough ( 1'b0     ),
+        .FallThrough ( 1'b1     ),
         .DataWidth   ( EccDataW ),
         .Depth       ( 1        )
     ) i_id_fifo (
