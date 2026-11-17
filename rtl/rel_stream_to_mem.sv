@@ -88,6 +88,8 @@ module rel_stream_to_mem #(
     assign mem_req_valid_o = req_valid_i & req_ready;
 
     // Buffer responses.
+    logic resp_buf_fifo_correctable;
+
     rel_stream_fifo #(
       .FALL_THROUGH ( 1'b1       ),
       .DEPTH        ( BufDepth   ),
@@ -106,11 +108,28 @@ module rel_stream_to_mem #(
       .usage_o    ( /* unused */     ),
       .ecc_correctable_o   ( ecc_correctable_o   ),
       .ecc_uncorrectable_o ( ecc_uncorrectable_o ),
-      .fifo_correctable_o  ( fifo_correctable_o  )
+      .fifo_correctable_o  ( resp_buf_fifo_correctable )
     );
 
-    // Register
-    `FFARN(cnt_q, cnt_d, '0, clk_i, rst_ni)
+    // Outstanding-request counter, TMR protected: three copies, bitwise majority vote
+    cnt_t cnt_q0, cnt_q1, cnt_q2;
+    logic cnt_tmr_fault;
+    `FFARN(cnt_q0, cnt_d, '0, clk_i, rst_ni)
+    `FFARN(cnt_q1, cnt_d, '0, clk_i, rst_ni)
+    `FFARN(cnt_q2, cnt_d, '0, clk_i, rst_ni)
+    bitwise_TMR_voter_fail #(
+      .DataWidth ( $bits(cnt_t) ),
+      .VoterType ( 1            )
+    ) i_cnt_voter (
+      .a_i              ( cnt_q0        ),
+      .b_i              ( cnt_q1        ),
+      .c_i              ( cnt_q2        ),
+      .majority_o       ( cnt_q         ),
+      .fault_detected_o ( cnt_tmr_fault )
+    );
+
+    // A masked counter fault is a correctable fault
+    assign fifo_correctable_o = resp_buf_fifo_correctable | cnt_tmr_fault;
 
   end else begin : gen_no_buf
     // Control request, memory request, and response interface handshakes.
