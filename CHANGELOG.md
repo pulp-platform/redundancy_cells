@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - Add ECC correctors
+- Add reliable common cells: `rel_fifo`, `rel_rr_arb_tree`, `rel_spill_register`, `rel_stream_fork`,
+  `rel_stream_join`, `rel_stream_register`, `rel_fall_through_register`, `rel_stream_fifo`,
+  `rel_stream_to_mem`
 
 ### Changed
 - Replace vendor.py script with bender vendor for ECC modules
