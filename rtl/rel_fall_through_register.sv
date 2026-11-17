@@ -1,4 +1,4 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright 2026 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License. You may obtain a copy of the License at
@@ -8,16 +8,11 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-// Reliable fall-through register with a simple stream-like ready/valid handshake.
-// This register does not cut the combinatorial path on the valid and data signals.
-// It only cuts the combinatorial path on the ready signal.
-// In case the module at its output is ready to accept data within the same clock cycle, they are forwarded.
-// Use this module to get a 'default ready' behavior towards the input.
-
-// Data is protected by a Hsiao SECDED code.
-// Rel_fifo is used to store the codeword, and its' handshake is protected by TMR.
-
 // Author: Maoyuan Cai <maoyuan.cai@unibo.it>
+
+// Reliable version of `fall_through_register` from common_cells, see there for the
+// functional description. Data is protected by Hsiao SECDED ECC, control FFs by TMR.
+// SETs are not covered.
 
 module rel_fall_through_register #(
     parameter type T = logic  // Vivado requires a default value for type parameters.
@@ -40,19 +35,14 @@ module rel_fall_through_register #(
     output logic    fifo_correctable_o   // rel_fifo internal TMR fault (masked)
 );
 
-    logic   fifo_empty,
-            fifo_full;
-
-    // The FIFO storage is protected by a Hsiao SECDED code: the data is encoded
-    // before it enters rel_fifo and decoded (and corrected) after it leaves.
     localparam int unsigned DataW    = $bits(T);
     localparam int unsigned ProtW    = hsiao_ecc_pkg::min_ecc(DataW);
     localparam int unsigned EccDataW = DataW + ProtW;
 
+    logic                fifo_empty, fifo_full;
     logic [DataW-1:0]    data_raw_in, data_raw_out;
     logic [EccDataW-1:0] data_enc, data_enc_out;
     logic [1:0]          ecc_err;
-    logic                rel_fifo_fault;
 
     assign data_raw_in = data_i;
 
@@ -68,19 +58,19 @@ module rel_fall_through_register #(
         .FallThrough ( 1'b1     ),
         .DataWidth   ( EccDataW ),
         .Depth       ( 1        )
-    ) i_id_fifo (
-        .clk_i(clk_i),
-        .rst_ni(rst_ni),
-        .flush_i (clr_i),
-        .testmode_i (testmode_i),
-        .full_o (fifo_full),
-        .empty_o (fifo_empty),
-        .usage_o ( ),
-        .data_i (data_enc),
-        .push_i (valid_i & ~fifo_full),
-        .data_o (data_enc_out),
-        .pop_i (ready_i & ~fifo_empty),
-        .fault_o (rel_fifo_fault)
+    ) i_fifo (
+        .clk_i,
+        .rst_ni,
+        .flush_i    ( clr_i                  ),
+        .testmode_i,
+        .full_o     ( fifo_full              ),
+        .empty_o    ( fifo_empty             ),
+        .usage_o    (                        ),
+        .data_i     ( data_enc               ),
+        .push_i     ( valid_i & ~fifo_full   ),
+        .data_o     ( data_enc_out           ),
+        .pop_i      ( ready_i & ~fifo_empty  ),
+        .fault_o    ( fifo_correctable_o     )
     );
 
     hsiao_ecc_dec #(
@@ -89,15 +79,14 @@ module rel_fall_through_register #(
     ) i_ecc_dec (
         .in         ( data_enc_out ),
         .out        ( data_raw_out ),
-        .syndrome_o ( ),
+        .syndrome_o (              ),
         .err_o      ( ecc_err      )
     );
 
-    assign data_o       = T'(data_raw_out);
+    assign data_o = T'(data_raw_out);
     // ecc_err is only meaningful while the FIFO holds valid data
     assign ecc_correctable_o   = valid_o & ecc_err[0];
     assign ecc_uncorrectable_o = valid_o & ecc_err[1];
-    assign fifo_correctable_o  = rel_fifo_fault;
 
     assign ready_o = ~fifo_full;
     assign valid_o = ~fifo_empty;

@@ -1,4 +1,4 @@
-// Copyright 2020 ETH Zurich and University of Bologna.
+// Copyright 2026 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License. You may obtain a copy of the License at
@@ -8,15 +8,14 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-// Authors:
-// - Andreas Kurth <akurth@iis.ee.ethz.ch>
-// - Maoyuan Cai <maoyuan.cai@unibo.it>
+// Author: Maoyuan Cai <maoyuan.cai@unibo.it>
 
 `include "common_cells/registers.svh"
 `include "common_cells/assertions.svh"
 
-/// `stream_to_mem`: Allows to use memories with flow control (`valid`/`ready`) for requests but without flow
-/// control for output data to be used in streams.
+/// Reliable version of `stream_to_mem` from common_cells, see there for the functional
+/// description. Data is protected by Hsiao SECDED ECC, control FFs by TMR.
+/// SETs are not covered.
 module rel_stream_to_mem #(
   /// Memory request payload type, usually write enable, write data, etc.
   parameter type         mem_req_t  = logic,

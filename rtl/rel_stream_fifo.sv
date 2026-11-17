@@ -1,4 +1,4 @@
-// Copyright 2020 ETH Zurich and University of Bologna.
+// Copyright 2026 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License. You may obtain a copy of the License at
@@ -8,9 +8,11 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-// Author: Georg Rutishauser <georgr@iis.ee.ethz.ch>
-//         Maoyuan Cai <maoyuan.cai@unibo.it>
+// Author: Maoyuan Cai <maoyuan.cai@unibo.it>
 
+// Reliable version of `stream_fifo` from common_cells, see there for the functional
+// description. Data is protected by Hsiao SECDED ECC, control FFs by TMR.
+// SETs are not covered.
 
 module rel_stream_fifo #(
     /// FIFO is in fall-through mode
@@ -50,8 +52,6 @@ module rel_stream_fifo #(
     assign ready_o = ~full;
     assign valid_o = ~empty;
 
-    // The FIFO storage is protected by a Hsiao SECDED code: the data is encoded
-    // before it enters rel_fifo and decoded (and corrected) after it leaves.
     localparam int unsigned DataW    = $bits(T);
     localparam int unsigned ProtW    = hsiao_ecc_pkg::min_ecc(DataW);
     localparam int unsigned EccDataW = DataW + ProtW;
