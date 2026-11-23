@@ -359,6 +359,7 @@ endmodule
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
+(* keep_redundancy *)
 module rel_rr_arb_tree_tmr_part #(
   parameter int unsigned NumIn        = 64,
   parameter int unsigned DataWidth    = 32,

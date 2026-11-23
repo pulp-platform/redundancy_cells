@@ -10,6 +10,7 @@
 //
 // Hybrid modular redundancy wrapping unit
 
+(* keep_redundancy *)
 module hmr_unit #(
   // Wrapper parameters
   /// Number of physical cores
@@ -38,9 +39,9 @@ module hmr_unit #(
   parameter  type         bus_outputs_t  = logic,
   /// Default bus outputs when output ports are disabled (requires SeparateData)
   parameter  bus_outputs_t DefaultBusOutputs = '{ default: '0 },
-  /// Register bus types
-  parameter  type         reg_req_t      = logic,
-  parameter  type         reg_rsp_t      = logic,
+  /// APB bus types for config registers
+  parameter  type         apb_req_t      = logic,
+  parameter  type         apb_resp_t     = logic,
   /// Enables rapid recovery feature
   parameter  bit          RapidRecovery  = 1'b0,
   /// Address width of the core register file (in RISC-V it should be always 6) (requires RapidRecovery)
@@ -51,6 +52,8 @@ module hmr_unit #(
   parameter  type         core_backup_t  = logic,
   /// Rapid recovery structure (requires RapidRecovery)
   parameter  type         rapid_recovery_t = logic,
+  /// Triplicate internal control for reliability
+  parameter  bit          TmrInternals     = 1'b1,
   // Local parameters depending on the above ones
   /// Number of TMR groups (virtual TMR cores)
   localparam int unsigned NumTMRGroups   = (TMRFixed || TMRSupported) ? NumCores/3 : 1,
@@ -66,35 +69,37 @@ module hmr_unit #(
   localparam int unsigned NumDMRLeftover = NumCores - NumDMRCores,
   /// Number of cores visible to the system (Fixed mode removes unneeded system ports)
   localparam int unsigned NumSysCores    = DMRFixed ? NumDMRGroups :
-                                           TMRFixed ? NumTMRGroups : NumCores
+                                           TMRFixed ? NumTMRGroups : NumCores,
+  localparam int unsigned HsWidth        = TmrInternals ? 3 : 1
 ) (
   input  logic      clk_i ,
   input  logic      rst_ni,
 
   /// Port to configuration unit
-  input  reg_req_t  reg_request_i ,
-  output reg_rsp_t  reg_response_o,
+  input  apb_req_t  [HsWidth-1:0] apb_req_i ,
+  output apb_resp_t [HsWidth-1:0] apb_resp_o,
 
   /// TMR signals
   /// Indicates if the TMR group has multiple mismatches
-  output logic [NumTMRGroups-1:0] tmr_failure_o    ,
+  output logic [HsWidth-1:0][NumTMRGroups-1:0] tmr_failure_o    ,
   /// Indicates if the TMR group has a single mismatch
-  output logic [NumTMRGroups-1:0] tmr_error_o      ,
+  output logic [HsWidth-1:0][NumTMRGroups-1:0] tmr_error_o      ,
   /// Resynchronization request interrupt per core, trigger software resynchronization
-  output logic [    NumCores-1:0] tmr_resynch_req_o,
+  output logic [HsWidth-1:0][    NumCores-1:0] tmr_resynch_req_o,
   /// Software synchronization request per core, trigger software to lock independent cores together
-  output logic [    NumCores-1:0] tmr_sw_synch_req_o,
+  output logic [HsWidth-1:0][    NumCores-1:0] tmr_sw_synch_req_o,
   /// External hardware to indicate the cores are synchronized and ready to lock together
-  input  logic [NumTMRGroups-1:0] tmr_cores_synch_i,
+  input  logic [HsWidth-1:0][NumTMRGroups-1:0] tmr_cores_synch_i,
 
   /// DMR signals
   /// Indicates if the DMR group has multiple mismatches
-  output logic [NumDMRGroups-1:0] dmr_failure_o    ,
+  output logic [HsWidth-1:0][NumDMRGroups-1:0] dmr_failure_o    ,
+  output logic [HsWidth-1:0][    NumCores-1:0] dmr_resynch_req_o,
+  output logic [HsWidth-1:0][    NumCores-1:0] dmr_sw_synch_req_o,
+  input  logic [HsWidth-1:0][NumDMRGroups-1:0] dmr_cores_synch_i,
+  output logic [HsWidth-1:0]                   redundancy_enable_o,
 
-  output logic [    NumCores-1:0] dmr_resynch_req_o,
-  output logic [    NumCores-1:0] dmr_sw_synch_req_o,
-  input  logic [NumDMRGroups-1:0] dmr_cores_synch_i,
-  output logic                    redundancy_enable_o,
+  output logic ctrl_fault_o,
 
   // Rapid recovery buses
   output rapid_recovery_t [NumCores-1:0] rapid_recovery_o,
@@ -180,11 +185,14 @@ module hmr_unit #(
   logic [NumDMRGroups-1:0][NumBusVoters-1:0] dmr_failure_data;
   logic [NumDMRGroups-1:0][SysDataWidth-1:0] checkpoint_reg_q;
 
+  logic [(NumTMRGroups*HsWidth)+1+(NumDMRGroups*HsWidth)+1+2+1-1:0] ctrl_faults;
+  assign ctrl_fault_o = |ctrl_faults;
+
   /**************************
    * Rapid Recovery Signals *
    **************************/
-  logic             [ NumDMRGroups-1:0] dmr_recovery_start, dmr_recovery_finished;
-  logic             [ NumTMRGroups-1:0] tmr_recovery_start, tmr_recovery_finished;
+  logic             [HsWidth-1:0][ NumDMRGroups-1:0] dmr_recovery_start, dmr_recovery_finished;
+  logic             [HsWidth-1:0][ NumTMRGroups-1:0] tmr_recovery_start, tmr_recovery_finished;
   logic             [NumBackupRegs-1:0] rapid_recovery_start, rapid_recovery_finished;
   logic             [NumBackupRegs-1:0] rapid_recovery_backup_en_inp, rapid_recovery_backup_en_oup;
   logic             [NumBackupRegs-1:0] rapid_recovery_setback;
@@ -196,164 +204,270 @@ module hmr_unit #(
    *  HMR Control Registers  *
    ***************************/
 
-  logic [NumCores-1:0] core_en_as_master;
-  logic [NumCores-1:0] core_in_independent;
-  logic [NumCores-1:0] core_in_dmr;
-  logic [NumCores-1:0] core_in_tmr;
-  logic [NumCores-1:0] dmr_core_rapid_recovery_en;
-  logic [NumCores-1:0] tmr_core_rapid_recovery_en;
+  logic [HsWidth-1:0][NumCores-1:0] core_en_as_master;
+  logic [HsWidth-1:0][NumCores-1:0] core_in_independent;
+  logic [HsWidth-1:0][NumCores-1:0] core_in_dmr;
+  logic              [NumCores-1:0] core_in_dmr_voted;
+  logic [HsWidth-1:0][NumCores-1:0] core_in_tmr;
+  logic              [NumCores-1:0] core_in_tmr_voted;
+  logic [HsWidth-1:0][NumCores-1:0] dmr_core_rapid_recovery_en;
+  logic [HsWidth-1:0][NumCores-1:0] tmr_core_rapid_recovery_en;
 
-  logic [NumDMRGroups-1:0][1:0] dmr_setback_q;
-  logic [NumDMRGroups-1:0] dmr_grp_in_independent;
-  logic [NumDMRGroups-1:0] dmr_rapid_recovery_en;
+  logic [HsWidth-1:0][NumDMRGroups-1:0][1:0] dmr_setback_q;
+  logic [NumDMRGroups-1:0][1:0] dmr_setback_q_voted;
+  logic [HsWidth-1:0][NumDMRGroups-1:0] dmr_grp_in_independent;
+  logic [HsWidth-1:0][NumDMRGroups-1:0] dmr_rapid_recovery_en;
 
-  logic [NumTMRGroups-1:0][2:0] tmr_setback_q;
-  logic [NumTMRGroups-1:0] tmr_grp_in_independent;
-  logic [NumTMRGroups-1:0] tmr_rapid_recovery_en;
+  logic [HsWidth-1:0][NumTMRGroups-1:0][2:0] tmr_setback_q;
+  logic [NumTMRGroups-1:0][2:0] tmr_setback_q_voted;
+  logic [HsWidth-1:0][NumTMRGroups-1:0] tmr_grp_in_independent;
+  logic [HsWidth-1:0][NumTMRGroups-1:0] tmr_rapid_recovery_en;
 
-  logic [NumCores-1:0] sp_store_is_zero;
-  logic [NumCores-1:0] sp_store_will_be_zero;
+  logic [HsWidth-1:0][NumCores-1:0] sp_store_is_zero;
+  logic [HsWidth-1:0][NumCores-1:0] sp_store_will_be_zero;
+
+  if (TmrInternals) begin : gen_tmr_signals_vote
+    bitwise_TMR_voter_fail #(
+      .DataWidth ( NumCores )
+    ) i_core_in_dmr_voted (
+        .a_i        ( core_in_dmr[0] ),
+        .b_i        ( core_in_dmr[1] ),
+        .c_i        ( core_in_dmr[2] ),
+        .majority_o ( core_in_dmr_voted ),
+        .fault_detected_o    ( ctrl_faults[0] )
+    );
+    bitwise_TMR_voter_fail #(
+      .DataWidth ( NumCores )
+    ) i_core_in_tmr_voted (
+        .a_i        ( core_in_tmr[0] ),
+        .b_i        ( core_in_tmr[1] ),
+        .c_i        ( core_in_tmr[2] ),
+        .majority_o ( core_in_tmr_voted ),
+        .fault_detected_o    ( ctrl_faults[1] )
+    );
+  end else begin : gen_tmr_signals_assign
+    assign core_in_dmr_voted = core_in_dmr[0];
+    assign core_in_tmr_voted = core_in_tmr[0];
+    assign ctrl_faults[1:0] = '0;
+  end
 
   assign tmr_failure_o = |tmr_failure;
   assign tmr_error_o = |tmr_error;
   assign dmr_failure_o = |dmr_failure;
 
-  assign redundancy_enable_o = (|core_in_dmr) | (|core_in_tmr);
+  assign redundancy_enable_o = (|core_in_dmr_voted) | (|core_in_tmr_voted);
 
-  for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
-    assign core_in_independent[i] = ~core_in_dmr[i] & ~core_in_tmr[i];
-    assign core_in_dmr[i] = (DMRSupported || DMRFixed) && i < NumDMRCores ?
-                             ~dmr_grp_in_independent[dmr_group_id(i)] : '0;
-    assign core_in_tmr[i] = (TMRSupported || TMRFixed) && i < NumTMRCores ?
-                             ~tmr_grp_in_independent[tmr_group_id(i)] : '0;
-    assign core_en_as_master[i] =
-      ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[i]) &
-      ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[i]);
-    assign dmr_core_rapid_recovery_en[i] = (DMRSupported || DMRFixed) &&
-                                           i < NumDMRCores &&
-                                           RapidRecovery ?
-                                           dmr_rapid_recovery_en[dmr_group_id(i)] :
-                                           '0;
-    assign tmr_core_rapid_recovery_en[i] = (TMRSupported || TMRFixed) &&
-                                           i < NumTMRCores &&
-                                           RapidRecovery ?
-                                           tmr_rapid_recovery_en[tmr_group_id(i)] :
-                                           '0;
+  for (genvar j = 0; j < HsWidth; j++) begin : gen_global_status_tmr_part
+    for (genvar i = 0; i < NumCores; i++) begin : gen_global_status
+      assign core_in_independent[j][i] = ~core_in_dmr[j][i] & ~core_in_tmr[j][i];
+      assign core_in_dmr[j][i] = (DMRSupported || DMRFixed) && i < NumDMRCores ?
+                              ~dmr_grp_in_independent[j][dmr_group_id(i)] : '0;
+      assign core_in_tmr[j][i] = (TMRSupported || TMRFixed) && i < NumTMRCores ?
+                              ~tmr_grp_in_independent[j][tmr_group_id(i)] : '0;
+      assign core_en_as_master[j][i] =
+        ((tmr_core_id(tmr_group_id(i), 0) == i || i>=NumTMRCores) ? 1'b1 : ~core_in_tmr[j][i]) &
+        ((dmr_core_id(dmr_group_id(i), 0) == i || i>=NumDMRCores) ? 1'b1 : ~core_in_dmr[j][i]);
+      assign dmr_core_rapid_recovery_en[j][i] = (DMRSupported || DMRFixed) &&
+                                            i < NumDMRCores &&
+                                            RapidRecovery ?
+                                            dmr_rapid_recovery_en[j][dmr_group_id(i)] :
+                                            '0;
+      assign tmr_core_rapid_recovery_en[j][i] = (TMRSupported || TMRFixed) &&
+                                            i < NumTMRCores &&
+                                            RapidRecovery ?
+                                            tmr_rapid_recovery_en[j][tmr_group_id(i)] :
+                                            '0;
+    end
   end
 
-  reg_req_t [3:0] top_register_reqs;
-  reg_rsp_t [3:0] top_register_resps;
+  apb_req_t  [HsWidth-1:0][3:0] top_register_reqs;
+  apb_resp_t [HsWidth-1:0][3:0] top_register_resps;
 
   // 0x000-0x100 -> Top config
   // 0x100-0x200 -> Core configs
   // 0x200-0x300 -> DMR configs
   // 0x300-0x400 -> TMR configs
 
-  reg_demux #(
-    .NoPorts    ( 4 ),
-    .req_t      ( reg_req_t   ),
-    .rsp_t      ( reg_rsp_t   )
-  ) i_reg_demux (
-    .clk_i,
-    .rst_ni,
-    .in_select_i( reg_request_i.addr[9:8] ),
-    .in_req_i   ( reg_request_i      ),
-    .in_rsp_o   ( reg_response_o     ),
-    .out_req_o  ( top_register_reqs  ),
-    .out_rsp_i  ( top_register_resps )
-  );
+  for (genvar i = 0; i < HsWidth; i++) begin : gen_apb_demux
+    apb_demux #(
+      .NoMstPorts ( 4          ),
+      .req_t      ( apb_req_t  ),
+      .resp_t     ( apb_resp_t )
+    ) i_reg_demux (
+      .select_i   ( apb_req_i[i].paddr[9:8] ),
+      .slv_req_i  ( apb_req_i[i]            ),
+      .slv_resp_o ( apb_resp_o[i]           ),
+      .mst_req_o  ( top_register_reqs[i]    ),
+      .mst_resp_i ( top_register_resps[i]   )
+    );
+  end
 
   // Global config registers
 
-  hmr_registers_reg_pkg::hmr_registers_hw2reg_t hmr_hw2reg;
-  hmr_registers_reg_pkg::hmr_registers_reg2hw_t hmr_reg2hw;
+  hmr_registers_reg_pkg::hmr__in_t  hmr_hw2reg [HsWidth];
+  hmr_registers_reg_pkg::hmr__out_t hmr_reg2hw [HsWidth];
 
-  hmr_registers_reg_top #(
-    .reg_req_t( reg_req_t ),
-    .reg_rsp_t( reg_rsp_t )
-  ) i_hmr_registers (
-    .clk_i,
-    .rst_ni,
-    .reg_req_i(top_register_reqs[0] ),
-    .reg_rsp_o(top_register_resps[0]),
-    .reg2hw   (hmr_reg2hw),
-    .hw2reg   (hmr_hw2reg),
-    .devmode_i('0)
-  );
+  for (genvar i = 0; i < HsWidth; i++) begin : gen_hmr_registers
+    hmr_registers_reg_top i_hmr_registers (
+      .clk           (clk_i),
+      .arst_n        (rst_ni),
+      .s_apb_psel    (top_register_reqs[i][0].psel),
+      .s_apb_penable (top_register_reqs[i][0].penable),
+      .s_apb_pwrite  (top_register_reqs[i][0].pwrite),
+      .s_apb_pprot   (top_register_reqs[i][0].pprot),
+      .s_apb_paddr   (top_register_reqs[i][0].paddr[4:0]),
+      .s_apb_pwdata  (top_register_reqs[i][0].pwdata),
+      .s_apb_pstrb   (top_register_reqs[i][0].pstrb),
+      .s_apb_pready  (top_register_resps[i][0].pready),
+      .s_apb_prdata  (top_register_resps[i][0].prdata),
+      .s_apb_pslverr (top_register_resps[i][0].pslverr),
+      .hwif_out       (hmr_reg2hw[i]),
+      .hwif_in        (hmr_hw2reg[i])
+    );
 
-  assign hmr_hw2reg.avail_config.independent.d = ~(TMRFixed | DMRFixed);
-  assign hmr_hw2reg.avail_config.dual.d = DMRFixed | DMRSupported;
-  assign hmr_hw2reg.avail_config.triple.d = TMRFixed | TMRSupported;
-  assign hmr_hw2reg.avail_config.rapid_recovery.d = RapidRecovery;
+    always_comb begin : proc_reg_status
+      hmr_hw2reg[i].avail_config.rd_data = '{default: '0};
+      hmr_hw2reg[i].avail_config.rd_data.independent = ~(TMRFixed | DMRFixed);
+      hmr_hw2reg[i].avail_config.rd_data.dual = DMRFixed | DMRSupported;
+      hmr_hw2reg[i].avail_config.rd_data.triple = TMRFixed | TMRSupported;
+      hmr_hw2reg[i].avail_config.rd_data.rapid_recovery = RapidRecovery;
 
-  always_comb begin : proc_reg_status
-    hmr_hw2reg.cores_en.d = '0;
-    hmr_hw2reg.cores_en.d = core_en_as_master;
+      hmr_hw2reg[i].cores_en.rd_data = '{default: '0};
+      hmr_hw2reg[i].cores_en.rd_data.cores_en = core_en_as_master[i];
 
-    hmr_hw2reg.dmr_enable.d = '0;
-    hmr_hw2reg.dmr_enable.d[NumDMRGroups-1:0] = ~dmr_grp_in_independent;
-    hmr_hw2reg.tmr_enable.d = '0;
-    hmr_hw2reg.tmr_enable.d[NumTMRGroups-1:0] = ~tmr_grp_in_independent;
+      hmr_hw2reg[i].dmr_enable.rd_data = '{default: '0};
+      hmr_hw2reg[i].dmr_enable.rd_data.dmr_enable[NumDMRGroups-1:0] = ~dmr_grp_in_independent[i];
+
+      hmr_hw2reg[i].tmr_enable.rd_data = '{default: '0};
+      hmr_hw2reg[i].tmr_enable.rd_data.tmr_enable[NumTMRGroups-1:0] = ~tmr_grp_in_independent[i];
+
+      hmr_hw2reg[i].tmr_config.rd_data = '{default: '0};
+      hmr_hw2reg[i].tmr_config.rd_data.delay_resynch = '0;
+      hmr_hw2reg[i].tmr_config.rd_data.setback = '0;
+      hmr_hw2reg[i].tmr_config.rd_data.reload_setback  = '0;
+      hmr_hw2reg[i].tmr_config.rd_data.force_resynch = '0;
+      hmr_hw2reg[i].tmr_config.rd_data.rapid_recovery = '0;
+
+      hmr_hw2reg[i].dmr_config.rd_data = '{default: '0};
+      hmr_hw2reg[i].dmr_config.rd_data.rapid_recovery = '0;
+      hmr_hw2reg[i].dmr_config.rd_data.force_recovery = '0;
+    end
+    assign hmr_hw2reg[i].avail_config.rd_ack = hmr_reg2hw[i].avail_config.req &&
+                                          !hmr_reg2hw[i].avail_config.req_is_wr;
+    assign hmr_hw2reg[i].cores_en.rd_ack     = hmr_reg2hw[i].cores_en.req &&
+                                          !hmr_reg2hw[i].cores_en.req_is_wr;
+    assign hmr_hw2reg[i].dmr_enable.rd_ack   = hmr_reg2hw[i].dmr_enable.req &&
+                                          !hmr_reg2hw[i].dmr_enable.req_is_wr;
+    assign hmr_hw2reg[i].dmr_enable.wr_ack   = hmr_reg2hw[i].dmr_enable.req &&
+                                            hmr_reg2hw[i].dmr_enable.req_is_wr;
+    assign hmr_hw2reg[i].tmr_enable.rd_ack   = hmr_reg2hw[i].tmr_enable.req &&
+                                          !hmr_reg2hw[i].tmr_enable.req_is_wr;
+    assign hmr_hw2reg[i].tmr_enable.wr_ack   = hmr_reg2hw[i].tmr_enable.req &&
+                                            hmr_reg2hw[i].tmr_enable.req_is_wr;
+
+    assign hmr_hw2reg[i].tmr_config.rd_ack   = hmr_reg2hw[i].tmr_config.req &&
+                                          !hmr_reg2hw[i].tmr_config.req_is_wr;
+    assign hmr_hw2reg[i].tmr_config.wr_ack   = hmr_reg2hw[i].tmr_config.req &&
+                                            hmr_reg2hw[i].tmr_config.req_is_wr;
+
+    assign hmr_hw2reg[i].dmr_config.rd_ack   = hmr_reg2hw[i].dmr_config.req &&
+                                          !hmr_reg2hw[i].dmr_config.req_is_wr;
+    assign hmr_hw2reg[i].dmr_config.wr_ack   = hmr_reg2hw[i].dmr_config.req &&
+                                            hmr_reg2hw[i].dmr_config.req_is_wr;
   end
-
-  assign hmr_hw2reg.tmr_config.delay_resynch.d = '0;
-  assign hmr_hw2reg.tmr_config.setback.d = '0;
-  assign hmr_hw2reg.tmr_config.reload_setback.d  = '0;
-  assign hmr_hw2reg.tmr_config.force_resynch.d = '0;
-  assign hmr_hw2reg.tmr_config.rapid_recovery.d = '0;
-
-  assign hmr_hw2reg.dmr_config.rapid_recovery.d = '0;
-  assign hmr_hw2reg.dmr_config.force_recovery.d = '0;
 
   // Core Config Registers
 
-  reg_req_t [NumCores-1:0] core_register_reqs;
-  reg_rsp_t [NumCores-1:0] core_register_resps;
+  apb_req_t  [HsWidth-1:0][NumCores-1:0] core_register_reqs;
+  apb_resp_t [HsWidth-1:0][NumCores-1:0] core_register_resps;
+  logic [HsWidth-1:0][NumCores-1:0] tmr_incr_mismatches;
+  logic [HsWidth-1:0][NumCores-1:0] dmr_incr_mismatches;
 
-  // 4 words per core
+  // Per-core registers, one copy per internal TMR lane
+  hmr_core_regs_reg_pkg::hmr_core__out_t core_config_reg2hw [HsWidth][NumCores];
+  hmr_core_regs_reg_pkg::hmr_core__in_t  core_config_hw2reg [HsWidth][NumCores];
 
-  reg_demux #(
-    .NoPorts    ( NumCores ),
-    .req_t      ( reg_req_t   ),
-    .rsp_t      ( reg_rsp_t   )
-  ) i_core_reg_demux (
-    .clk_i,
-    .rst_ni,
-    .in_select_i( top_register_reqs [1].addr[4+$clog2(NumCores)-1:4] ),
-    .in_req_i   ( top_register_reqs [1] ),
-    .in_rsp_o   ( top_register_resps[1] ),
-    .out_req_o  ( core_register_reqs ),
-    .out_rsp_i  ( core_register_resps )
-  );
+  // Mismatch counters: with TmrInternals every lane reloads the voted count each cycle
+  // (plus its increment), so a corrupted copy repairs itself; a disagreement is reported
+  // in ctrl_fault_o. Without TmrInternals the single copy only counts.
+  logic [NumCores-1:0][31:0] mismatches_voted;
+  logic [NumCores-1:0]       mismatches_vote_err;
 
-  hmr_core_regs_reg_pkg::hmr_core_regs_reg2hw_t [NumCores-1:0] core_config_reg2hw;
-  hmr_core_regs_reg_pkg::hmr_core_regs_hw2reg_t [NumCores-1:0] core_config_hw2reg;
+  if (TmrInternals) begin : gen_mismatches_voter
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core
+      logic [2:0] error_cba;
+      bitwise_TMR_voter #(
+        .DataWidth ( 32 )
+      ) i_mismatches_voter (
+        .a_i         ( core_config_reg2hw[0][i].mismatches.mismatches.value ),
+        .b_i         ( core_config_reg2hw[1][i].mismatches.mismatches.value ),
+        .c_i         ( core_config_reg2hw[2][i].mismatches.mismatches.value ),
+        .majority_o  ( mismatches_voted[i] ),
+        .error_o     (),
+        .error_cba_o ( error_cba )
+      );
+      assign mismatches_vote_err[i] = |error_cba;
+    end
+  end else begin : gen_no_mismatches_voter
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core
+      assign mismatches_voted[i] = core_config_reg2hw[0][i].mismatches.mismatches.value;
+    end
+    assign mismatches_vote_err = '0;
+  end
+  assign ctrl_faults[$high(ctrl_faults)] = |mismatches_vote_err;
 
-  logic [NumCores-1:0] tmr_incr_mismatches;
-  logic [NumCores-1:0] dmr_incr_mismatches;
+  for (genvar j = 0; j < HsWidth; j++) begin : gen_core_regs_tmr_part
 
-  for (genvar i = 0; i < NumCores; i++) begin : gen_core_registers
-    hmr_core_regs_reg_top #(
-      .reg_req_t(reg_req_t),
-      .reg_rsp_t(reg_rsp_t)
-    ) icore_registers (
-      .clk_i,
-      .rst_ni,
-      .reg_req_i( core_register_reqs [i] ),
-      .reg_rsp_o( core_register_resps[i] ),
-      .reg2hw   ( core_config_reg2hw [i] ),
-      .hw2reg   ( core_config_hw2reg [i] ),
-      .devmode_i('0)
+    // 4 words per core
+    apb_demux #(
+      .NoMstPorts ( NumCores    ),
+      .req_t      ( apb_req_t   ),
+      .resp_t     ( apb_resp_t  )
+    ) i_core_reg_demux (
+      .select_i   ( top_register_reqs [j][1].paddr[4+$clog2(NumCores)-1:4] ),
+      .slv_req_i  ( top_register_reqs [j][1] ),
+      .slv_resp_o ( top_register_resps[j][1] ),
+      .mst_req_o  ( core_register_reqs[j]    ),
+      .mst_resp_i ( core_register_resps[j]   )
     );
 
-    assign core_config_hw2reg[i].mismatches.d = core_config_reg2hw[i].mismatches.q + 1;
-    assign core_config_hw2reg[i].mismatches.de = tmr_incr_mismatches[i] | dmr_incr_mismatches[i];
-    assign core_config_hw2reg[i].current_mode.independent.d = core_in_independent[i];
-    assign core_config_hw2reg[i].current_mode.dual.d        = core_in_dmr[i];
-    assign core_config_hw2reg[i].current_mode.triple.d      = core_in_tmr[i];
-    assign sp_store_is_zero[i] = core_config_reg2hw[i].sp_store.q == '0;
-    assign sp_store_will_be_zero[i] = core_config_reg2hw[i].sp_store.qe &&
-                                      core_register_reqs[i].wdata == '0;
+
+    for (genvar i = 0; i < NumCores; i++) begin : gen_core_registers
+      hmr_core_regs_reg_top i_core_registers (
+        .clk (clk_i),
+        .arst_n (rst_ni),
+        .s_apb_psel    ( core_register_reqs [j][i].psel ),
+        .s_apb_penable ( core_register_reqs [j][i].penable ),
+        .s_apb_pwrite  ( core_register_reqs [j][i].pwrite ),
+        .s_apb_pprot   ( core_register_reqs [j][i].pprot ),
+        .s_apb_paddr   ( core_register_reqs [j][i].paddr[3:0] ),
+        .s_apb_pwdata  ( core_register_reqs [j][i].pwdata ),
+        .s_apb_pstrb   ( core_register_reqs [j][i].pstrb ),
+        .s_apb_pready  ( core_register_resps[j][i].pready ),
+        .s_apb_prdata  ( core_register_resps[j][i].prdata ),
+        .s_apb_pslverr ( core_register_resps[j][i].pslverr ),
+        .hwif_out ( core_config_reg2hw [j][i] ),
+        .hwif_in  ( core_config_hw2reg [j][i] )
+      );
+
+      // Count from the voted value (see gen_mismatches_voter); with TmrInternals load it
+      // every cycle so that each copy is repaired. Software write-1-clear has precedence.
+      assign core_config_hw2reg[j][i].mismatches.mismatches.next = mismatches_voted[i] +
+            32'(tmr_incr_mismatches[j][i] | dmr_incr_mismatches[j][i]);
+      assign core_config_hw2reg[j][i].mismatches.mismatches.we = TmrInternals |
+            tmr_incr_mismatches[j][i] | dmr_incr_mismatches[j][i];
+      always_comb begin
+        core_config_hw2reg[j][i].current_mode.rd_data = '{default: '0};
+        core_config_hw2reg[j][i].current_mode.rd_data.independent = core_in_independent[j][i];
+        core_config_hw2reg[j][i].current_mode.rd_data.dual        = core_in_dmr[j][i];
+        core_config_hw2reg[j][i].current_mode.rd_data.triple      = core_in_tmr[j][i];
+        core_config_hw2reg[j][i].current_mode.rd_ack = core_config_reg2hw[j][i].current_mode.req &&
+                                                  !core_config_reg2hw[j][i].current_mode.req_is_wr;
+      end
+      assign sp_store_is_zero[j][i] = core_config_reg2hw[j][i].sp_store.sp_store.value == '0;
+      assign sp_store_will_be_zero[j][i] = core_config_reg2hw[j][i].sp_store.sp_store.swmod &&
+                                        core_register_reqs[j][i].pwdata == '0;
+    end
   end
 
   /**********************************************************
@@ -363,97 +477,15 @@ module hmr_unit #(
   if (TMRSupported || TMRFixed) begin : gen_tmr_logic
     if (TMRFixed && NumCores % 3 != 0) $warning("Extra cores added not properly handled!");
 
-    reg_req_t  [NumTMRGroups-1:0] tmr_register_reqs;
-    reg_rsp_t [NumTMRGroups-1:0] tmr_register_resps;
-    logic [NumTMRGroups-1:0] tmr_sw_resynch_req, tmr_sw_synch_req;
+    apb_req_t  [HsWidth-1:0][NumTMRGroups-1:0] tmr_register_reqs;
+    apb_resp_t [HsWidth-1:0][NumTMRGroups-1:0] tmr_register_resps;
+    logic [HsWidth-1:0][NumTMRGroups-1:0] tmr_sw_resynch_req, tmr_sw_synch_req;
+
+    logic [HsWidth-1:0][NumTMRGroups-1:0][10:0] tmr_sync_reg;
 
     localparam int unsigned TMRSelWidth = $clog2(NumTMRGroups);
 
-    /***************
-     *  Registers  *
-     ***************/
-    if (NumTMRGroups == 1) begin : gen_single_tmr_group_reg_connect
-      assign tmr_register_reqs[0] = top_register_reqs[3];
-      assign top_register_resps[3] = tmr_register_resps[0];
-    end else begin : gen_multi_tmr_group_reg_connect
-      reg_demux #(
-        .NoPorts    ( NumTMRGroups ),
-        .req_t      ( reg_req_t    ),
-        .rsp_t      ( reg_rsp_t   )
-      ) i_reg_demux (
-        .clk_i,
-        .rst_ni,
-        .in_select_i( top_register_reqs[3].addr[4+$clog2(NumTMRGroups)-1:4] ),
-        .in_req_i   ( top_register_reqs[3]           ),
-        .in_rsp_o   ( top_register_resps[3]          ),
-        .out_req_o  ( tmr_register_reqs              ),
-        .out_rsp_i  ( tmr_register_resps             )
-      );
-    end
-
-    for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
-      assign tmr_incr_mismatches[i] = '0;
-      assign tmr_sw_synch_req_o[i] = '0;
-      assign tmr_resynch_req_o[i] = '0;
-    end
-
     for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
-
-      hmr_tmr_ctrl #(
-        .reg_req_t      ( reg_req_t      ),
-        .reg_resp_t     ( reg_rsp_t     ),
-        .TMRFixed       ( TMRFixed       ),
-        .InterleaveGrps ( InterleaveGrps ),
-        .DefaultInTMR   ( 1'b0           ),
-        .RapidRecovery  ( RapidRecovery  )
-      ) i_tmr_ctrl (
-        .clk_i,
-        .rst_ni,
-
-        .reg_req_i            ( tmr_register_reqs[i] ),
-        .reg_resp_o           ( tmr_register_resps[i] ),
-
-        .tmr_enable_q_i       ( hmr_reg2hw.tmr_enable.q[i] ),
-        .tmr_enable_qe_i      ( hmr_reg2hw.tmr_enable.qe ),
-        .delay_resynch_q_i    ( hmr_reg2hw.tmr_config.delay_resynch.q ),
-        .delay_resynch_qe_i   ( hmr_reg2hw.tmr_config.delay_resynch.qe ),
-        .setback_q_i          ( hmr_reg2hw.tmr_config.setback.q ),
-        .setback_qe_i         ( hmr_reg2hw.tmr_config.setback.qe ),
-        .reload_setback_q_i   ( hmr_reg2hw.tmr_config.reload_setback.q ),
-        .reload_setback_qe_i  ( hmr_reg2hw.tmr_config.reload_setback.qe ),
-        .rapid_recovery_q_i   ( hmr_reg2hw.tmr_config.rapid_recovery.q ),
-        .rapid_recovery_qe_i  ( hmr_reg2hw.tmr_config.rapid_recovery.qe ),
-        .force_resynch_q_i    ( hmr_reg2hw.tmr_config.force_resynch.q ),
-        .force_resynch_qe_i   ( hmr_reg2hw.tmr_config.force_resynch.qe ),
-
-        .setback_o            ( tmr_setback_q[i] ),
-        .sw_resynch_req_o     ( tmr_sw_resynch_req[i] ),
-        .sw_synch_req_o       ( tmr_sw_synch_req[i] ),
-        .grp_in_independent_o ( tmr_grp_in_independent[i] ),
-        .rapid_recovery_en_o  ( tmr_rapid_recovery_en[i] ),
-        .tmr_incr_mismatches_o( {tmr_incr_mismatches[tmr_core_id(i,2)],
-                                 tmr_incr_mismatches[tmr_core_id(i,1)],
-                                 tmr_incr_mismatches[tmr_core_id(i,0)]} ),
-        .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
-        .tmr_error_i          ( tmr_error[i] ),
-        .tmr_failure_i        ( tmr_failure[i] ),
-        .sp_store_is_zero     ( sp_store_is_zero[tmr_core_id(i, 0)] ),
-        .sp_store_will_be_zero( sp_store_will_be_zero[tmr_core_id(i, 0)] ),
-
-        .fetch_en_i           ( sys_fetch_en_i[tmr_core_id(i, 0)] ),
-        .cores_synch_i        ( tmr_cores_synch_i[i] ),
-
-        .recovery_request_o   ( tmr_recovery_start [i] ),
-        .recovery_finished_i  ( tmr_recovery_finished [i] )
-      );
-
-      assign tmr_sw_synch_req_o[tmr_core_id(i, 0)] = tmr_sw_synch_req[i];
-      assign tmr_sw_synch_req_o[tmr_core_id(i, 1)] = tmr_sw_synch_req[i];
-      assign tmr_sw_synch_req_o[tmr_core_id(i, 2)] = tmr_sw_synch_req[i];
-      assign tmr_resynch_req_o[tmr_core_id(i, 0)] = tmr_sw_resynch_req[i];
-      assign tmr_resynch_req_o[tmr_core_id(i, 1)] = tmr_sw_resynch_req[i];
-      assign tmr_resynch_req_o[tmr_core_id(i, 2)] = tmr_sw_resynch_req[i];
-
       always_comb begin
         tmr_failure[i] = tmr_failure_main[i];
         tmr_error  [i] = tmr_error_main  [i];
@@ -499,6 +531,124 @@ module hmr_unit #(
         end
       end
     end
+    /***************
+     *  Registers  *
+     ***************/
+    for (genvar j = 0; j < HsWidth; j++) begin : gen_ctrl_tmr_part
+      if (NumTMRGroups == 1) begin : gen_single_tmr_group_reg_connect
+        assign tmr_register_reqs[j][0] = top_register_reqs[j][3];
+        assign top_register_resps[j][3] = tmr_register_resps[j][0];
+      end else begin : gen_multi_tmr_group_reg_connect
+        apb_demux #(
+          .NoMstPorts ( NumTMRGroups ),
+          .req_t      ( apb_req_t    ),
+          .resp_t     ( apb_resp_t   )
+        ) i_reg_demux (
+          .select_i   ( top_register_reqs[j][3].paddr[4+$clog2(NumTMRGroups)-1:4] ),
+          .slv_req_i  ( top_register_reqs[j][3]  ),
+          .slv_resp_o ( top_register_resps[j][3] ),
+          .mst_req_o  ( tmr_register_reqs[j]     ),
+          .mst_resp_i ( tmr_register_resps[j]    )
+        );
+      end
+
+      for (genvar i = NumTMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
+        assign tmr_incr_mismatches[j][i] = '0;
+        assign tmr_sw_synch_req_o[j][i] = '0;
+        assign tmr_resynch_req_o[j][i] = '0;
+      end
+
+      for (genvar i = 0; i < NumTMRGroups; i++) begin : gen_tmr_groups
+
+        hmr_tmr_ctrl #(
+          .apb_req_t      ( apb_req_t      ),
+          .apb_resp_t     ( apb_resp_t     ),
+          .TMRFixed       ( TMRFixed       ),
+          .InterleaveGrps ( InterleaveGrps ),
+          .DefaultInTMR   ( 1'b0           ),
+          .RapidRecovery  ( RapidRecovery  ),
+          .SyncRegStates  ( TmrInternals   )
+        ) i_tmr_ctrl (
+          .clk_i,
+          .rst_ni,
+
+          .apb_req_i            ( tmr_register_reqs[j][i] ),
+          .apb_resp_o           ( tmr_register_resps[j][i] ),
+
+          .tmr_enable_q_i       ( hmr_reg2hw[j].tmr_enable.wr_data.tmr_enable[i] ),
+          .tmr_enable_qe_i      ( hmr_reg2hw[j].tmr_enable.req &
+                                  hmr_reg2hw[j].tmr_enable.req_is_wr &
+                                  hmr_reg2hw[j].tmr_enable.wr_data.tmr_enable[i] ),
+          .delay_resynch_q_i    ( hmr_reg2hw[j].tmr_config.wr_data.delay_resynch ),
+          .delay_resynch_qe_i   ( hmr_reg2hw[j].tmr_config.req &
+                                  hmr_reg2hw[j].tmr_config.req_is_wr &
+                                  hmr_reg2hw[j].tmr_config.wr_data.delay_resynch ),
+          .setback_q_i          ( hmr_reg2hw[j].tmr_config.wr_data.setback ),
+          .setback_qe_i         ( hmr_reg2hw[j].tmr_config.req &
+                                  hmr_reg2hw[j].tmr_config.req_is_wr &
+                                  hmr_reg2hw[j].tmr_config.wr_data.setback ),
+          .reload_setback_q_i   ( hmr_reg2hw[j].tmr_config.wr_data.reload_setback ),
+          .reload_setback_qe_i  ( hmr_reg2hw[j].tmr_config.req &
+                                  hmr_reg2hw[j].tmr_config.req_is_wr &
+                                  hmr_reg2hw[j].tmr_config.wr_data.reload_setback ),
+          .rapid_recovery_q_i   ( hmr_reg2hw[j].tmr_config.wr_data.rapid_recovery ),
+          .rapid_recovery_qe_i  ( hmr_reg2hw[j].tmr_config.req &
+                                  hmr_reg2hw[j].tmr_config.req_is_wr &
+                                  hmr_reg2hw[j].tmr_config.wr_data.rapid_recovery ),
+          .force_resynch_q_i    ( hmr_reg2hw[j].tmr_config.wr_data.force_resynch ),
+          .force_resynch_qe_i   ( hmr_reg2hw[j].tmr_config.req &
+                                  hmr_reg2hw[j].tmr_config.req_is_wr &
+                                  hmr_reg2hw[j].tmr_config.wr_data.force_resynch ),
+
+          .setback_o            ( tmr_setback_q[j][i] ),
+          .sw_resynch_req_o     ( tmr_sw_resynch_req[j][i] ),
+          .sw_synch_req_o       ( tmr_sw_synch_req[j][i] ),
+          .grp_in_independent_o ( tmr_grp_in_independent[j][i] ),
+          .rapid_recovery_en_o  ( tmr_rapid_recovery_en[j][i] ),
+          .tmr_incr_mismatches_o( {tmr_incr_mismatches[j][tmr_core_id(i,2)],
+                                  tmr_incr_mismatches[j][tmr_core_id(i,1)],
+                                  tmr_incr_mismatches[j][tmr_core_id(i,0)]} ),
+          .tmr_single_mismatch_i( tmr_single_mismatch[i] ),
+          .tmr_error_i          ( tmr_error[i] ),
+          .tmr_failure_i        ( tmr_failure[i] ),
+          .sp_store_is_zero     ( sp_store_is_zero[j][tmr_core_id(i, 0)] ),
+          .sp_store_will_be_zero( sp_store_will_be_zero[j][tmr_core_id(i, 0)] ),
+
+          .fetch_en_i           ( sys_fetch_en_i[tmr_core_id(i, 0)] ),
+          .cores_synch_i        ( tmr_cores_synch_i[j][i] ),
+
+          .recovery_request_o   ( tmr_recovery_start [j][i] ),
+          .recovery_finished_i  ( tmr_recovery_finished [j][i] ),
+
+          .sync_reg_o (tmr_sync_reg[j][i]),
+          .sync_reg_i ({tmr_sync_reg[(j+1)%HsWidth][i],tmr_sync_reg[(j+2)%HsWidth][i]}),
+          .fault_o (ctrl_faults[HsWidth*i+j+2])
+        );
+
+        assign tmr_sw_synch_req_o[j][tmr_core_id(i, 0)] = tmr_sw_synch_req[j][i];
+        assign tmr_sw_synch_req_o[j][tmr_core_id(i, 1)] = tmr_sw_synch_req[j][i];
+        assign tmr_sw_synch_req_o[j][tmr_core_id(i, 2)] = tmr_sw_synch_req[j][i];
+        assign tmr_resynch_req_o[j][tmr_core_id(i, 0)] = tmr_sw_resynch_req[j][i];
+        assign tmr_resynch_req_o[j][tmr_core_id(i, 1)] = tmr_sw_resynch_req[j][i];
+        assign tmr_resynch_req_o[j][tmr_core_id(i, 2)] = tmr_sw_resynch_req[j][i];
+
+      end
+    end
+    if (TmrInternals) begin : gen_tmr_ctrl_vote
+      bitwise_TMR_voter_fail #(
+        .DataWidth( $bits(tmr_setback_q_voted) ),
+        .VoterType( 1 )
+      ) i_tmr_setback_voter (
+        .a_i        ( tmr_setback_q[0] ),
+        .b_i        ( tmr_setback_q[1] ),
+        .c_i        ( tmr_setback_q[2] ),
+        .majority_o ( tmr_setback_q_voted ),
+        .fault_detected_o    ( ctrl_faults[HsWidth*NumTMRGroups+2] )
+      );
+    end else begin : gen_tmr_ctrl_assign
+      assign tmr_setback_q_voted = tmr_setback_q[0];
+      assign ctrl_faults[HsWidth*NumTMRGroups+2] = '0;
+    end
   end else begin : gen_no_tmr_voted
     assign tmr_error_main   = '0;
     assign tmr_error_data   = '0;
@@ -508,14 +658,22 @@ module hmr_unit #(
     assign tmr_failure      = '0;
     assign tmr_nominal_outputs = DefaultNominalOutputs;
     assign tmr_bus_outputs     = DefaultBusOutputs;
-    assign top_register_resps[3].rdata = '0;
-    assign top_register_resps[3].error = 1'b1;
-    assign top_register_resps[3].ready = 1'b1;
+    for (genvar j = 0; j < HsWidth; j++) begin : gen_tmr_reg_tmr_part
+      apb_err_slv #(
+        .req_t ( apb_req_t  ),
+        .resp_t( apb_resp_t )
+      ) i_apb_err_slv (
+        .slv_req_i   ( top_register_reqs[j][3] ),
+        .slv_resp_o  ( top_register_resps[j][3] )
+      );
+    end
     assign tmr_incr_mismatches = '0;
     assign tmr_grp_in_independent = '1;
     assign tmr_setback_q = '0;
+    assign tmr_setback_q_voted = '0;
     assign tmr_resynch_req_o = '0;
     assign tmr_sw_synch_req_o = '0;
+    assign ctrl_faults [NumTMRGroups*HsWidth+2:2] = '0;
   end
 
   /************************************************************
@@ -524,90 +682,102 @@ module hmr_unit #(
 
   if (DMRSupported || DMRFixed) begin: gen_dmr_logic
 
-    hmr_dmr_regs_reg_pkg::hmr_dmr_regs_reg2hw_t [NumDMRGroups-1:0] dmr_reg2hw;
-    hmr_dmr_regs_reg_pkg::hmr_dmr_regs_hw2reg_t [NumDMRGroups-1:0] dmr_hw2reg;
+    apb_req_t  [HsWidth-1:0][NumDMRGroups-1:0] dmr_register_reqs;
+    apb_resp_t [HsWidth-1:0][NumDMRGroups-1:0] dmr_register_resps;
+    logic [HsWidth-1:0][NumDMRGroups-1:0] dmr_sw_synch_req;
+    logic [HsWidth-1:0][NumDMRGroups-1:0] dmr_sw_resynch_req;
 
-    reg_req_t  [NumDMRGroups-1:0] dmr_register_reqs;
-    reg_rsp_t [NumDMRGroups-1:0] dmr_register_resps;
-    logic [NumDMRGroups-1:0] dmr_sw_synch_req;
-    logic [NumDMRGroups-1:0] dmr_sw_resynch_req;
+    logic [HsWidth-1:0][NumDMRGroups-1:0][38:0] dmr_sync_reg;
 
     localparam int unsigned DMRSelWidth = $clog2(NumDMRGroups);
 
     /***************
      *  Registers  *
      ***************/
-    if (NumDMRGroups == 1) begin : gen_single_dmr_group_reg_connect
-      assign dmr_register_reqs[0] = top_register_reqs[2];
-      assign top_register_resps[2] = dmr_register_resps[0];
-    end else begin : gen_multi_dmr_group_reg_connect
-      reg_demux #(
-        .NoPorts    ( NumDMRGroups ),
-        .req_t      ( reg_req_t    ),
-        .rsp_t      ( reg_rsp_t   )
-      ) i_reg_demux (
-        .clk_i,
-        .rst_ni,
-        .in_select_i( top_register_reqs[2].addr[4+$clog2(NumDMRGroups)-1:4] ),
-        .in_req_i   ( top_register_reqs[2]           ),
-        .in_rsp_o   ( top_register_resps[2]          ),
-        .out_req_o  ( dmr_register_reqs              ),
-        .out_rsp_i  ( dmr_register_resps             )
-      );
-    end
+    for (genvar j = 0; j < HsWidth; j++) begin : gen_dmr_ctrl_tmr_part
+      if (NumDMRGroups == 1) begin : gen_single_dmr_group_reg_connect
+        assign dmr_register_reqs[j][0] = top_register_reqs[j][2];
+        assign top_register_resps[j][2] = dmr_register_resps[j][0];
+      end else begin : gen_multi_dmr_group_reg_connect
+        apb_demux #(
+          .NoMstPorts ( NumDMRGroups ),
+          .req_t      ( apb_req_t    ),
+          .resp_t     ( apb_resp_t   )
+        ) i_reg_demux (
+          .select_i   ( top_register_reqs[j][2].paddr[4+$clog2(NumDMRGroups)-1:4] ),
+          .slv_req_i  ( top_register_reqs[j][2]           ),
+          .slv_resp_o ( top_register_resps[j][2]          ),
+          .mst_req_o  ( dmr_register_reqs[j]             ),
+          .mst_resp_i ( dmr_register_resps[j]             )
+        );
+      end
 
-    for (genvar i = NumDMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
-      assign dmr_incr_mismatches[i] = '0;
-      assign dmr_sw_synch_req_o[i] = '0;
-      assign dmr_resynch_req_o[i] = '0;
+      for (genvar i = NumDMRCores; i < NumCores; i++) begin : gen_extra_core_assigns
+        assign dmr_incr_mismatches[j][i] = '0;
+        assign dmr_sw_synch_req_o[j][i] = '0;
+        assign dmr_resynch_req_o[j][i] = '0;
+      end
+
+      for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_groups
+
+        hmr_dmr_ctrl #(
+          .apb_req_t     ( apb_req_t ),
+          .apb_resp_t    ( apb_resp_t ),
+          .DataWidth     ( SysDataWidth ),
+          .InterleaveGrps( InterleaveGrps ),
+          .DMRFixed      ( DMRFixed ),
+          .RapidRecovery ( RapidRecovery ),
+          .DefaultInDMR  ( 1'b0 )
+        ) i_dmr_ctrl (
+          .clk_i,
+          .rst_ni,
+
+          .apb_req_i             ( dmr_register_reqs [j][i] ),
+          .apb_resp_o            ( dmr_register_resps[j][i] ),
+
+          .dmr_enable_q_i        ( hmr_reg2hw[j].dmr_enable.wr_data.dmr_enable[i] ),
+          .dmr_enable_qe_i       ( hmr_reg2hw[j].dmr_enable.req &
+                                  hmr_reg2hw[j].dmr_enable.req_is_wr &
+                                  hmr_reg2hw[j].dmr_enable.wr_biten.dmr_enable[i] ),
+          .rapid_recovery_q_i    ( hmr_reg2hw[j].dmr_config.wr_data.rapid_recovery ),
+          .rapid_recovery_qe_i   ( hmr_reg2hw[j].dmr_config.req &
+                                  hmr_reg2hw[j].dmr_config.req_is_wr &
+                                  hmr_reg2hw[j].dmr_config.wr_biten.rapid_recovery ),
+          .force_recovery_q_i    ( hmr_reg2hw[j].dmr_config.wr_data.force_recovery ),
+          .force_recovery_qe_i   ( hmr_reg2hw[j].dmr_config.req &
+                                  hmr_reg2hw[j].dmr_config.req_is_wr &
+                                  hmr_reg2hw[j].dmr_config.wr_biten.force_recovery ),
+
+          .setback_o             ( dmr_setback_q         [j][i] ),
+          .sw_resynch_req_o      ( dmr_sw_resynch_req    [j][i] ),
+          .sw_synch_req_o        ( dmr_sw_synch_req      [j][i] ),
+          .checkpoint_o          ( checkpoint_reg_q      [i] ),
+          .grp_in_independent_o  ( dmr_grp_in_independent[j][i] ),
+          .rapid_recovery_en_o   ( dmr_rapid_recovery_en [j][i] ),
+          .dmr_incr_mismatches_o ( {dmr_incr_mismatches[j][dmr_core_id(i, 1)],
+                                    dmr_incr_mismatches[j][dmr_core_id(i, 0)]} ),
+          .dmr_error_i           ( dmr_failure           [i] ),
+
+          .fetch_en_i            ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
+          .cores_synch_i         ( dmr_cores_synch_i[j][i] ),
+
+          .recovery_request_o    ( dmr_recovery_start    [j][i] ),
+          .recovery_finished_i   ( dmr_recovery_finished [j][i] ),
+
+          .sync_reg_o            ( dmr_sync_reg[j][i] ),
+          .sync_reg_i            ( {dmr_sync_reg[(j+1)%HsWidth][i],
+                                    dmr_sync_reg[(j+2)%HsWidth][i]} ),
+          .fault_o               ( ctrl_faults[NumTMRGroups*HsWidth+1+HsWidth*i+j+2] )
+        );
+
+        assign dmr_sw_synch_req_o[j][dmr_core_id(i, 0)] = dmr_sw_synch_req[j][i];
+        assign dmr_sw_synch_req_o[j][dmr_core_id(i, 1)] = dmr_sw_synch_req[j][i];
+        assign dmr_resynch_req_o[j][dmr_core_id(i, 0)] = dmr_sw_resynch_req[j][i];
+        assign dmr_resynch_req_o[j][dmr_core_id(i, 1)] = dmr_sw_resynch_req[j][i];
+      end
     end
 
     for (genvar i = 0; i < NumDMRGroups; i++) begin : gen_dmr_groups
-
-      hmr_dmr_ctrl #(
-        .reg_req_t     ( reg_req_t ),
-        .reg_resp_t    ( reg_rsp_t ),
-        .DataWidth     ( SysDataWidth ),
-        .InterleaveGrps( InterleaveGrps ),
-        .DMRFixed      ( DMRFixed ),
-        .RapidRecovery ( RapidRecovery ),
-        .DefaultInDMR  ( 1'b0 )
-      ) i_dmr_ctrl (
-        .clk_i,
-        .rst_ni,
-
-        .reg_req_i             ( dmr_register_reqs [i] ),
-        .reg_resp_o            ( dmr_register_resps[i] ),
-
-        .dmr_enable_q_i        ( hmr_reg2hw.dmr_enable.q[i] ),
-        .dmr_enable_qe_i       ( hmr_reg2hw.dmr_enable.qe ),
-        .rapid_recovery_q_i    ( hmr_reg2hw.dmr_config.rapid_recovery.q ),
-        .rapid_recovery_qe_i   ( hmr_reg2hw.dmr_config.rapid_recovery.qe ),
-        .force_recovery_q_i    ( hmr_reg2hw.dmr_config.force_recovery.q ),
-        .force_recovery_qe_i   ( hmr_reg2hw.dmr_config.force_recovery.qe ),
-
-        .setback_o             ( dmr_setback_q         [i] ),
-        .sw_resynch_req_o      ( dmr_sw_resynch_req    [i] ),
-        .sw_synch_req_o        ( dmr_sw_synch_req      [i] ),
-        .checkpoint_o          ( checkpoint_reg_q      [i] ),
-        .grp_in_independent_o  ( dmr_grp_in_independent[i] ),
-        .rapid_recovery_en_o   ( dmr_rapid_recovery_en [i] ),
-        .dmr_incr_mismatches_o ( {dmr_incr_mismatches[dmr_core_id(i, 1)],
-                                  dmr_incr_mismatches[dmr_core_id(i, 0)]} ),
-        .dmr_error_i           ( dmr_failure           [i] ),
-
-        .fetch_en_i            ( sys_fetch_en_i[dmr_core_id(i, 0)] ),
-        .cores_synch_i         ( dmr_cores_synch_i[i] ),
-
-        .recovery_request_o    ( dmr_recovery_start    [i] ),
-        .recovery_finished_i   ( dmr_recovery_finished [i] )
-      );
-
-      assign dmr_sw_synch_req_o[dmr_core_id(i, 0)] = dmr_sw_synch_req[i];
-      assign dmr_sw_synch_req_o[dmr_core_id(i, 1)] = dmr_sw_synch_req[i];
-      assign dmr_resynch_req_o[dmr_core_id(i, 0)] = dmr_sw_resynch_req[i];
-      assign dmr_resynch_req_o[dmr_core_id(i, 1)] = dmr_sw_resynch_req[i];
-
       /*********************
        * DMR Core Checkers *
        *********************/
@@ -654,8 +824,8 @@ module hmr_unit #(
         );
 
         assign rapid_recovery_backup_en_inp[i] =
-            core_in_tmr[i] ? (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0)// TMR mode
-          : core_in_dmr[i] ? (rapid_recovery_backup_en_oup[i] & ~dmr_failure[i] )    // DMR mode
+            core_in_tmr_voted[i] ? (i < NumTMRGroups ? rapid_recovery_backup_en_oup[i] : 1'b0)// TMR mode
+          : core_in_dmr_voted[i] ? (rapid_recovery_backup_en_oup[i] & ~dmr_failure[i] )    // DMR mode
           : 1'b1;                                                                    // Independent
         rapid_recovery_unit    #(
           .RfAddrWidth          ( RfAddrWidth                         ),
@@ -668,7 +838,7 @@ module hmr_unit #(
         ) i_rapid_recovery_unit (
           .clk_i                    ( clk_i                                       ),
           .rst_ni                   ( rst_ni                                      ),
-          .core_in_independent_i    ( core_in_independent[i]                      ),
+          .core_in_independent_i    ( core_in_independent[0][i]                ),
           .regfile_write_i          ( rapid_recovery_backup_bus[i].regfile_backup ),
           .backup_csr_i             ( rapid_recovery_backup_bus[i].csr_backup     ),
           .recovery_csr_o           ( rapid_recovery_bus[i].csr_recovery          ),
@@ -708,6 +878,21 @@ module hmr_unit #(
         end
       end
     end
+    if (TmrInternals) begin : gen_dmr_ctrl_vote
+      bitwise_TMR_voter_fail #(
+        .DataWidth( $bits(dmr_setback_q_voted) ),
+        .VoterType( 1 )
+      ) i_tmr_setback_voter (
+        .a_i        ( dmr_setback_q[0] ),
+        .b_i        ( dmr_setback_q[1] ),
+        .c_i        ( dmr_setback_q[2] ),
+        .majority_o ( dmr_setback_q_voted ),
+        .fault_detected_o    ( ctrl_faults[NumTMRGroups*HsWidth+1+NumDMRGroups*HsWidth+2] )
+      );
+    end else begin : gen_tmr_ctrl_assign
+      assign dmr_setback_q_voted = dmr_setback_q[0];
+      assign ctrl_faults[NumTMRGroups*HsWidth+1+NumDMRGroups*HsWidth+2] = '0;
+    end
   end else begin: gen_no_dmr_checkers
     assign dmr_failure_main = '0;
     assign dmr_failure_data = '0;
@@ -715,14 +900,25 @@ module hmr_unit #(
     assign dmr_incr_mismatches = '0;
     assign dmr_nominal_outputs = DefaultNominalOutputs;
     assign dmr_bus_outputs     = DefaultBusOutputs;
-    assign top_register_resps[2].rdata = '0;
-    assign top_register_resps[2].error = 1'b1;
-    assign top_register_resps[2].ready = 1'b1;
+    for (genvar i = 0; i < HsWidth; i++) begin : gen_dmr_reg_tmr_part
+      apb_err_slv #(
+        .req_t ( apb_req_t  ),
+        .resp_t( apb_resp_t )
+      ) i_apb_err_slv (
+        .slv_req_i   ( top_register_reqs[i][2] ),
+        .slv_resp_o  ( top_register_resps[i][2] )
+      );
+    end
+    assign dmr_setback_q = '0;
+    assign dmr_setback_q_voted = '0;
     assign dmr_sw_synch_req_o = '0;
     assign dmr_resynch_req_o = '0;
     assign dmr_grp_in_independent = '1;
+    assign checkpoint_reg_q = '0;
+    assign ctrl_faults [NumTMRGroups*HsWidth+1+NumDMRGroups*HsWidth+2:NumTMRGroups*HsWidth+1+2] = '0;
   end
 
+  // TODO TMR internals!!!
   if (RapidRecovery) begin: gen_rapid_recovery_connection
 
     for (genvar i = 0; i < NumBackupRegs; i++) begin : gen_core_backup_regs
@@ -750,8 +946,8 @@ module hmr_unit #(
         end
       end
       for (int i = 0; i < NumDMRGroups; i++) begin
-        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[i])) &&
-            dmr_core_rapid_recovery_en[dmr_core_id(i, 0)]) begin
+        if ((DMRFixed || (DMRSupported && ~dmr_grp_in_independent[0][i])) &&
+            dmr_core_rapid_recovery_en[0][dmr_core_id(i, 0)]) begin
           rapid_recovery_nominal[dmr_shared_id(i)] = dmr_nominal_outputs[i];
           rapid_recovery_backup_bus[dmr_shared_id(i)] = dmr_backup_outputs[i];
           rapid_recovery_start[dmr_shared_id(i)]   = dmr_recovery_start[i];
@@ -760,7 +956,7 @@ module hmr_unit #(
       end
       for (int i = 0; i < NumTMRGroups; i++) begin
         if ((TMRFixed || (TMRSupported && ~tmr_grp_in_independent[i])) &&
-            tmr_core_rapid_recovery_en[tmr_core_id(i, 0)]) begin
+            tmr_core_rapid_recovery_en[0][tmr_core_id(i, 0)]) begin
           rapid_recovery_nominal[tmr_shared_id(i)] = tmr_nominal_outputs[i];
           rapid_recovery_start[tmr_shared_id(i)]   = tmr_recovery_start[i];
           tmr_recovery_finished[i]                 = rapid_recovery_finished[tmr_shared_id(i)];
@@ -793,31 +989,31 @@ module hmr_unit #(
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
           rapid_recovery_o  [i] =
-            (core_in_dmr[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] :
-            (core_in_tmr[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0));
+            (core_in_dmr_voted[i] ? rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] :
+            (core_in_tmr_voted[i] ? rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0));
 
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-              | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)]
-              | (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] :
-                (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0));
+          core_setback_o    [i] = tmr_setback_q_voted   [tmr_group_id(i)][tmr_offset_id(i)]
+              | dmr_setback_q_voted   [dmr_group_id(i)][dmr_offset_id(i)]
+              | (core_in_dmr_voted[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] :
+                (core_in_tmr_voted[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0));
         end else begin
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)][tmr_offset_id(i)]
-                                | dmr_setback_q   [dmr_group_id(i)][dmr_offset_id(i)];
+          core_setback_o    [i] = tmr_setback_q_voted   [tmr_group_id(i)][tmr_offset_id(i)]
+                                | dmr_setback_q_voted   [dmr_group_id(i)][dmr_offset_id(i)];
         end
         if (i >= NumTMRCores && i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
         end else if (i < NumTMRCores && i >= NumDMRCores) begin
-          core_setback_o    [i] = tmr_setback_q [tmr_group_id(i)][tmr_offset_id(i)] |
+          core_setback_o    [i] = tmr_setback_q_voted [tmr_group_id(i)][tmr_offset_id(i)] |
             (RapidRecovery ?
-              (core_in_tmr[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
+              (core_in_tmr_voted[i] ? rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))] : '0) : '0);
         end else if (i >= NumTMRCores && i < NumDMRCores) begin
-          core_setback_o    [i] = dmr_setback_q [dmr_group_id(i)][dmr_offset_id(i)] |
+          core_setback_o    [i] = dmr_setback_q_voted [dmr_group_id(i)][dmr_offset_id(i)] |
             (RapidRecovery ?
-              (core_in_dmr[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
+              (core_in_dmr_voted[i] ? rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))] : '0) : '0);
         end
-        if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
+        if (i < NumTMRCores && core_in_tmr_voted[i]) begin : tmr_mode
           core_inputs_o[i] = sys_inputs_i[TMRCoreIndex];
-        end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
+        end else if (i < NumDMRCores && core_in_dmr_voted[i]) begin : dmr_mode
           core_inputs_o[i] = sys_inputs_i[DMRCoreIndex];
         end else begin : independent_mode
           core_inputs_o[i] = sys_inputs_i[i];
@@ -829,7 +1025,7 @@ module hmr_unit #(
       localparam int unsigned TMRCoreIndex = tmr_group_id(i);
       localparam int unsigned DMRCoreIndex = dmr_group_id(i);
       always_comb begin
-        if (i < NumTMRCores && core_in_tmr[i]) begin : tmr_mode
+        if (i < NumTMRCores && core_in_tmr_voted[i]) begin : tmr_mode
           if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
             sys_nominal_outputs_o[i] = tmr_nominal_outputs[TMRCoreIndex];
             sys_bus_outputs_o[i] = tmr_bus_outputs[TMRCoreIndex];
@@ -837,7 +1033,7 @@ module hmr_unit #(
             sys_nominal_outputs_o[i] = DefaultNominalOutputs;
             sys_bus_outputs_o[i]     = DefaultBusOutputs;
           end
-        end else if (i < NumDMRCores && core_in_dmr[i]) begin : dmr_mode
+        end else if (i < NumDMRCores && core_in_dmr_voted[i]) begin : dmr_mode
           if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
             sys_nominal_outputs_o[i] = dmr_nominal_outputs[DMRCoreIndex];
             for (int j = 0; j < NumBusVoters; j++) begin
@@ -867,19 +1063,18 @@ module hmr_unit #(
         // Setback
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = core_in_tmr[i] ?
+          rapid_recovery_o  [i] = core_in_tmr_voted[i] ?
                                   rapid_recovery_bus [tmr_shared_id(tmr_group_id(i))] : '0;
 
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)]
+          core_setback_o    [i] = tmr_setback_q_voted   [tmr_group_id(i)]
                                 | rapid_recovery_setback [tmr_shared_id(tmr_group_id(i))];
         end else begin
-          core_setback_o    [i] = tmr_setback_q   [tmr_group_id(i)];
+          core_setback_o    [i] = tmr_setback_q_voted   [tmr_group_id(i)];
         end
         if (i >= NumTMRCores) begin
           core_setback_o [i] = '0;
         end
-
-        if (i < NumTMRCores && (TMRFixed || core_in_tmr[i])) begin : gen_tmr_mode
+        if (i < NumTMRCores && (TMRFixed || core_in_tmr_voted[i])) begin : gen_tmr_mode
           core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
         end else begin : gen_independent_mode
           core_inputs_o[i] = sys_inputs_i[i];
@@ -900,7 +1095,7 @@ module hmr_unit #(
             core_bus_outputs_i    [TMRFixed ? i-NumTMRGroups+NumTMRCores : i];
         end else begin : gen_normal_tmr
           always_comb begin
-            if (core_in_tmr[i]) begin : tmr_mode
+            if (core_in_tmr_voted[i]) begin : tmr_mode
               if (tmr_core_id(tmr_group_id(i), 0) == i) begin : is_tmr_main_core
                 sys_nominal_outputs_o[i] = tmr_nominal_outputs[CoreCoreIndex];
                 sys_bus_outputs_o    [i] = tmr_bus_outputs    [CoreCoreIndex];
@@ -922,8 +1117,6 @@ module hmr_unit #(
      *** DMR only ***
      *****************/
     if (DMRFixed && NumCores % 2 != 0) $warning("Extra cores added not properly handled! :)");
-    // Binding DMR outputs to zero for now
-    assign dmr_failure_o     = '0;
 
     for (genvar i = 0; i < NumCores; i++) begin : gen_core_inputs
       localparam int unsigned SysCoreIndex = DMRFixed ? i/2 : dmr_core_id(dmr_group_id(i), 0);
@@ -933,18 +1126,18 @@ module hmr_unit #(
         // Setback
         if (RapidRecovery) begin
           // $error("UNIMPLEMENTED");
-          rapid_recovery_o  [i] = core_in_dmr[i] ?
+          rapid_recovery_o  [i] = core_in_dmr_voted[i] ?
                                   rapid_recovery_bus [dmr_shared_id(dmr_group_id(i))] : '0;
 
-          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)]
+          core_setback_o    [i] = dmr_setback_q_voted[dmr_group_id(i)][dmr_offset_id(i)]
                                 | rapid_recovery_setback [dmr_shared_id(dmr_group_id(i))];
         end else begin
-          core_setback_o    [i] = dmr_setback_q[dmr_group_id(i)][dmr_offset_id(i)];
+          core_setback_o    [i] = dmr_setback_q_voted[dmr_group_id(i)][dmr_offset_id(i)];
         end
         if (i >= NumDMRCores) begin
           core_setback_o    [i] = '0;
         end
-        if (i < NumDMRCores && (DMRFixed || core_in_dmr[i])) begin : dmr_mode
+        if (i < NumDMRCores && (DMRFixed || core_in_dmr_voted[i])) begin : dmr_mode
           core_inputs_o[i] = sys_inputs_i[SysCoreIndex];
         end else begin : gen_independent_mode
           core_inputs_o[i] = sys_inputs_i[i];
@@ -965,7 +1158,7 @@ module hmr_unit #(
             core_bus_outputs_i    [DMRFixed ? i-NumDMRGroups+NumDMRCores : i];
         end else begin : gen_normal_dmr
           always_comb begin
-            if (core_in_dmr[i]) begin : dmr_mode
+            if (core_in_dmr_voted[i]) begin : dmr_mode
               if (dmr_core_id(dmr_group_id(i), 0) == i) begin : is_dmr_main_core
                 sys_nominal_outputs_o[i] = dmr_nominal_outputs[CoreCoreIndex];
                 sys_bus_outputs_o    [i] = dmr_bus_outputs    [CoreCoreIndex];

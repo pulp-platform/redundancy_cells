@@ -412,12 +412,14 @@ module ecc_sram #(
     .uncorrectable_o ( scrub_uncorrectable_o ),
 
     .intc_req_i      ( sram_req              ),
+    .intc_gnt_o      (),
     .intc_we_i       ( sram_we               ),
     .intc_add_i      ( sram_addr             ),
     .intc_wdata_i    ( sram_wdata            ),
     .intc_rdata_o    ( bank_rdata            ),
 
     .bank_req_o      ( bank_scrub_req        ),
+    .bank_gnt_i      ( 1'b1                  ),
     .bank_we_o       ( bank_scrub_we         ),
     .bank_add_o      ( bank_scrub_addr       ),
     .bank_wdata_o    ( bank_scrub_wdata      ),
@@ -425,7 +427,9 @@ module ecc_sram #(
 
     .ecc_out_o       (),
     .ecc_in_i        ( '0 ),
-    .ecc_err_i       ( '0 )
+    .ecc_err_i       ( '0 ),
+
+    .fault_o ()
   );
 
   tc_sram #(

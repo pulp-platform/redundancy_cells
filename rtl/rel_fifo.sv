@@ -276,6 +276,7 @@ endmodule
 
 (* no_ungroup *)
 (* no_boundary_optimization *)
+(* keep_redundancy *)
 module rel_fifo_tmr_part #(
   parameter bit          FallThrough = 1'b0,
   parameter int unsigned EccDataWidth = 39,

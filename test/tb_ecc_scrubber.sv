@@ -179,18 +179,21 @@ module tb_ecc_scrubber #(
     .bit_corrected_o  ( bit_corrections ),
     .uncorrectable_o  (),
     .intc_req_i       ( intc_req        ),
+    .intc_gnt_o       (),
     .intc_we_i        ( intc_we         ),
     .intc_add_i       ( intc_add        ),
     .intc_wdata_i     ( intc_wdata      ),
     .intc_rdata_o     ( intc_rdata      ),
     .bank_req_o       ( bank_req        ),
+    .bank_gnt_i       ( 1'b1            ),
     .bank_we_o        ( bank_we         ),
     .bank_add_o       ( bank_add        ),
     .bank_wdata_o     ( bank_wdata      ),
     .bank_rdata_i     ( bank_rdata      ),
     .ecc_out_o        (                 ),
     .ecc_in_i         ( '0              ),
-    .ecc_err_i        ( '0              )
+    .ecc_err_i        ( '0              ),
+    .fault_o         ( )
   );
 
   /***********************
