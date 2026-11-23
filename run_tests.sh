@@ -51,6 +51,10 @@ for cuts in 0 1 2; do
 done
 call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GBankAccessLatency=2
 call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GBankAccessLatency=2 -GInputECC=1
+# Hardware zero-initialization after reset
+call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GHwInitEnabled=1
+call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GHwInitEnabled=1 -GInputECC=1
+call_vsim tb_ecc_sram -voptargs="+acc=nr" -GNoReq=50000 -GHwInitEnabled=1 -GBankAccessLatency=2
 call_vsim -GDataWidth=8 tb_ecc_secded
 call_vsim -GDataWidth=16 tb_ecc_secded
 call_vsim -GDataWidth=32 tb_ecc_secded

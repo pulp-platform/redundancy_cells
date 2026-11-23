@@ -12,14 +12,16 @@
 // based on tb_tc_sram.sv in tech_cells_generic
 //
 // A random phase checks the data against a golden model (test/ecc_sram_fault_injection.tcl flips
-// one bit per word halfway through it). A directed phase then injects bit flips into the SRAM read
-// data, the read-modify-write cut and the write data, and checks the data and the cycle in which
-// single_error_o / multi_error_o report them.
+// one bit per word halfway through it). It triggers the scrubber at random, and with HwInitEnabled
+// it also pulses init_i at random, which zeroes the golden model. A directed phase then injects
+// bit flips into the SRAM read data, the read-modify-write cut and the write data, and checks the
+// data and the cycle in which single_error_o / multi_error_o report them.
 
 module tb_ecc_sram #(
   parameter bit          InputECC          = 1'b0,
   parameter int unsigned NumRMWCuts        = 1,
   parameter int unsigned BankAccessLatency = 1,
+  parameter bit          HwInitEnabled     = 1'b0,
   parameter int unsigned NoReq             = 200000 // Number of random requests
 );
 
@@ -80,12 +82,19 @@ module tb_ecc_sram #(
   typedef logic [       BEWidth-1:0] be_t;
 
   class stimuli_t;
-    rand data_t wdata;
-    rand addr_t addr;
-    rand be_t   be;
-    rand logic  we;
+    rand data_t       wdata;
+    rand addr_t       addr;
+    rand be_t         be;
+    rand logic        we;
+    // Instead of a request, hold init_i high for hw_init_cycles
+    rand logic        hw_init;
+    rand int unsigned hw_init_cycles;
 
     constraint limit_addr {addr < BankSize;}
+    constraint limit_hw_init {
+      hw_init dist {1'b1 := HwInitEnabled, 1'b0 := 999};
+      hw_init_cycles inside {[1:20]};
+    }
   endclass : stimuli_t
 
   typedef struct {
@@ -116,7 +125,10 @@ module tb_ecc_sram #(
       // Randomize
       if (stimuli.randomize()) begin
         stimuli_queue.push_back(stimuli);
-        if (!stimuli.we) begin
+        // Everything before an initialization is overwritten with zeros, it returns no data
+        if (stimuli.hw_init) begin
+          foreach (memory[i]) memory[i] = '0;
+        end else if (!stimuli.we) begin
           golden_queue.push_back('{check: 1'b1, data: memory[stimuli.addr]});
         end else begin
           golden_queue.push_back('{check: 1'b0, data: 'x});
@@ -128,7 +140,8 @@ module tb_ecc_sram #(
     end
   endfunction : generate_stimuli
 
-  logic                 req, we, gnt;
+  logic                 req, we, gnt, hw_init;
+  logic                 scrub_trigger, scrub_fix, scrub_uncorrectable;
   logic [AddrWidth-1:0] addr;
   logic [DataWidth-1:0] wdata, rdata;
   logic [  BEWidth-1:0] be;
@@ -143,6 +156,12 @@ module tb_ecc_sram #(
     wait (stimuli_queue.size() != '0);
 
     stimuli = stimuli_queue.pop_front();
+    if (stimuli.hw_init) begin
+      hw_init = 1'b1;
+      repeat (stimuli.hw_init_cycles) next_cycle();
+      hw_init = 1'b0;
+      return;
+    end
     req     = 1'b1;
     we      = stimuli.we;
     addr    = stimuli.addr;
@@ -200,15 +219,19 @@ module tb_ecc_sram #(
     .ProtectedWidth    ( ProtectedWidth    ),
     .InputECC          ( InputECC          ),
     .NumRMWCuts        ( NumRMWCuts        ),
-    .SimInit           ( "zeros"           ),
+    .SimInit           ( HwInitEnabled ? "random" : "zeros" ),
+    .HwInitEnabled     ( HwInitEnabled     ),
     .BankAccessLatency ( BankAccessLatency )
   ) i_dut (
     .clk_i        ( clk ),
     .rst_ni       ( rst_n ),
 
-    .scrub_trigger_i      ('0),
-    .scrubber_fix_o       (),
-    .scrub_uncorrectable_o(),
+    .scrub_trigger_i      (scrub_trigger),
+    .scrubber_fix_o       (scrub_fix),
+    .scrub_uncorrectable_o(scrub_uncorrectable),
+
+    .init_i      ( hw_init   ),
+    .init_busy_o (           ),
 
     .wdata_i ( dut_wdata ),
     .addr_i  ( addr      ),
@@ -275,6 +298,28 @@ module tb_ecc_sram #(
 
   flag_t flag_queue [$];
   logic  random_phase;
+
+  /**************
+   *  Scrubber  *
+   **************/
+
+  // Triggered at random during the random phase only, the directed phase checks exact flags
+  longint scrub_fix_cnt;
+
+  always @(posedge clk) begin
+    #ApplTime;
+    scrub_trigger = random_phase & ($urandom_range(0, 1) == 1);
+  end
+
+  always @(posedge clk) begin
+    #TestTime;
+    if (scrub_fix) scrub_fix_cnt++;
+    // The fault injection flips a single bit per word
+    if (scrub_uncorrectable) begin
+      $warning("ERROR! Scrubber reported an uncorrectable word in cycle %0d.", cycle);
+      error_cnt++;
+    end
+  end
 
   always @(posedge clk) begin
     #TestTime;
@@ -436,6 +481,21 @@ module tb_ecc_sram #(
     end
   endtask : run_directed
 
+  // Read every word back after the hardware initialization. Zero data without any ECC error, on
+  // the DUT flags or on the testbench-side decoder, means the stored codeword is all zeros.
+  task automatic check_hw_init();
+    automatic longint unsigned gnt_cycle;
+    automatic data_t           rdata_;
+    automatic logic [1:0]      rdata_error_;
+
+    for (int unsigned i = 0; i < BankSize; i++) begin
+      directed_req(1'b0, addr_t'(i), '0, '0, FlipNone, '0, gnt_cycle, rdata_, rdata_error_);
+      check_data($sformatf("hw init 0x%02h: read data", i), '0, rdata_);
+      check_data($sformatf("hw init 0x%02h: tb-side ECC error", i), '0, data_t'(rdata_error_));
+      check_flags($sformatf("hw init 0x%02h: flags", i), '0, 1'b0, 1'b0);
+    end
+  endtask : check_hw_init
+
   /****************
    *  Test Bench  *
    ****************/
@@ -457,8 +517,10 @@ module tb_ecc_sram #(
     // Initialize variables
     test_cnt     = '0;
     error_cnt    = '0;
-    cycle        = '0;
-    random_phase = 1'b1;
+    cycle         = '0;
+    random_phase  = 1'b0;
+    scrub_trigger = 1'b0;
+    scrub_fix_cnt = '0;
 
     for (int i = 0; i < BankSize; i++) begin
       memory[i] = '0;
@@ -470,10 +532,15 @@ module tb_ecc_sram #(
     addr       = '0;
     be         = '0;
     wdata_flip = '0;
+    hw_init    = HwInitEnabled;
     @(posedge rst_n)
     repeat(10) @(posedge clk);
     #ApplTime;
+    hw_init = 1'b0;
 
+    if (HwInitEnabled) check_hw_init();
+
+    random_phase = 1'b1;
     fork
       run_apply();
       run_collect();
@@ -490,8 +557,9 @@ module tb_ecc_sram #(
     repeat (BankAccessLatency + NumRMWCuts + 2) next_cycle();
     run_directed();
 
-    $display("InputECC %0d NumRMWCuts %0d BankAccessLatency %0d",
-             InputECC, NumRMWCuts, BankAccessLatency);
+    $display("InputECC %0d NumRMWCuts %0d BankAccessLatency %0d HwInitEnabled %0d",
+             InputECC, NumRMWCuts, BankAccessLatency, HwInitEnabled);
+    $display("Scrubber corrected %0d words.", scrub_fix_cnt);
     $display("Checked %0d tests, found %0d mismatches.", test_cnt, error_cnt);
     if (error_cnt) $fatal(1, "Found %0d mismatches.", error_cnt);
     $finish();
